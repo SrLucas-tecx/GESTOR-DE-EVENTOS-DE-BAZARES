@@ -1,105 +1,212 @@
 /**
  * EXPOSITORES.COM — Core Engine & Management System
  * Versión Unificada, Modular y Segura (Local Storage / Canvas / Chart.js)
+ *
+ * ──────────────────────────────────────────────────────────────────────
+ * CAMBIOS EN ESTA VERSIÓN (léelo antes de editar):
+ * 1. MULTI-BAZAR REAL: antes "expositores" era una sola lista global.
+ *    Ahora cada bazar (AppState.bazaars[id]) tiene su PROPIA lista de
+ *    expositores, sus mesas y su configuración de costos. Solo las
+ *    "categorías" siguen siendo un catálogo compartido entre bazares.
+ *    Usa siempre getActiveBazaar() para leer/escribir datos del bazar
+ *    que el usuario tiene seleccionado — nunca "AppState.expositores".
+ * 2. CHECKLIST POR EXPOSITOR: cada expositor tiene un arreglo
+ *    "checklist" con pendientes (contrato, pago, mesa, material...).
+ *    Se edita desde el botón "☑️ Checklist" en su tarjeta.
+ * 3. Se corrigieron nombres de clases CSS y variables (--color-*) para
+ *    que coincidan EXACTAMENTE con Styles.css (antes se generaba HTML
+ *    con clases como .card/.badge/.avatar-sm y variables como
+ *    --text-muted/--border-color/--font-heading que no existen en la
+ *    hoja de estilos real, por eso se veía "roto").
+ * 4. Bugs corregidos: modo oscuro (clase "dark", no "dark-mode"),
+ *    apertura/cierre de modales y menú de respaldo (clase "open", no
+ *    "show"), exportarCSV usaba "URL.ObjectURL" (no existe; es
+ *    "URL.createObjectURL"), referencias colgantes al borrar un
+ *    expositor o una categoría.
+ * ──────────────────────────────────────────────────────────────────────
  */
 
 // ==========================================
 // 1. ESTADO GLOBAL DE LA APLICACIÓN (AppState)
+// [EDITABLE: agrega aquí nuevos campos por bazar o por expositor]
 // ==========================================
+
+// Checklist por defecto que recibe cada expositor nuevo.
+// [EDITABLE: agrega/quita pendientes por defecto aquí]
+function defaultChecklistItems() {
+  const base = Date.now();
+  return [
+    { id: `chk-${base}-1`, label: "Contrato / registro firmado", done: false },
+    { id: `chk-${base}-2`, label: "Pago de mesa confirmado", done: false },
+    { id: `chk-${base}-3`, label: "Mesa asignada en el plano", done: false },
+    { id: `chk-${base}-4`, label: "Material / mercancía entregada", done: false }
+  ];
+}
+
+// Configuración de costos "en blanco" para un bazar nuevo.
+// [EDITABLE: cambia estos valores por defecto para nuevos bazares]
+function emptyCostsConfig() {
+  return {
+    tablesEnabled: false,
+    tablesQty: 0,
+    tablesUnit: 0,
+    chairsEnabled: false,
+    chairsQty: 0,
+    chairsUnit: 0,
+    extraCosts: []
+  };
+}
+
 const DEFAULT_STATE = {
-  expositores: [
-    {
-      id: "exp-1",
-      nombre: "Ana García",
-      negocio: "Joyería Artesanal",
-      categoria: "cat-1",
-      ubicacion: "Mesa A-01",
-      tel: "55-1234-5678",
-      email: "ana@ejemplo.com",
-      costo: 450,
-      pagado: true,
-      notas: "Cerca de toma de corriente",
-      foto: ""
-    },
-    {
-      id: "exp-2",
-      nombre: "Carlos López",
-      negocio: "Café de Altura",
-      categoria: "cat-2",
-      ubicacion: "Mesa B-02",
-      tel: "55-8765-4321",
-      email: "carlos@ejemplo.com",
-      costo: 500,
-      pagado: false,
-      notas: "Requiere espacio para hielera",
-      foto: ""
-    }
-  ],
+  // Catálogo de categorías: se comparte entre TODOS los bazares.
   categorias: [
     { id: "cat-1", nombre: "Artesanías", emoji: "🎨", color: "#0d9488" },
     { id: "cat-2", nombre: "Gastronomía", emoji: "🥐", color: "#e11d48" },
     { id: "cat-3", nombre: "Moda y Textil", emoji: "👗", color: "#8b5cf6" },
     { id: "cat-4", nombre: "Hogar y Salud", emoji: "🌿", color: "#10b981" }
   ],
+
+  // Cada bazar es independiente: expositores, mesas y costos propios.
   bazaars: {
     "bazaar-1": {
       id: "bazaar-1",
       name: "Bazar Primavera",
       bgImage: null,
+      expositores: [
+        {
+          id: "exp-1",
+          nombre: "Ana García",
+          negocio: "Joyería Artesanal",
+          categoria: "cat-1",
+          ubicacion: "Mesa A-01",
+          tel: "55-1234-5678",
+          email: "ana@ejemplo.com",
+          costo: 450,
+          pagado: true,
+          notas: "Cerca de toma de corriente",
+          foto: "",
+          checklist: defaultChecklistItems()
+        },
+        {
+          id: "exp-2",
+          nombre: "Carlos López",
+          negocio: "Café de Altura",
+          categoria: "cat-2",
+          ubicacion: "Mesa B-02",
+          tel: "55-8765-4321",
+          email: "carlos@ejemplo.com",
+          costo: 500,
+          pagado: false,
+          notas: "Requiere espacio para hielera",
+          foto: "",
+          checklist: defaultChecklistItems()
+        }
+      ],
       tables: [
         { id: "t1", name: "Mesa A-01", x: 80, y: 80, w: 90, h: 50, exhibitorId: "exp-1", attended: true },
         { id: "t2", name: "Mesa B-02", x: 220, y: 80, w: 90, h: 50, exhibitorId: "exp-2", attended: false },
         { id: "t3", name: "Mesa C-03", x: 360, y: 80, w: 90, h: 50, exhibitorId: "", attended: false }
-      ]
+      ],
+      costsConfig: {
+        tablesEnabled: true,
+        tablesQty: 10,
+        tablesUnit: 100,
+        chairsEnabled: true,
+        chairsQty: 20,
+        chairsUnit: 25,
+        extraCosts: [
+          { id: "c1", name: "Renta de Recinto", cost: 2500 },
+          { id: "c2", name: "Permisos y Licencias", cost: 800 }
+        ]
+      }
     },
     "bazaar-2": {
       id: "bazaar-2",
       name: "Bazar Nocturno",
       bgImage: null,
+      expositores: [],
       tables: [
         { id: "t201", name: "Mesa N-01", x: 100, y: 100, w: 90, h: 50, exhibitorId: "", attended: false }
-      ]
+      ],
+      costsConfig: emptyCostsConfig()
     },
     "bazaar-3": {
       id: "bazaar-3",
       name: "Bazar Artesanal",
       bgImage: null,
+      expositores: [],
       tables: [
         { id: "t301", name: "Mesa ART-1", x: 120, y: 120, w: 90, h: 50, exhibitorId: "", attended: false }
-      ]
+      ],
+      costsConfig: emptyCostsConfig()
     }
   },
+
   currentBazaarId: "bazaar-1",
   searchQuery: "",
   filterCategory: "all",
-  filterStatus: "all",
-  costsConfig: {
-    tablesEnabled: true,
-    tablesQty: 10,
-    tablesUnit: 100,
-    chairsEnabled: true,
-    chairsQty: 20,
-    chairsUnit: 25,
-    extraCosts: [
-      { id: "c1", name: "Renta de Recinto", cost: 2500 },
-      { id: "c2", name: "Permisos y Licencias", cost: 800 }
-    ]
-  }
+  filterStatus: "all"
 };
 
 let AppState = loadState();
+
+function cloneDefaultState() {
+  return JSON.parse(JSON.stringify(DEFAULT_STATE));
+}
 
 function loadState() {
   try {
     const saved = localStorage.getItem("EXPOSITORES_APP_STATE");
     if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...DEFAULT_STATE, ...parsed };
+      return migrateState(JSON.parse(saved));
     }
   } catch (e) {
     console.error("Error al cargar localStorage:", e);
   }
-  return JSON.parse(JSON.stringify(DEFAULT_STATE));
+  return cloneDefaultState();
+}
+
+/**
+ * Adapta datos guardados (incluyendo versiones anteriores donde
+ * "expositores" vivía en la raíz del estado, no dentro de cada bazar)
+ * al modelo actual. Así ningún respaldo/backup previo se pierde.
+ */
+function migrateState(parsed) {
+  const state = { ...cloneDefaultState(), ...parsed };
+
+  if (!state.bazaars || Object.keys(state.bazaars).length === 0) {
+    state.bazaars = cloneDefaultState().bazaars;
+  }
+
+  // Asegura estructura completa en cada bazar existente.
+  Object.values(state.bazaars).forEach((bz) => {
+    if (!Array.isArray(bz.expositores)) bz.expositores = [];
+    if (!Array.isArray(bz.tables)) bz.tables = [];
+    if (!bz.costsConfig) bz.costsConfig = emptyCostsConfig();
+    bz.expositores.forEach((exp) => {
+      if (!Array.isArray(exp.checklist)) exp.checklist = defaultChecklistItems();
+    });
+  });
+
+  // Migración de versión antigua: expositores globales -> bazar activo.
+  const legacyExpositores = Array.isArray(parsed.expositores) ? parsed.expositores : null;
+  if (legacyExpositores && legacyExpositores.length > 0) {
+    const targetId = state.bazaars[state.currentBazaarId] ? state.currentBazaarId : Object.keys(state.bazaars)[0];
+    const target = state.bazaars[targetId];
+    legacyExpositores.forEach((exp) => {
+      if (!exp.checklist) exp.checklist = defaultChecklistItems();
+      if (!target.expositores.find((e) => e.id === exp.id)) {
+        target.expositores.push(exp);
+      }
+    });
+  }
+  delete state.expositores;
+
+  if (!state.bazaars[state.currentBazaarId]) {
+    state.currentBazaarId = Object.keys(state.bazaars)[0];
+  }
+
+  return state;
 }
 
 function saveState() {
@@ -108,6 +215,15 @@ function saveState() {
   } catch (e) {
     console.error("Error al guardar en localStorage:", e);
   }
+}
+
+// Fuente única de verdad para "¿qué bazar estoy viendo?".
+// Úsala en vez de tocar AppState.bazaars[...] directamente.
+function getActiveBazaar() {
+  if (!AppState.bazaars[AppState.currentBazaarId]) {
+    AppState.currentBazaarId = Object.keys(AppState.bazaars)[0];
+  }
+  return AppState.bazaars[AppState.currentBazaarId];
 }
 
 // ==========================================
@@ -131,9 +247,12 @@ function showToast(message, type = "success") {
   const toast = document.getElementById("toast");
   if (!toast) return;
   toast.textContent = message;
-  toast.className = `toast show ${type}`;
-  setTimeout(() => {
-    toast.className = "toast";
+  // Styles.css solo define #toast y #toast.show; "type" queda disponible
+  // como gancho para quien quiera agregar estilos por tipo (éxito/error).
+  toast.className = `show ${type}`;
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    toast.className = "";
   }, 3000);
 }
 
@@ -167,24 +286,33 @@ function switchTab(tabId) {
   if (pageTitle) pageTitle.textContent = titles[tabId] || "Gestión de Bazares";
 
   if (tabId === "estadisticas") updateCharts();
-  if (tabId === "mapa") bazaarCanvas.render();
+  if (tabId === "mapa") {
+    bazaarCanvas.render();
+    updateMapaBazaarLabel();
+  }
   if (tabId === "costos") renderCostosUI();
+
+  // En móvil, cerrar el menú lateral tras elegir una sección.
+  document.querySelector(".sidebar")?.classList.remove("open");
 }
 
 // ==========================================
 // 4. MODO OSCURO Y COPIAS DE SEGURIDAD
 // ==========================================
 function toggleDarkMode() {
-  document.body.classList.toggle("dark-mode");
+  // BUG CORREGIDO: antes se alternaba la clase "dark-mode", pero
+  // Styles.css define sus overrides bajo "body.dark".
+  document.body.classList.toggle("dark");
   const darkIcon = document.getElementById("dark-icon");
   if (darkIcon) {
-    darkIcon.textContent = document.body.classList.contains("dark-mode") ? "☀️" : "🌙";
+    darkIcon.textContent = document.body.classList.contains("dark") ? "☀️" : "🌙";
   }
 }
 
 function toggleBackupMenu() {
+  // BUG CORREGIDO: Styles.css define ".backup-menu.open", no ".show".
   const menu = document.getElementById("backup-menu");
-  if (menu) menu.classList.toggle("show");
+  if (menu) menu.classList.toggle("open");
 }
 
 function exportarJSON() {
@@ -200,34 +328,40 @@ function exportarJSON() {
 
 function exportarCSV() {
   let csv = "\uFEFF"; // BOM UTF-8 para Excel
-  csv += "ID,Nombre,Negocio,Categoria,Ubicacion,Telefono,Email,Costo,Pagado,Notas\n";
+  csv += "Bazar,ID,Nombre,Negocio,Categoria,Ubicacion,Telefono,Email,Costo,Pagado,Notas\n";
 
-  AppState.expositores.forEach((exp) => {
-    const cat = AppState.categorias.find((c) => c.id === exp.categoria)?.nombre || "";
-    const cleanNotas = (exp.notas || "").replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, " ");
-    const line = [
-      `"${exp.id}"`,
-      `"${exp.nombre.replace(/"/g, '""')}"`,
-      `"${exp.negocio.replace(/"/g, '""')}"`,
-      `"${cat.replace(/"/g, '""')}"`,
-      `"${exp.ubicacion.replace(/"/g, '""')}"`,
-      `"${exp.tel || ""}"`,
-      `"${exp.email || ""}"`,
-      exp.costo || 0,
-      exp.pagado ? "PAGADO" : "PENDIENTE",
-      `"${cleanNotas}"`
-    ].join(",");
-    csv += line + "\n";
+  // Recorre TODOS los bazares, no solo el activo, para un respaldo completo.
+  Object.values(AppState.bazaars).forEach((bz) => {
+    bz.expositores.forEach((exp) => {
+      const cat = AppState.categorias.find((c) => c.id === exp.categoria)?.nombre || "";
+      const cleanNotas = (exp.notas || "").replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, " ");
+      const line = [
+        `"${bz.name.replace(/"/g, '""')}"`,
+        `"${exp.id}"`,
+        `"${exp.nombre.replace(/"/g, '""')}"`,
+        `"${exp.negocio.replace(/"/g, '""')}"`,
+        `"${cat.replace(/"/g, '""')}"`,
+        `"${exp.ubicacion.replace(/"/g, '""')}"`,
+        `"${exp.tel || ""}"`,
+        `"${exp.email || ""}"`,
+        exp.costo || 0,
+        exp.pagado ? "PAGADO" : "PENDIENTE",
+        `"${cleanNotas}"`
+      ].join(",");
+      csv += line + "\n";
+    });
   });
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.ObjectURL(blob);
+  // BUG CORREGIDO: antes decía "URL.ObjectURL" (no existe en el DOM API).
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = `Expositores_Reporte_${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+  URL.revokeObjectURL(url);
   showToast("Reporte CSV exportado");
 }
 
@@ -239,10 +373,12 @@ function handleImportJSON(e) {
   reader.onload = function (evt) {
     try {
       const importedData = JSON.parse(evt.target.result);
-      if (importedData.expositores && importedData.categorias) {
-        AppState = { ...DEFAULT_STATE, ...importedData };
+      if (importedData.bazaars && importedData.categorias) {
+        AppState = migrateState(importedData);
         saveState();
         renderAll();
+        bazaarCanvas.loadBgImage();
+        bazaarCanvas.render();
         showToast("Datos importados con éxito");
       } else {
         alert("El archivo JSON no tiene la estructura adecuada.");
@@ -255,9 +391,80 @@ function handleImportJSON(e) {
 }
 
 // ==========================================
-// 5. RENDERS PRINCIPALES DE VISTA
+// 5. GESTIÓN DE BAZARES (NUEVO)
+// [EDITABLE: aquí vive la lógica de crear/cambiar/eliminar bazares]
+// ==========================================
+function renderBazaarSelector() {
+  const sel = document.getElementById("bazaar-select-global");
+  if (!sel) return;
+
+  const bazaars = Object.values(AppState.bazaars);
+  sel.innerHTML = bazaars
+    .map(
+      (b) =>
+        `<option value="${b.id}" ${b.id === AppState.currentBazaarId ? "selected" : ""}>🎪 ${escapeHTML(b.name)} (${b.expositores.length} exp.)</option>`
+    )
+    .join("");
+}
+
+function updateMapaBazaarLabel() {
+  const label = document.getElementById("mapa-bazaar-name-display");
+  if (label) label.textContent = getActiveBazaar().name;
+}
+
+function switchBazaar(bazaarId) {
+  if (!AppState.bazaars[bazaarId]) return;
+  AppState.currentBazaarId = bazaarId;
+  saveState();
+  renderAll();
+}
+
+function createBazaar() {
+  const name = prompt("Nombre del nuevo bazar:", "Nuevo Bazar");
+  if (!name || !name.trim()) return;
+
+  const id = "bazaar-" + Date.now();
+  AppState.bazaars[id] = {
+    id,
+    name: name.trim(),
+    bgImage: null,
+    expositores: [],
+    tables: [],
+    costsConfig: emptyCostsConfig()
+  };
+  AppState.currentBazaarId = id;
+  saveState();
+  renderAll();
+  showToast(`Bazar "${name.trim()}" creado`);
+}
+
+function deleteBazaar() {
+  const ids = Object.keys(AppState.bazaars);
+  // Regla de negocio pedida: la página NUNCA se puede quedar sin bazares.
+  if (ids.length <= 1) {
+    showToast("Debe existir al menos un bazar. Crea otro antes de eliminar este.", "error");
+    return;
+  }
+
+  const bz = getActiveBazaar();
+  const confirmMsg = `¿Eliminar el bazar "${bz.name}" junto con todos sus expositores, mesas y costos? Esta acción no se puede deshacer.`;
+  if (!confirm(confirmMsg)) return;
+
+  delete AppState.bazaars[bz.id];
+  AppState.currentBazaarId = Object.keys(AppState.bazaars)[0];
+  saveState();
+  renderAll();
+  bazaarCanvas.loadBgImage();
+  bazaarCanvas.render();
+  showToast("Bazar eliminado");
+}
+
+// ==========================================
+// 6. RENDERS PRINCIPALES DE VISTA
 // ==========================================
 function renderAll() {
+  renderBazaarSelector();
+  updateMapaBazaarLabel();
   renderExpositores();
   renderCategorias();
   renderCategoryChips();
@@ -265,7 +472,10 @@ function renderAll() {
   renderFinanzasStats();
   renderCostosUI();
   renderChecklist();
-  if (bazaarCanvas) bazaarCanvas.render();
+  if (bazaarCanvas) {
+    bazaarCanvas.loadBgImage();
+    bazaarCanvas.render();
+  }
   updateCharts();
 }
 
@@ -290,8 +500,9 @@ function setFilterStatus(status) {
 function renderExpositores() {
   const container = document.getElementById("expositores-grid");
   if (!container) return;
+  const bz = getActiveBazaar();
 
-  let list = AppState.expositores.filter((exp) => {
+  let list = bz.expositores.filter((exp) => {
     const q = AppState.searchQuery;
     const matchQuery =
       !q ||
@@ -309,52 +520,71 @@ function renderExpositores() {
   });
 
   if (list.length === 0) {
-    container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">No se encontraron expositores con los filtros aplicados.</div>`;
+    container.innerHTML = `
+      <div class="catalog-empty">
+        <span class="catalog-empty-icon">🗂️</span>
+        <h3>Sin expositores</h3>
+        <p>No hay expositores que coincidan con los filtros en "${escapeHTML(bz.name)}". Prueba otro filtro o agrega uno nuevo.</p>
+      </div>`;
     return;
   }
 
+  // Estructura de tarjeta alineada 1:1 con las clases reales de Styles.css:
+  // .expositor-card > .card-top (.avatar-wrap + .card-info) > .paid-badge
+  // > .card-meta (.card-meta-item) > .card-actions (.btn-pay-toggle...)
   container.innerHTML = list
     .map((exp) => {
       const cat = AppState.categorias.find((c) => c.id === exp.categoria);
       const catName = cat ? `${cat.emoji} ${cat.nombre}` : "Sin Categoría";
-      const catColor = cat ? cat.color : "#64748b";
+      const checklist = exp.checklist || [];
+      const doneCount = checklist.filter((i) => i.done).length;
 
       return `
-      <div class="card card-expositor">
-        <div class="card-header-flex">
-          <div class="avatar-sm">
-            ${
-              exp.foto
-                ? `<img src="${exp.foto}" alt="${escapeHTML(exp.nombre)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
-                : escapeHTML(exp.negocio.charAt(0).toUpperCase())
-            }
+      <div class="expositor-card ${exp.pagado ? "paid-card" : "unpaid-card"}">
+        <div class="card-top">
+          <div class="avatar-wrap">
+            <div class="expositor-avatar">
+              ${
+                exp.foto
+                  ? `<img src="${exp.foto}" alt="${escapeHTML(exp.nombre)}">`
+                  : escapeHTML((exp.negocio || "?").charAt(0).toUpperCase())
+              }
+            </div>
+            <button class="avatar-edit-btn" onclick="openModalExpositor('${exp.id}')" title="Editar expositor">✏️</button>
           </div>
-          <div>
-            <h3 class="card-title">${escapeHTML(exp.negocio)}</h3>
-            <p class="card-subtitle">${escapeHTML(exp.nombre)}</p>
+          <div class="card-info">
+            <div class="card-name" title="${escapeHTML(exp.negocio)}">${escapeHTML(exp.negocio)}</div>
+            <span class="card-category">${escapeHTML(catName)}</span>
+            <div class="card-contact">${escapeHTML(exp.nombre)}</div>
           </div>
         </div>
 
-        <div class="card-badges" style="margin: 10px 0;">
-          <span class="badge" style="background-color: ${catColor}15; color: ${catColor}; border: 1px solid ${catColor}40;">
-            ${escapeHTML(catName)}
-          </span>
-          <span class="badge ${exp.pagado ? "badge-success" : "badge-warning"}">
-            ${exp.pagado ? "✅ Pagado" : "⏳ Pendiente"}
-          </span>
+        <span class="paid-badge ${exp.pagado ? "paid" : "unpaid"}">
+          ${exp.pagado ? "✅ Pagado" : "⏳ Pendiente"}
+        </span>
+
+        <div class="card-meta">
+          <div class="card-meta-item">
+            <div class="card-meta-label">Ubicación</div>
+            <div class="card-meta-value">${escapeHTML(exp.ubicacion)}</div>
+          </div>
+          <div class="card-meta-item">
+            <div class="card-meta-label">Costo Mesa</div>
+            <div class="card-meta-value">${formatCurrency(exp.costo)}</div>
+          </div>
         </div>
 
-        <div class="card-info-list" style="font-size: var(--fs-xs); color: var(--text-muted); margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;">
-          <div>📍 <strong>Ubicación:</strong> ${escapeHTML(exp.ubicacion)}</div>
-          <div>📞 <strong>Teléfono:</strong> ${escapeHTML(exp.tel || "N/A")}</div>
-          <div>✉️ <strong>Correo:</strong> ${escapeHTML(exp.email || "N/A")}</div>
-          <div>💵 <strong>Costo Mesa:</strong> ${formatCurrency(exp.costo)}</div>
-          ${exp.notas ? `<div>📝 <em>${escapeHTML(exp.notas)}</em></div>` : ""}
+        <div class="card-contact" style="margin-bottom: 10px;">
+          📞 ${escapeHTML(exp.tel || "N/A")} &nbsp;·&nbsp; ✉️ ${escapeHTML(exp.email || "N/A")}
+          ${exp.notas ? `<br>📝 <em>${escapeHTML(exp.notas)}</em>` : ""}
         </div>
 
-        <div class="card-actions" style="display: flex; gap: 6px; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 10px;">
+        <div class="card-actions">
+          <button class="btn-pay-toggle ${exp.pagado ? "mark-unpaid" : "mark-paid"}" onclick="togglePaymentStatus('${exp.id}')">
+            ${exp.pagado ? "Marcar Pendiente" : "Marcar Pagado"}
+          </button>
+          <button class="btn-secondary btn-sm" onclick="openExpositorChecklist('${exp.id}')">☑️ Checklist (${doneCount}/${checklist.length})</button>
           <button class="btn-secondary btn-sm" onclick="generatePDFInvoice('${exp.id}')">📄 Recibo</button>
-          <button class="btn-secondary btn-sm" onclick="openModalExpositor('${exp.id}')">✏️ Editar</button>
           <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')">🗑️</button>
         </div>
       </div>
@@ -366,17 +596,18 @@ function renderExpositores() {
 function renderCategorias() {
   const container = document.getElementById("categorias-grid");
   if (!container) return;
+  const bz = getActiveBazaar();
 
   container.innerHTML = AppState.categorias
     .map((cat) => {
-      const totalInCat = AppState.expositores.filter((e) => e.categoria === cat.id).length;
+      const totalInCat = bz.expositores.filter((e) => e.categoria === cat.id).length;
       return `
-      <div class="card" style="border-left: 5px solid ${cat.color};">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3 style="font-size: 1.1rem; margin:0;">${cat.emoji} ${escapeHTML(cat.nombre)}</h3>
-          <span class="badge" style="background:${cat.color}20; color:${cat.color};">${totalInCat} Expositor(es)</span>
+      <div class="expositor-card" style="border-left: 5px solid ${cat.color};">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <div class="card-name">${cat.emoji} ${escapeHTML(cat.nombre)}</div>
+          <span class="card-category" style="background:${cat.color}20; color:${cat.color};">${totalInCat} en "${escapeHTML(bz.name)}"</span>
         </div>
-        <div style="margin-top: 15px; display:flex; justify-content:flex-end; gap:8px;">
+        <div class="card-actions" style="border-top: none; justify-content: flex-end; margin-top: 14px; padding-top: 0;">
           <button class="btn-secondary btn-sm" onclick="openModalCategoria('${cat.id}')">✏️ Editar</button>
           <button class="btn-danger btn-sm" onclick="deleteCategoria('${cat.id}')">🗑️ Eliminar</button>
         </div>
@@ -404,19 +635,20 @@ function renderCategoryChips() {
 function renderFinanzasTable() {
   const tbody = document.getElementById("payments-table-body");
   if (!tbody) return;
+  const bz = getActiveBazaar();
 
-  tbody.innerHTML = AppState.expositores
+  tbody.innerHTML = bz.expositores
     .map(
       (exp) => `
     <tr>
       <td>
         <strong>${escapeHTML(exp.negocio)}</strong><br>
-        <small style="color: var(--text-muted);">${escapeHTML(exp.nombre)}</small>
+        <small style="color: var(--color-text-muted);">${escapeHTML(exp.nombre)}</small>
       </td>
       <td>${escapeHTML(exp.ubicacion)}</td>
-      <td>${formatCurrency(exp.costo)}</td>
+      <td class="${exp.pagado ? "amount-paid" : "amount-unpaid"}">${formatCurrency(exp.costo)}</td>
       <td>
-        <span class="badge ${exp.pagado ? "badge-success" : "badge-warning"}">
+        <span class="paid-badge ${exp.pagado ? "paid" : "unpaid"}">
           ${exp.pagado ? "✅ Pagado" : "⏳ Pendiente"}
         </span>
       </td>
@@ -433,15 +665,16 @@ function renderFinanzasTable() {
 }
 
 function renderFinanzasStats() {
+  const bz = getActiveBazaar();
   let paidTotal = 0;
   let pendingTotal = 0;
 
-  AppState.expositores.forEach((e) => {
+  bz.expositores.forEach((e) => {
     if (e.pagado) paidTotal += Number(e.costo || 0);
     else pendingTotal += Number(e.costo || 0);
   });
 
-  const totalExps = AppState.expositores.length;
+  const totalExps = bz.expositores.length;
   const pct = paidTotal + pendingTotal > 0 ? Math.round((paidTotal / (paidTotal + pendingTotal)) * 100) : 0;
 
   const elPaid = document.getElementById("stat-total-paid");
@@ -455,8 +688,12 @@ function renderFinanzasStats() {
   if (elPct) elPct.textContent = `${pct}%`;
 }
 
+// Sección "Costos del Evento": ahora usa .chart-card / .card-meta-item
+// (los mismos bloques limpios de "Control de Pagos") en vez de una
+// clase ".card" que no existía en la hoja de estilos.
 function renderCostosUI() {
-  const cfg = AppState.costsConfig;
+  const bz = getActiveBazaar();
+  const cfg = bz.costsConfig;
 
   const tToggle = document.getElementById("cost-toggle-tables");
   const tQty = document.getElementById("cost-qty-tables");
@@ -485,23 +722,27 @@ function renderCostosUI() {
 
   const extraContainer = document.getElementById("extra-costs-list");
   if (extraContainer) {
-    extraContainer.innerHTML = cfg.extraCosts
-      .map(
-        (c) => `
-      <div style="display:flex; gap:10px; align-items:center;">
-        <input type="text" class="form-input" style="flex:1;" value="${escapeHTML(c.name)}" onchange="updateExtraCost('${c.id}', 'name', this.value)">
-        <input type="number" class="form-input" style="width:110px;" value="${c.cost}" onchange="updateExtraCost('${c.id}', 'cost', this.value)">
-        <button class="btn-danger btn-sm" onclick="removeExtraCostRow('${c.id}')">🗑️</button>
-      </div>
-    `
-      )
-      .join("");
+    if (cfg.extraCosts.length === 0) {
+      extraContainer.innerHTML = `<p style="font-size:var(--fs-xs); color:var(--color-text-muted);">Aún no hay gastos adicionales registrados para este bazar.</p>`;
+    } else {
+      extraContainer.innerHTML = cfg.extraCosts
+        .map(
+          (c) => `
+        <div class="card-meta-item" style="display:flex; gap:10px; align-items:center;">
+          <input type="text" class="form-input" style="flex:1;" value="${escapeHTML(c.name)}" onchange="updateExtraCost('${c.id}', 'name', this.value)">
+          <input type="number" class="form-input" style="width:110px;" value="${c.cost}" onchange="updateExtraCost('${c.id}', 'cost', this.value)">
+          <button class="btn-danger btn-sm" onclick="removeExtraCostRow('${c.id}')">🗑️</button>
+        </div>
+      `
+        )
+        .join("");
+    }
   }
 
-  let totalIncome = AppState.expositores.reduce((sum, e) => sum + Number(e.costo || 0), 0);
-  let totalExtraExpenses = cfg.extraCosts.reduce((sum, c) => sum + Number(c.cost || 0), 0);
-  let totalExpenses = subTables + subChairs + totalExtraExpenses;
-  let netBalance = totalIncome - totalExpenses;
+  const totalIncome = bz.expositores.reduce((sum, e) => sum + Number(e.costo || 0), 0);
+  const totalExtraExpenses = cfg.extraCosts.reduce((sum, c) => sum + Number(c.cost || 0), 0);
+  const totalExpenses = subTables + subChairs + totalExtraExpenses;
+  const netBalance = totalIncome - totalExpenses;
 
   const elIncome = document.getElementById("cost-stat-income");
   const elExpenses = document.getElementById("cost-stat-expenses");
@@ -513,7 +754,7 @@ function renderCostosUI() {
 }
 
 function updateEventCostsUI() {
-  const cfg = AppState.costsConfig;
+  const cfg = getActiveBazaar().costsConfig;
 
   cfg.tablesEnabled = document.getElementById("cost-toggle-tables")?.checked || false;
   cfg.tablesQty = Number(document.getElementById("cost-qty-tables")?.value || 0);
@@ -528,7 +769,7 @@ function updateEventCostsUI() {
 }
 
 function addExtraCostRow() {
-  AppState.costsConfig.extraCosts.push({
+  getActiveBazaar().costsConfig.extraCosts.push({
     id: "cost-" + Date.now(),
     name: "Nuevo Gasto",
     cost: 100
@@ -538,7 +779,7 @@ function addExtraCostRow() {
 }
 
 function updateExtraCost(id, field, value) {
-  const item = AppState.costsConfig.extraCosts.find((c) => c.id === id);
+  const item = getActiveBazaar().costsConfig.extraCosts.find((c) => c.id === id);
   if (item) {
     if (field === "cost") item.cost = Number(value || 0);
     if (field === "name") item.name = value;
@@ -548,22 +789,24 @@ function updateExtraCost(id, field, value) {
 }
 
 function removeExtraCostRow(id) {
-  AppState.costsConfig.extraCosts = AppState.costsConfig.extraCosts.filter((c) => c.id !== id);
+  const cfg = getActiveBazaar().costsConfig;
+  cfg.extraCosts = cfg.extraCosts.filter((c) => c.id !== id);
   saveState();
   renderCostosUI();
 }
 
 // ==========================================
-// 6. MODALES Y MANEJO DE FORMULARIO
+// 7. MODALES Y MANEJO DE FORMULARIO
 // ==========================================
 function openModal(id) {
+  // BUG CORREGIDO: Styles.css define ".modal-overlay.open", no ".show".
   const el = document.getElementById(id);
-  if (el) el.classList.add("show");
+  if (el) el.classList.add("open");
 }
 
 function closeModal(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.remove("show");
+  if (el) el.classList.remove("open");
 }
 
 function openModalExpositor(id = null) {
@@ -578,7 +821,7 @@ function openModalExpositor(id = null) {
   if (avatarPreview) avatarPreview.innerHTML = "📷";
 
   if (id) {
-    const exp = AppState.expositores.find((e) => e.id === id);
+    const exp = getActiveBazaar().expositores.find((e) => e.id === id);
     if (exp) {
       if (title) title.textContent = "Editar Expositor";
       document.getElementById("exp-id").value = exp.id;
@@ -627,7 +870,9 @@ function handleFotoUpload(e) {
 
 function saveExpositorHandler(e) {
   e.preventDefault();
+  const bz = getActiveBazaar();
   const id = document.getElementById("exp-id").value;
+  const existing = id ? bz.expositores.find((x) => x.id === id) : null;
 
   const expData = {
     id: id || "exp-" + Date.now(),
@@ -640,14 +885,16 @@ function saveExpositorHandler(e) {
     costo: Number(document.getElementById("exp-costo").value || 0),
     pagado: document.getElementById("exp-pagado").checked,
     notas: document.getElementById("exp-notas").value.trim(),
-    foto: document.getElementById("exp-foto-base64").value
+    foto: document.getElementById("exp-foto-base64").value,
+    // Conserva el checklist existente al editar; si es nuevo, usa el default.
+    checklist: existing ? existing.checklist : defaultChecklistItems()
   };
 
   if (id) {
-    const idx = AppState.expositores.findIndex((e) => e.id === id);
-    if (idx !== -1) AppState.expositores[idx] = expData;
+    const idx = bz.expositores.findIndex((e) => e.id === id);
+    if (idx !== -1) bz.expositores[idx] = expData;
   } else {
-    AppState.expositores.push(expData);
+    bz.expositores.push(expData);
   }
 
   saveState();
@@ -657,7 +904,7 @@ function saveExpositorHandler(e) {
 }
 
 function togglePaymentStatus(id) {
-  const exp = AppState.expositores.find((e) => e.id === id);
+  const exp = getActiveBazaar().expositores.find((e) => e.id === id);
   if (exp) {
     exp.pagado = !exp.pagado;
     saveState();
@@ -667,12 +914,17 @@ function togglePaymentStatus(id) {
 }
 
 function deleteExpositor(id) {
-  if (confirm("¿Estás seguro de eliminar este expositor?")) {
-    AppState.expositores = AppState.expositores.filter((e) => e.id !== id);
-    saveState();
-    renderAll();
-    showToast("Expositor eliminado");
-  }
+  if (!confirm("¿Estás seguro de eliminar este expositor?")) return;
+  const bz = getActiveBazaar();
+  bz.expositores = bz.expositores.filter((e) => e.id !== id);
+  // BUG CORREGIDO: si el expositor tenía una mesa asignada, la mesa
+  // quedaba con un exhibitorId "fantasma". Ahora se libera la mesa.
+  bz.tables.forEach((t) => {
+    if (t.exhibitorId === id) t.exhibitorId = "";
+  });
+  saveState();
+  renderAll();
+  showToast("Expositor eliminado");
 }
 
 function openModalCategoria(id = null) {
@@ -721,16 +973,24 @@ function saveCategoriaHandler(e) {
 }
 
 function deleteCategoria(id) {
-  if (confirm("¿Eliminar esta categoría? Los expositores asociados quedarán sin categoría.")) {
-    AppState.categorias = AppState.categorias.filter((c) => c.id !== id);
-    saveState();
-    renderAll();
-    showToast("Categoría eliminada");
-  }
+  if (!confirm("¿Eliminar esta categoría? Los expositores asociados en TODOS los bazares quedarán sin categoría.")) return;
+
+  AppState.categorias = AppState.categorias.filter((c) => c.id !== id);
+  // Como las categorías son compartidas, hay que limpiar la referencia
+  // en los expositores de cada bazar (no solo el activo).
+  Object.values(AppState.bazaars).forEach((bz) => {
+    bz.expositores.forEach((exp) => {
+      if (exp.categoria === id) exp.categoria = "";
+    });
+  });
+
+  saveState();
+  renderAll();
+  showToast("Categoría eliminada");
 }
 
 function generatePDFInvoice(id) {
-  const exp = AppState.expositores.find((e) => e.id === id);
+  const exp = getActiveBazaar().expositores.find((e) => e.id === id);
   if (!exp) return;
 
   const template = document.getElementById("invoice-template");
@@ -766,7 +1026,141 @@ function generatePDFInvoice(id) {
 }
 
 // ==========================================
-// 7. MOTOR CANVAS INTERACTIVO (BazaarCanvasManager)
+// 8. CHECKLIST DEL EXPOSITOR (NUEVO)
+// [EDITABLE: agrega más acciones sobre exp.checklist aquí]
+// ==========================================
+function openExpositorChecklist(expId) {
+  const bz = getActiveBazaar();
+  const exp = bz.expositores.find((e) => e.id === expId);
+  if (!exp) return;
+  if (!Array.isArray(exp.checklist)) exp.checklist = defaultChecklistItems();
+
+  document.getElementById("checklist-exp-id").value = expId;
+  const titleEl = document.getElementById("modal-checklist-title");
+  if (titleEl) titleEl.textContent = `Checklist — ${exp.negocio}`;
+
+  renderExpositorChecklist();
+  openModal("modal-checklist");
+}
+
+function renderExpositorChecklist() {
+  const expId = document.getElementById("checklist-exp-id").value;
+  const bz = getActiveBazaar();
+  const exp = bz.expositores.find((e) => e.id === expId);
+  const container = document.getElementById("checklist-exp-container");
+  if (!exp || !container) return;
+
+  const done = exp.checklist.filter((i) => i.done).length;
+  const total = exp.checklist.length;
+  const progressEl = document.getElementById("checklist-exp-progress");
+  if (progressEl) progressEl.textContent = `${done} / ${total} completado`;
+
+  if (total === 0) {
+    container.innerHTML = `<p style="font-size:var(--fs-xs); color:var(--color-text-muted);">Sin pendientes. Agrega uno abajo.</p>`;
+    return;
+  }
+
+  container.innerHTML = exp.checklist
+    .map(
+      (item) => `
+    <div class="form-switch">
+      <span class="switch-label" style="${item.done ? "text-decoration:line-through; color:var(--color-text-muted);" : ""}">${escapeHTML(item.label)}</span>
+      <label class="switch">
+        <input type="checkbox" ${item.done ? "checked" : ""} onchange="toggleExpositorChecklistItem('${expId}','${item.id}')">
+        <span class="slider"></span>
+      </label>
+      <button type="button" class="btn-danger btn-sm" style="margin-left:10px;" onclick="removeExpositorChecklistItem('${expId}','${item.id}')">🗑️</button>
+    </div>
+  `
+    )
+    .join("");
+}
+
+function toggleExpositorChecklistItem(expId, itemId) {
+  const bz = getActiveBazaar();
+  const exp = bz.expositores.find((e) => e.id === expId);
+  const item = exp?.checklist.find((i) => i.id === itemId);
+  if (!item) return;
+  item.done = !item.done;
+  saveState();
+  renderExpositorChecklist();
+  renderExpositores();
+}
+
+function addExpositorChecklistItem() {
+  const expId = document.getElementById("checklist-exp-id").value;
+  const input = document.getElementById("checklist-new-item");
+  const label = input.value.trim();
+  if (!label) return;
+
+  const bz = getActiveBazaar();
+  const exp = bz.expositores.find((e) => e.id === expId);
+  if (!exp) return;
+
+  exp.checklist.push({ id: "chk-" + Date.now(), label, done: false });
+  input.value = "";
+  saveState();
+  renderExpositorChecklist();
+  renderExpositores();
+}
+
+function removeExpositorChecklistItem(expId, itemId) {
+  const bz = getActiveBazaar();
+  const exp = bz.expositores.find((e) => e.id === expId);
+  if (!exp) return;
+
+  exp.checklist = exp.checklist.filter((i) => i.id !== itemId);
+  saveState();
+  renderExpositorChecklist();
+  renderExpositores();
+}
+
+// ==========================================
+// 9. CHECKLIST DE ASISTENCIA POR MESA (plano del evento)
+// ==========================================
+function renderChecklist() {
+  const container = document.getElementById("checklist-container");
+  if (!container) return;
+
+  const bz = getActiveBazaar();
+  if (!bz.tables || bz.tables.length === 0) {
+    container.innerHTML = `<p style="font-size:var(--fs-xs); color:var(--color-text-muted);">No hay mesas en este bazar.</p>`;
+    return;
+  }
+
+  container.innerHTML = bz.tables
+    .map((t) => {
+      const exp = bz.expositores.find((e) => e.id === t.exhibitorId);
+      return `
+      <div class="card-meta-item" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <strong style="font-size:var(--fs-xs);">${escapeHTML(t.name)}</strong><br>
+          <span style="color:var(--color-text-muted); font-size:var(--fs-xs);">${exp ? escapeHTML(exp.negocio) : "<em>Mesa Libre</em>"}</span>
+        </div>
+        <label class="switch" style="transform: scale(0.8);">
+          <input type="checkbox" ${t.attended ? "checked" : ""} onchange="toggleAttendance('${t.id}')">
+          <span class="slider"></span>
+        </label>
+      </div>
+    `;
+    })
+    .join("");
+}
+
+function toggleAttendance(tableId) {
+  const bz = getActiveBazaar();
+  const t = bz.tables.find((item) => item.id === tableId);
+  if (t) {
+    t.attended = !t.attended;
+    saveState();
+    bazaarCanvas.render();
+    renderChecklist();
+    showToast(`Asistencia de ${t.name} ${t.attended ? "confirmada" : "pendiente"}`);
+  }
+}
+
+// ==========================================
+// 10. MOTOR CANVAS INTERACTIVO (BazaarCanvasManager)
 // ==========================================
 class BazaarCanvasManager {
   constructor() {
@@ -795,11 +1189,9 @@ class BazaarCanvasManager {
     this.render();
   }
 
+  // Delegado al helper global: una sola fuente de verdad para "bazar activo".
   getCurrentBazaar() {
-    if (!AppState.bazaars[AppState.currentBazaarId]) {
-      AppState.currentBazaarId = Object.keys(AppState.bazaars)[0] || "bazaar-1";
-    }
-    return AppState.bazaars[AppState.currentBazaarId];
+    return getActiveBazaar();
   }
 
   loadBgImage() {
@@ -937,7 +1329,8 @@ class BazaarCanvasManager {
   }
 
   drawTable(t) {
-    const exhibitor = AppState.expositores.find((e) => e.id === t.exhibitorId);
+    const bz = this.getCurrentBazaar();
+    const exhibitor = bz.expositores.find((e) => e.id === t.exhibitorId);
 
     let fillColor = "#ffffff";
     let borderColor = "#94a3b8";
@@ -991,14 +1384,6 @@ class BazaarCanvasManager {
 
 const bazaarCanvas = new BazaarCanvasManager();
 
-function switchBazaar(bazaarId) {
-  AppState.currentBazaarId = bazaarId;
-  saveState();
-  bazaarCanvas.loadBgImage();
-  bazaarCanvas.render();
-  renderChecklist();
-}
-
 function zoomBazaar(delta) {
   bazaarCanvas.scale = Math.max(0.3, Math.min(3.0, bazaarCanvas.scale + delta));
   bazaarCanvas.render();
@@ -1017,7 +1402,7 @@ function handleFloorPlanUpload(e) {
 
   const reader = new FileReader();
   reader.onload = function (evt) {
-    const bz = bazaarCanvas.getCurrentBazaar();
+    const bz = getActiveBazaar();
     if (bz) {
       bz.bgImage = evt.target.result;
       saveState();
@@ -1029,7 +1414,7 @@ function handleFloorPlanUpload(e) {
 }
 
 function addTableToCore() {
-  const bz = bazaarCanvas.getCurrentBazaar();
+  const bz = getActiveBazaar();
   if (!bz) return;
 
   const newId = "t-" + Date.now();
@@ -1052,7 +1437,7 @@ function addTableToCore() {
 }
 
 function openModalTableEdit(tableId) {
-  const bz = bazaarCanvas.getCurrentBazaar();
+  const bz = getActiveBazaar();
   const t = bz.tables.find((item) => item.id === tableId);
   if (!t) return;
 
@@ -1063,8 +1448,9 @@ function openModalTableEdit(tableId) {
 
   const sel = document.getElementById("edit-table-exhibitor");
   if (sel) {
-    sel.innerHTML = `<option value="">-- Sin asignar (Mesa Libre) --</option>` +
-      AppState.expositores
+    sel.innerHTML =
+      `<option value="">-- Sin asignar (Mesa Libre) --</option>` +
+      bz.expositores
         .map((exp) => `<option value="${exp.id}" ${exp.id === t.exhibitorId ? "selected" : ""}>${escapeHTML(exp.negocio)} (${escapeHTML(exp.nombre)})</option>`)
         .join("");
   }
@@ -1074,7 +1460,7 @@ function openModalTableEdit(tableId) {
 
 function saveTableEdit() {
   const id = document.getElementById("edit-table-id").value;
-  const bz = bazaarCanvas.getCurrentBazaar();
+  const bz = getActiveBazaar();
   const t = bz.tables.find((item) => item.id === id);
 
   if (t) {
@@ -1091,60 +1477,21 @@ function saveTableEdit() {
   }
 }
 
-function renderChecklist() {
-  const container = document.getElementById("checklist-container");
-  if (!container) return;
-
-  const bz = bazaarCanvas.getCurrentBazaar();
-  if (!bz || !bz.tables || bz.tables.length === 0) {
-    container.innerHTML = `<p style="font-size:var(--fs-xs); color:var(--text-muted);">No hay mesas en este bazar.</p>`;
-    return;
-  }
-
-  container.innerHTML = bz.tables
-    .map((t) => {
-      const exp = AppState.expositores.find((e) => e.id === t.exhibitorId);
-      return `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--bg-secondary); border-radius:6px; font-size:var(--fs-xs);">
-        <div>
-          <strong>${escapeHTML(t.name)}</strong><br>
-          <span style="color:var(--text-muted);">${exp ? escapeHTML(exp.negocio) : "<em>Mesa Libre</em>"}</span>
-        </div>
-        <label class="switch" style="transform: scale(0.8);">
-          <input type="checkbox" ${t.attended ? "checked" : ""} onchange="toggleAttendance('${t.id}')">
-          <span class="slider"></span>
-        </label>
-      </div>
-    `;
-    })
-    .join("");
-}
-
-function toggleAttendance(tableId) {
-  const bz = bazaarCanvas.getCurrentBazaar();
-  const t = bz.tables.find((item) => item.id === tableId);
-  if (t) {
-    t.attended = !t.attended;
-    saveState();
-    bazaarCanvas.render();
-    renderChecklist();
-    showToast(`Asistencia de ${t.name} ${t.attended ? "confirmada" : "pendiente"}`);
-  }
-}
-
 // ==========================================
-// 8. GRÁFICAS DE CHART.JS
+// 11. GRÁFICAS DE CHART.JS
+// [EDITABLE: agrega más gráficas aquí siguiendo el mismo patrón]
 // ==========================================
 let chartCategoriesInstance = null;
 let chartPaymentsInstance = null;
 
 function updateCharts() {
   if (typeof Chart === "undefined") return;
+  const bz = getActiveBazaar();
 
   const ctxCat = document.getElementById("chart-categorias");
   if (ctxCat) {
     const labels = AppState.categorias.map((c) => `${c.emoji} ${c.nombre}`);
-    const data = AppState.categorias.map((c) => AppState.expositores.filter((e) => e.categoria === c.id).length);
+    const data = AppState.categorias.map((c) => bz.expositores.filter((e) => e.categoria === c.id).length);
     const colors = AppState.categorias.map((c) => c.color);
 
     if (chartCategoriesInstance) chartCategoriesInstance.destroy();
@@ -1168,7 +1515,7 @@ function updateCharts() {
     let paid = 0;
     let pending = 0;
 
-    AppState.expositores.forEach((e) => {
+    bz.expositores.forEach((e) => {
       if (e.pagado) paid += Number(e.costo || 0);
       else pending += Number(e.costo || 0);
     });
@@ -1191,7 +1538,9 @@ function updateCharts() {
 }
 
 // ==========================================
-// 9. INICIALIZACIÓN Y VÍNCULOS GLOBALES (WINDOW)
+// 12. INICIALIZACIÓN Y VÍNCULOS GLOBALES (WINDOW)
+// [EDITABLE: si agregas una función que se llama desde onclick="" en el
+// HTML, expórtala aquí en window.miFuncion = miFuncion]
 // ==========================================
 window.switchTab = switchTab;
 window.toggleDarkMode = toggleDarkMode;
@@ -1217,51 +1566,41 @@ window.addExtraCostRow = addExtraCostRow;
 window.updateExtraCost = updateExtraCost;
 window.removeExtraCostRow = removeExtraCostRow;
 window.switchBazaar = switchBazaar;
+window.createBazaar = createBazaar;
+window.deleteBazaar = deleteBazaar;
 window.zoomBazaar = zoomBazaar;
 window.resetBazaarZoom = resetBazaarZoom;
 window.handleFloorPlanUpload = handleFloorPlanUpload;
 window.addTableToCore = addTableToCore;
 window.saveTableEdit = saveTableEdit;
 window.toggleAttendance = toggleAttendance;
+window.openExpositorChecklist = openExpositorChecklist;
+window.toggleExpositorChecklistItem = toggleExpositorChecklistItem;
+window.addExpositorChecklistItem = addExpositorChecklistItem;
+window.removeExpositorChecklistItem = removeExpositorChecklistItem;
 
 document.addEventListener("DOMContentLoaded", () => {
   renderAll();
   bazaarCanvas.init();
 
-  // 1. Abrir y cerrar Modales (usando la clase 'show' del sistema)
-  document.querySelectorAll('[data-modal]').forEach(trigger => {
-    trigger.addEventListener('click', () => {
-      const modalId = trigger.getAttribute('data-modal');
-      openModal(modalId);
+  // Cierra un modal al hacer click en el fondo oscuro (no en la caja blanca).
+  document.querySelectorAll(".modal-overlay").forEach((overlay) => {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.classList.remove("open");
     });
   });
 
-  document.querySelectorAll('.modal-close, .modal-overlay, .close-modal').forEach(closeBtn => {
-    closeBtn.addEventListener('click', (e) => {
-      const modal = closeBtn.closest('.modal') || closeBtn.closest('.modal-overlay');
-      if (modal) modal.classList.remove('show');
-    });
+  // Cierra el menú de respaldo al hacer click fuera de él.
+  document.addEventListener("click", (e) => {
+    const menu = document.getElementById("backup-menu");
+    if (!menu) return;
+    const clickedInsideMenu = menu.contains(e.target);
+    const clickedToggleBtn = e.target.closest('[onclick="toggleBackupMenu()"]');
+    if (!clickedInsideMenu && !clickedToggleBtn) menu.classList.remove("open");
   });
 
-  // 2. Menú de Respaldos / Backup
-  const backupBtn = document.querySelector('#btn-backup');
-  if (backupBtn) {
-    backupBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleBackupMenu();
-    });
-    document.addEventListener('click', () => {
-      document.getElementById('backup-menu')?.classList.remove('show');
-    });
-  }
-
-  // 3. Alternar Modo Oscuro
-  document.querySelector('#btn-toggle-theme')?.addEventListener('click', () => {
-    toggleDarkMode();
-  });
-
-  // 4. Navegación Lateral (Sidebar en Móvil)
-  document.querySelector('#btn-toggle-sidebar')?.addEventListener('click', () => {
-    document.querySelector('.sidebar')?.classList.toggle('show');
+  // Navegación lateral en móvil.
+  document.querySelector("#btn-toggle-sidebar")?.addEventListener("click", () => {
+    document.querySelector(".sidebar")?.classList.toggle("open");
   });
 });
