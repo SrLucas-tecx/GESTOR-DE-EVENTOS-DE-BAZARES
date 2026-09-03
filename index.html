@@ -3,20 +3,15 @@
 <head>
   <!-- ═══════════════════════════════════════════════════════════════
        META Y RECURSOS EXTERNOS
-       Fuentes: Outfit (display) + DM Sans (body)
-       Librerías: Chart.js (gráficas) + html2pdf (recibos PDF)
   ═══════════════════════════════════════════════════════════════ -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EXPOSITORES.COM — Gestión de Bazares</title>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
-
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
   <link rel="stylesheet" href="Styles.css">
 </head>
 <body>
@@ -25,8 +20,6 @@
 
   <!-- ═══════════════════════════════════════════════════════════════
        # SIDEBAR — BARRA LATERAL DE NAVEGACIÓN
-       Contiene: logo, navegación principal y footer con utilidades.
-       [EDITABLE: agrega nuevos botones .nav-item dentro de <nav>]
   ═══════════════════════════════════════════════════════════════ -->
   <aside class="sidebar">
 
@@ -37,31 +30,34 @@
     </div>
 
     <!-- # SIDEBAR / Navegación principal -->
+    <!-- [EDITABLE: agrega más botones .nav-item aquí para nuevas secciones] -->
     <nav class="sidebar-nav">
-      <div class="nav-group-label">Navegación</div>
-      <button class="nav-item active" onclick="switchTab('expositores')">👥 Expositores</button>
-      <button class="nav-item" onclick="switchTab('categorias')">🏷️ Categorías</button>
-      <button class="nav-item" onclick="switchTab('finanzas')">💰 Control de Pagos</button>
-      <button class="nav-item" onclick="switchTab('costos')">📊 Costos del Evento</button>
-      <button class="nav-item" onclick="switchTab('mapa')">🗺️ Plano del Evento</button>
-      <button class="nav-item" onclick="switchTab('estadisticas')">📈 Métricas y Gráficas</button>
+      <div class="nav-group-label">Gestión</div>
+      <button class="nav-item active"  onclick="switchTab('expositores')">👥 Expositores</button>
+      <button class="nav-item"         onclick="switchTab('categorias')">🏷️ Categorías</button>
+      <button class="nav-item"         onclick="switchTab('plantillas')">💾 Expositores Guardados</button>
+
+      <div class="nav-group-label">Evento</div>
+      <button class="nav-item"         onclick="switchTab('finanzas')">💰 Control de Pagos</button>
+      <button class="nav-item"         onclick="switchTab('costos')">📊 Costos del Evento</button>
+      <button class="nav-item"         onclick="switchTab('mapa')">🗺️ Plano del Evento</button>
+      <button class="nav-item"         onclick="switchTab('invitados')">🎟️ Lista de Invitados</button>
+      <button class="nav-item"         onclick="switchTab('estadisticas')">📈 Métricas y Gráficas</button>
+
+      <div class="nav-group-label">Configuración</div>
+      <button class="nav-item"         onclick="switchTab('bazares')">🏪 Mis Bazares</button>
     </nav>
 
     <!-- # SIDEBAR / Footer: modo oscuro + menú de respaldo -->
     <div class="sidebar-footer">
-
-      <!-- Botón modo oscuro -->
       <button class="btn-icon" onclick="toggleDarkMode()">
         <span id="dark-icon">🌙</span> Modo Oscuro
       </button>
-
-      <!-- Botón + menú respaldo (SEPARADOS: el menú es hermano del botón,
-           NO hijo. Así el HTML es válido y el posicionamiento funciona.) -->
+      <!-- Menú de respaldo: el <div> es HERMANO del <button>, no hijo -->
       <div style="position:relative;">
         <button class="btn-icon" style="width:100%;" onclick="toggleBackupMenu()">
           💾 Copia de Seguridad
         </button>
-        <!-- El menú usa position:absolute relativo al <div> padre, NO al botón -->
         <div id="backup-menu" class="backup-menu">
           <div class="backup-menu-label">Exportar / Importar</div>
           <button class="backup-menu-item" onclick="exportarJSON()">📄 Guardar Datos (JSON)</button>
@@ -74,43 +70,29 @@
           </label>
         </div>
       </div>
-
     </div>
   </aside>
   <!-- / #SIDEBAR -->
 
 
   <!-- ═══════════════════════════════════════════════════════════════
-       # MAIN-AREA — ÁREA PRINCIPAL DE CONTENIDO
-       Contiene: header sticky, page-content (secciones) y footer.
+       # MAIN-AREA — ÁREA PRINCIPAL
   ═══════════════════════════════════════════════════════════════ -->
   <main class="main-area">
 
-    <!-- # HEADER — Barra superior sticky
-         Contiene: botón hamburguesa (móvil), título, selector de bazar,
-         buscador y botón "+ Nuevo Expositor".
-         [EDITABLE: agrega controles globales aquí]
-    -->
+    <!-- # HEADER — Barra superior sticky -->
     <header class="header">
-
-      <!-- Botón hamburguesa — solo visible en móvil (display:none en escritorio vía CSS) -->
       <button class="btn-icon" id="btn-toggle-sidebar" title="Menú" style="flex-shrink:0;">☰</button>
-
-      <!-- Título dinámico (cambia con switchTab en Core.js) -->
       <h1 class="header-title" id="page-title">Directorio de Expositores</h1>
 
-      <!-- # HEADER / Selector de Bazar Activo
-           Permite cambiar, crear (➕) y eliminar (🗑️) bazares.
-           [EDITABLE: la lógica vive en Core.js → createBazaar / deleteBazaar]
-      -->
+      <!-- Selector de Bazar Activo -->
       <div class="control-group-inline">
         <select id="bazaar-select-global" class="filter-select"
                 onchange="switchBazaar(this.value)" title="Bazar activo"></select>
         <button class="btn-icon" onclick="createBazaar()" title="Crear nuevo bazar">➕</button>
-        <button class="btn-icon" onclick="deleteBazaar()" title="Eliminar bazar actual">🗑️</button>
       </div>
 
-      <!-- # HEADER / Buscador global -->
+      <!-- Buscador global -->
       <div class="search-bar">
         <span>🔍</span>
         <input type="text" id="global-search"
@@ -118,36 +100,28 @@
                oninput="handleSearch(this.value)">
       </div>
 
-      <!-- Botón principal de acción contextual -->
       <button class="btn-primary" onclick="openModalExpositor()">+ Nuevo Expositor</button>
-
     </header>
     <!-- / #HEADER -->
 
 
     <!-- ═════════════════════════════════════════════════════════════
          # PAGE-CONTENT — Contenedor de todas las secciones/tabs
-         Solo la sección con clase "active" es visible (display:block).
-         Las demás tienen display:none (definido en Styles.css).
     ═════════════════════════════════════════════════════════════ -->
     <div class="page-content">
 
 
-      <!-- ───────────────────────────────────────────────────────────
+      <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: EXPOSITORES (tab activo por defecto)
-           Muestra la cuadrícula de tarjetas de expositores.
-           [EDITABLE: los filtros de chip se generan en Core.js → renderCategoryChips]
-      ─────────────────────────────────────────────────────────── -->
+      ───────────────────────────────────────────────────────── -->
       <section id="sec-expositores" class="page-section active">
 
-        <!-- Barra de filtros: categoría + estado de pago -->
+        <!-- Barra de filtros -->
         <div class="filter-bar">
           <button class="filter-chip active" onclick="setFilterCategory('all', this)">
             Todas las categorías
           </button>
-          <!-- Los chips de categoría se inyectan aquí por Core.js → renderCategoryChips() -->
           <div id="category-chips-container" style="display:inline-flex;gap:8px;flex-wrap:wrap;"></div>
-
           <select class="filter-select" onchange="setFilterStatus(this.value)">
             <option value="all">Todos los pagos</option>
             <option value="paid">✅ Pagados</option>
@@ -155,82 +129,93 @@
           </select>
         </div>
 
-        <!-- Cuadrícula de tarjetas — contenido inyectado por Core.js → renderExpositores() -->
+        <!-- Grid de tarjetas — inyectado por Core.js → renderExpositores() -->
         <div id="expositores-grid" class="cards-grid"></div>
 
       </section>
       <!-- / #SECCIÓN EXPOSITORES -->
 
 
-      <!-- ───────────────────────────────────────────────────────────
+      <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: CATEGORÍAS
-           Catálogo compartido entre todos los bazares.
-           [EDITABLE: renderCategorias() en Core.js genera las tarjetas]
-      ─────────────────────────────────────────────────────────── -->
+      ───────────────────────────────────────────────────────── -->
       <section id="sec-categorias" class="page-section">
-
         <div class="section-header" style="justify-content:space-between;">
           <div>
             <h2 class="section-title">Gestión de Categorías</h2>
             <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
-              Clasifica a tus expositores para ordenar el plano y finanzas.
-              Las categorías se comparten entre todos los bazares.
+              Clasifica a tus expositores. Las categorías se comparten entre todos los bazares.
             </p>
           </div>
           <button class="btn-primary" onclick="openModalCategoria()">+ Nueva Categoría</button>
         </div>
-
-        <!-- Cuadrícula inyectada por Core.js → renderCategorias() -->
         <div id="categorias-grid" class="cards-grid"></div>
-
       </section>
       <!-- / #SECCIÓN CATEGORÍAS -->
 
 
-      <!-- ───────────────────────────────────────────────────────────
+      <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: EXPOSITORES GUARDADOS (plantillas)
+           Expositores reutilizables entre bazares.
+           [EDITABLE: usarPlantilla() en Core.js prepopula el modal de expositor]
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-plantillas" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">Expositores Guardados</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
+              Guarda expositores frecuentes con el botón 💾 en su tarjeta y úsalos en cualquier bazar.
+            </p>
+          </div>
+        </div>
+        <div id="plantillas-grid" class="cards-grid"></div>
+      </section>
+      <!-- / #SECCIÓN PLANTILLAS -->
+
+
+      <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: CONTROL DE PAGOS (Finanzas)
-           Métricas y tabla de estado de pago del bazar activo.
-           [EDITABLE: renderFinanzasStats() y renderFinanzasTable() en Core.js]
-      ─────────────────────────────────────────────────────────── -->
+      ───────────────────────────────────────────────────────── -->
       <section id="sec-finanzas" class="page-section">
 
-        <!-- # FINANZAS / Tarjetas de estadísticas -->
+        <!-- Stats de pagos -->
         <div class="stats-row">
           <div class="stat-card accent-green">
             <div class="stat-icon">💵</div>
             <div class="stat-value" id="stat-total-paid">$0</div>
-            <div class="stat-label">Recaudado (Expositores)</div>
+            <div class="stat-label">Recaudado</div>
           </div>
           <div class="stat-card accent-red">
             <div class="stat-icon">⏳</div>
             <div class="stat-value" id="stat-total-pending">$0</div>
-            <div class="stat-label">Pendiente por cobrar</div>
+            <div class="stat-label">Pendiente</div>
           </div>
           <div class="stat-card accent-teal">
             <div class="stat-icon">🎪</div>
             <div class="stat-value" id="stat-total-tables">0</div>
-            <div class="stat-label">Mesas Reservadas</div>
+            <div class="stat-label">Expositores</div>
           </div>
           <div class="stat-card accent-gold">
             <div class="stat-icon">📈</div>
             <div class="stat-value" id="stat-paid-percentage">0%</div>
-            <div class="stat-label">Cumplimiento de Cobro</div>
+            <div class="stat-label">Cumplimiento</div>
           </div>
         </div>
 
-        <!-- # FINANZAS / Tabla de pagos -->
+        <!-- Tabla de pagos — columnas: negocio, mesa, total, adelanto, saldo, estado, acciones -->
         <div class="payments-table-wrap">
           <table class="payments-table">
             <thead>
               <tr>
                 <th>Expositor / Negocio</th>
-                <th>Ubicación (Mesa)</th>
-                <th>Costo Mesa</th>
+                <th>Ubicación</th>
+                <th>Costo Total</th>
+                <th>Adelanto</th>
+                <th>Saldo</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
-            <!-- Filas inyectadas por Core.js → renderFinanzasTable() -->
             <tbody id="payments-table-body"></tbody>
           </table>
         </div>
@@ -239,24 +224,24 @@
       <!-- / #SECCIÓN CONTROL DE PAGOS -->
 
 
-      <!-- ───────────────────────────────────────────────────────────
+      <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: COSTOS DEL EVENTO
-           Balance ingreso vs. egreso del bazar activo.
-           [EDITABLE: agrega nuevas líneas de gasto con addExtraCostRow() en Core.js]
-      ─────────────────────────────────────────────────────────── -->
+           Mobiliario: Costo TOTAL + cálculo automático de Costo Unitario.
+           [EDITABLE: agrega nuevos paneles de gasto entre los chart-card]
+      ───────────────────────────────────────────────────────── -->
       <section id="sec-costos" class="page-section">
 
-        <!-- # COSTOS / Tarjetas de resumen financiero -->
+        <!-- Stats de balance -->
         <div class="stats-row">
           <div class="stat-card accent-teal">
             <div class="stat-icon">📥</div>
             <div class="stat-value" id="cost-stat-income">$0</div>
-            <div class="stat-label">Ingresos Totales (Expositores)</div>
+            <div class="stat-label">Ingresos (Expositores)</div>
           </div>
           <div class="stat-card accent-red">
             <div class="stat-icon">📤</div>
             <div class="stat-value" id="cost-stat-expenses">$0</div>
-            <div class="stat-label">Egresos Totales (Costos Evento)</div>
+            <div class="stat-label">Egresos (Costos Evento)</div>
           </div>
           <div class="stat-card accent-green">
             <div class="stat-icon">💎</div>
@@ -265,197 +250,261 @@
           </div>
         </div>
 
-        <!-- # COSTOS / Paneles de configuración de gastos -->
         <div class="charts-grid">
 
-          <!-- # COSTOS / Panel: Mobiliario opcional (mesas y sillas) -->
+          <!-- # COSTOS / Panel: Mobiliario e Insumos -->
           <div class="chart-card">
             <h3>🪑 Mobiliario e Insumos Opcionales</h3>
             <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin-bottom:14px;">
-              Activa y define el costo individual de mesas y sillas contratadas para el recinto.
+              Introduce el costo total del proveedor. El costo unitario se calcula solo.
             </p>
 
             <!-- Mesas -->
             <div class="card-meta-item" style="margin-bottom:12px;">
-              <div class="form-switch" style="background:none;padding:0;">
+              <div class="form-switch" style="background:none;padding:0;margin-bottom:10px;">
                 <span class="switch-label"><strong>Incluir Costo de Mesas</strong></span>
                 <label class="switch">
                   <input type="checkbox" id="cost-toggle-tables" onchange="updateEventCostsUI()">
                   <span class="slider"></span>
                 </label>
               </div>
-              <div class="form-row" style="margin-top:10px;">
+              <div class="form-row">
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Número de Mesas</label>
                   <input type="number" id="cost-qty-tables" class="form-input"
-                         value="10" min="0" oninput="updateEventCostsUI()">
+                         value="0" min="0" oninput="updateEventCostsUI()">
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Costo Individual (c/u)</label>
-                  <input type="number" id="cost-unit-tables" class="form-input"
-                         value="100" min="0" oninput="updateEventCostsUI()">
+                  <!-- [NUEVO] Costo TOTAL (campo principal) -->
+                  <label class="form-label">Costo Total del Proveedor</label>
+                  <input type="number" id="cost-total-tables" class="form-input"
+                         value="0" min="0" oninput="updateEventCostsUI()">
                 </div>
               </div>
-              <div style="font-size:var(--fs-xs);font-weight:700;margin-top:8px;text-align:right;color:var(--color-accent);">
-                Subtotal Mesas: <span id="subtotal-tables">$0</span>
+              <div style="font-size:var(--fs-xs);font-weight:700;margin-top:8px;color:var(--color-accent);display:flex;justify-content:space-between;">
+                <!-- [NUEVO] Unitario calculado automáticamente -->
+                <span>Costo unitario: <span id="unit-tables">$0</span></span>
+                <span>Subtotal Mesas: <span id="subtotal-tables">$0</span></span>
               </div>
             </div>
 
             <!-- Sillas -->
             <div class="card-meta-item">
-              <div class="form-switch" style="background:none;padding:0;">
+              <div class="form-switch" style="background:none;padding:0;margin-bottom:10px;">
                 <span class="switch-label"><strong>Incluir Costo de Sillas</strong></span>
                 <label class="switch">
                   <input type="checkbox" id="cost-toggle-chairs" onchange="updateEventCostsUI()">
                   <span class="slider"></span>
                 </label>
               </div>
-              <div class="form-row" style="margin-top:10px;">
+              <div class="form-row">
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Número de Sillas</label>
                   <input type="number" id="cost-qty-chairs" class="form-input"
-                         value="20" min="0" oninput="updateEventCostsUI()">
+                         value="0" min="0" oninput="updateEventCostsUI()">
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Costo Individual (c/u)</label>
-                  <input type="number" id="cost-unit-chairs" class="form-input"
-                         value="25" min="0" oninput="updateEventCostsUI()">
+                  <label class="form-label">Costo Total del Proveedor</label>
+                  <input type="number" id="cost-total-chairs" class="form-input"
+                         value="0" min="0" oninput="updateEventCostsUI()">
                 </div>
               </div>
-              <div style="font-size:var(--fs-xs);font-weight:700;margin-top:8px;text-align:right;color:var(--color-accent);">
-                Subtotal Sillas: <span id="subtotal-chairs">$0</span>
+              <div style="font-size:var(--fs-xs);font-weight:700;margin-top:8px;color:var(--color-accent);display:flex;justify-content:space-between;">
+                <span>Costo unitario: <span id="unit-chairs">$0</span></span>
+                <span>Subtotal Sillas: <span id="subtotal-chairs">$0</span></span>
               </div>
             </div>
           </div>
           <!-- / Panel Mobiliario -->
 
-          <!-- # COSTOS / Panel: Otros gastos libres del evento -->
+          <!-- # COSTOS / Panel: Otros Gastos libres -->
           <div class="chart-card">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <h3 style="margin-bottom:0;">🏛️ Otros Gastos del Evento</h3>
-              <button class="btn-primary btn-sm" onclick="addExtraCostRow()">+ Agregar Gasto</button>
+              <button class="btn-primary btn-sm" onclick="addExtraCostRow()">+ Agregar</button>
             </div>
             <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin:6px 0 14px;">
               Renta de lugar, permisos, sonido, personal, publicidad, etc.
             </p>
-            <!-- Filas dinámicas inyectadas por Core.js → renderCostosUI() -->
             <div id="extra-costs-list" style="display:flex;flex-direction:column;gap:10px;"></div>
           </div>
-          <!-- / Panel Otros gastos -->
+          <!-- / Panel Otros Gastos -->
 
         </div>
       </section>
       <!-- / #SECCIÓN COSTOS DEL EVENTO -->
 
 
-      <!-- ───────────────────────────────────────────────────────────
+      <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: PLANO INTERACTIVO DEL EVENTO
-           Canvas drag-and-drop + checklist de asistencia.
-           [EDITABLE: lógica del canvas en Core.js → BazaarCanvasManager]
-      ─────────────────────────────────────────────────────────── -->
+           Botones nuevos: 🗑️ Eliminar mesa seleccionada + 🔄 Limpiar todo
+      ───────────────────────────────────────────────────────── -->
       <section id="sec-mapa" class="page-section">
 
-        <!-- # MAPA / Barra de controles del plano -->
+        <!-- Barra de controles del plano -->
         <div class="map-controls-panel">
-
-          <!-- Bazar activo (informativo, el cambio es desde el header) -->
           <div class="control-group-inline">
-            <label class="form-label" style="margin:0;">Bazar Activo:</label>
+            <label class="form-label" style="margin:0;">Bazar:</label>
             <strong id="mapa-bazaar-name-display" style="color:var(--color-accent);">—</strong>
           </div>
-
-          <!-- Controles de zoom -->
           <div class="control-group-inline">
-            <label class="form-label" style="margin:0;">Zoom:</label>
             <button class="btn-secondary btn-sm" onclick="zoomBazaar(0.1)">➕ Zoom In</button>
             <button class="btn-secondary btn-sm" onclick="zoomBazaar(-0.1)">➖ Zoom Out</button>
-            <button class="btn-secondary btn-sm" onclick="resetBazaarZoom()">🔄 Reset</button>
+            <button class="btn-secondary btn-sm" onclick="resetBazaarZoom()">🔄 Reset Zoom</button>
           </div>
-
-          <!-- Imagen de fondo del plano -->
           <div class="control-group-inline">
             <input type="file" id="floor-plan-upload" accept="image/*" style="display:none;"
                    onchange="handleFloorPlanUpload(event)">
             <button class="btn-secondary btn-sm"
-                    onclick="document.getElementById('floor-plan-upload').click()">
-              🖼️ Cargar Fondo
-            </button>
+                    onclick="document.getElementById('floor-plan-upload').click()">🖼️ Cargar Fondo</button>
           </div>
-
-          <!-- Agregar mesa al canvas -->
           <div class="control-group-inline">
             <button class="btn-primary btn-sm" onclick="addTableToCore()">➕ Nueva Mesa</button>
+            <!-- [NUEVO] Limpiar TODO el plano (mesas + imagen fondo) -->
+            <button class="btn-danger btn-sm" onclick="resetBazaarCanvas()"
+                    title="Elimina todas las mesas e imagen de fondo">🗑️ Limpiar Plano</button>
           </div>
-
         </div>
-        <!-- / Barra de controles -->
 
-        <!-- # MAPA / Canvas + Checklist lado a lado -->
+        <!-- Canvas + Panel de asistencia -->
         <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
 
-          <!-- Canvas interactivo drag-and-drop -->
+          <!-- Canvas drag-and-drop -->
           <div class="map-viewport" style="flex:1;min-width:300px;">
             <canvas id="bazaar-canvas" width="850" height="550"
                     style="cursor:grab;display:block;"></canvas>
           </div>
 
-          <!-- # MAPA / Panel de asistencia (checklist de mesas) -->
+          <!-- Panel de asistencia — incluye botón 🗑️ por mesa (Core.js → renderChecklist) -->
           <div class="chart-card" style="width:320px;flex-shrink:0;max-height:550px;overflow-y:auto;">
-            <h3>📋 Asistencia de Expositores</h3>
+            <h3>📋 Asistencia y Mesas</h3>
             <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin-bottom:12px;">
-              Marca la asistencia para cambiar el color de la mesa en tiempo real.
+              Confirma asistencia o elimina mesas con el botón 🗑️ de cada fila.
             </p>
-            <!-- Filas inyectadas por Core.js → renderChecklist() -->
             <div id="checklist-container" style="display:flex;flex-direction:column;gap:10px;"></div>
           </div>
 
         </div>
 
-        <!-- Instrucciones de uso del canvas -->
         <p class="map-help-text" style="margin-top:10px;">
-          💡 <strong>Arrastrar plano:</strong> Clic y arrastra el espacio vacío. |
-          <strong>Mover mesa:</strong> Clic y arrastra sobre la mesa. |
-          <strong>Editar:</strong> <u>Doble clic</u> sobre la mesa.
+          💡 <strong>Arrastrar plano:</strong> clic y arrastra el espacio vacío. |
+          <strong>Mover mesa:</strong> clic y arrastra la mesa. |
+          <strong>Editar mesa:</strong> doble clic sobre ella.
         </p>
 
       </section>
       <!-- / #SECCIÓN PLANO DEL EVENTO -->
 
 
-      <!-- ───────────────────────────────────────────────────────────
+      <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: LISTA DE INVITADOS
+           Por bazar. Columnas: Nombre, Notas, Confirmó, Asistió, Eliminar.
+           [EDITABLE: agrega campos a saveInvitadoHandler() en Core.js]
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-invitados" class="page-section">
+
+        <!-- Stats de invitados -->
+        <div class="stats-row" style="margin-bottom:var(--space-5);">
+          <div class="stat-card accent-teal">
+            <div class="stat-icon">🎟️</div>
+            <div class="stat-value" id="inv-stat-total">0</div>
+            <div class="stat-label">Total Invitados</div>
+          </div>
+          <div class="stat-card accent-green">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value" id="inv-stat-confirmados">0</div>
+            <div class="stat-label">Confirmados</div>
+          </div>
+          <div class="stat-card accent-gold">
+            <div class="stat-icon">🙋</div>
+            <div class="stat-value" id="inv-stat-asistieron">0</div>
+            <div class="stat-label">Asistieron</div>
+          </div>
+        </div>
+
+        <div class="section-header" style="justify-content:space-between;">
+          <h2 class="section-title">Lista de Invitados</h2>
+          <button class="btn-primary" onclick="openModalInvitado()">+ Agregar Invitado</button>
+        </div>
+
+        <!-- Tabla de invitados -->
+        <div class="payments-table-wrap">
+          <table class="payments-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Notas</th>
+                <th>Confirmó asistencia</th>
+                <th>Asistió al evento</th>
+                <th>Eliminar</th>
+              </tr>
+            </thead>
+            <tbody id="invitados-list"></tbody>
+          </table>
+        </div>
+
+      </section>
+      <!-- / #SECCIÓN LISTA DE INVITADOS -->
+
+
+      <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: MÉTRICAS Y GRÁFICAS
-           Gráficas Chart.js del bazar activo.
-           [EDITABLE: agrega más <canvas> aquí y regístralos en updateCharts() en Core.js]
-      ─────────────────────────────────────────────────────────── -->
+           [EDITABLE: agrega más canvas + regístralos en updateCharts()]
+      ───────────────────────────────────────────────────────── -->
       <section id="sec-estadisticas" class="page-section">
         <div class="charts-grid">
-
-          <!-- Gráfica de dona: distribución por categorías -->
           <div class="chart-card">
             <h3>Distribución por Categorías</h3>
-            <div class="chart-wrap">
-              <canvas id="chart-categorias"></canvas>
-            </div>
+            <div class="chart-wrap"><canvas id="chart-categorias"></canvas></div>
           </div>
-
-          <!-- Gráfica de pastel: balance global de pagos -->
           <div class="chart-card">
             <h3>Balance Global de Pagos</h3>
-            <div class="chart-wrap">
-              <canvas id="chart-pagos"></canvas>
-            </div>
+            <div class="chart-wrap"><canvas id="chart-pagos"></canvas></div>
           </div>
-
-          <!-- [EDITABLE: agrega más chart-card aquí para nuevas gráficas] -->
-
         </div>
       </section>
-      <!-- / #SECCIÓN MÉTRICAS Y GRÁFICAS -->
+      <!-- / #SECCIÓN MÉTRICAS -->
+
+
+      <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: MIS BAZARES
+           Tabla de gestión de bazares. Borrar solo disponible aquí.
+           [EDITABLE: agrega columnas en renderBazaresTabla() de Core.js]
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-bazares" class="page-section">
+
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">Mis Bazares</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
+              Solo desde esta sección puedes eliminar un bazar. Haz clic en "Ir al Bazar" para activarlo.
+            </p>
+          </div>
+          <button class="btn-primary" onclick="createBazaar()">+ Nuevo Bazar</button>
+        </div>
+
+        <div class="payments-table-wrap">
+          <table class="payments-table">
+            <thead>
+              <tr>
+                <th>Bazar (Logo + Nombre)</th>
+                <th>Expositores</th>
+                <th>Pagos</th>
+                <th>Invitados</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <!-- Filas inyectadas por Core.js → renderBazaresTabla() -->
+            <tbody id="bazares-table-body"></tbody>
+          </table>
+        </div>
+
+      </section>
+      <!-- / #SECCIÓN MIS BAZARES -->
 
 
     </div>
     <!-- / #PAGE-CONTENT -->
-
 
     <!-- # FOOTER -->
     <footer class="footer">
@@ -470,41 +519,37 @@
 
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     # FAB — Botón flotante de acción rápida (añadir expositor)
-     [EDITABLE: cambia onclick para otra acción contextual si lo necesitas]
+     # FAB — Botón flotante de acción rápida
 ═══════════════════════════════════════════════════════════════════ -->
 <button class="fab" onclick="openModalExpositor()" title="Añadir Expositor">+</button>
 
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     # MODALES — Ventanas emergentes (todas ocultas por defecto)
+     # MODALES — Todas las ventanas emergentes
      Se abren/cierran con openModal(id) / closeModal(id) en Core.js
-     La clase "open" en .modal-overlay las hace visibles (ver Styles.css)
 ═══════════════════════════════════════════════════════════════════ -->
 
 <!-- # MODAL: NUEVO / EDITAR EXPOSITOR
-     Formulario completo con foto de perfil, datos, categoría, costo y pago.
-     [EDITABLE: agrega campos al <form id="form-expositor"> y a saveExpositorHandler()]
+     Nuevos campos: Adelanto (exp-adelanto) + Fecha Límite (exp-fecha-limite)
+     [EDITABLE: agrega campos al form y a saveExpositorHandler() en Core.js]
 -->
 <div id="modal-expositor" class="modal-overlay">
   <div class="modal-box modal-box-wide">
-
     <div class="modal-header">
       <h2 class="modal-title" id="modal-exp-title">Nuevo Expositor</h2>
       <button class="modal-close" onclick="closeModal('modal-expositor')">✕</button>
     </div>
-
     <form id="form-expositor" onsubmit="saveExpositorHandler(event)">
       <input type="hidden" id="exp-id">
       <div class="modal-body">
 
-        <!-- Foto de perfil / logotipo -->
+        <!-- Foto de perfil -->
         <div class="form-group">
           <label class="form-label">Foto de Perfil / Logotipo</label>
           <div class="avatar-upload-area"
                onclick="document.getElementById('exp-foto-file').click()">
             <div class="avatar-preview-lg" id="avatar-preview-box">📷</div>
-            <div class="avatar-upload-hint">Haz clic aquí para seleccionar una imagen</div>
+            <div class="avatar-upload-hint">Clic aquí para seleccionar imagen</div>
             <input type="file" id="exp-foto-file" accept="image/*"
                    style="display:none" onchange="handleFotoUpload(event)">
           </div>
@@ -515,13 +560,11 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Nombre Completo *</label>
-            <input type="text" id="exp-nombre" class="form-input"
-                   required placeholder="Ej. Ana García">
+            <input type="text" id="exp-nombre" class="form-input" required placeholder="Ej. Ana García">
           </div>
           <div class="form-group">
             <label class="form-label">Nombre del Negocio / Marca *</label>
-            <input type="text" id="exp-negocio" class="form-input"
-                   required placeholder="Ej. Joyería Artesanal">
+            <input type="text" id="exp-negocio" class="form-input" required placeholder="Ej. Joyería Artesanal">
           </div>
         </div>
 
@@ -533,15 +576,14 @@
           </div>
           <div class="form-group">
             <label class="form-label">Ubicación / N° Mesa *</label>
-            <input type="text" id="exp-ubicacion" class="form-input"
-                   required placeholder="Ej. Mesa C-12">
+            <input type="text" id="exp-ubicacion" class="form-input" required placeholder="Ej. Mesa C-12">
           </div>
         </div>
 
         <!-- Contacto -->
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Teléfono Contacto</label>
+            <label class="form-label">Teléfono</label>
             <input type="tel" id="exp-tel" class="form-input" placeholder="Ej. 55-1234-5678">
           </div>
           <div class="form-group">
@@ -550,22 +592,36 @@
           </div>
         </div>
 
-        <!-- Costo y pago -->
+        <!-- Costo total y estatus de pago -->
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Costo de la Mesa (MXN) *</label>
-            <input type="number" id="exp-costo" class="form-input"
-                   required min="0" step="10" placeholder="450">
+            <label class="form-label">Costo Total de la Mesa (MXN) *</label>
+            <input type="number" id="exp-costo" class="form-input" required min="0" step="10" placeholder="450">
           </div>
           <div class="form-group">
             <label class="form-label">Estatus del Pago</label>
             <div class="form-switch">
-              <span class="switch-label">¿Ha pagado la reserva?</span>
+              <span class="switch-label">¿Ha pagado la reserva completa?</span>
               <label class="switch">
                 <input type="checkbox" id="exp-pagado">
                 <span class="slider"></span>
               </label>
             </div>
+          </div>
+        </div>
+
+        <!-- [NUEVO] Adelanto y fecha límite de pago -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Adelanto Entregado (MXN)</label>
+            <input type="number" id="exp-adelanto" class="form-input" min="0" step="10" value="0"
+                   placeholder="0">
+            <p class="form-hint">Monto parcial ya recibido. El saldo se calcula automáticamente.</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha Límite de Pago</label>
+            <input type="date" id="exp-fecha-limite" class="form-input">
+            <p class="form-hint">Opcional. Aparece en la tarjeta y en el comprobante PDF.</p>
           </div>
         </div>
 
@@ -578,46 +634,36 @@
 
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-secondary"
-                onclick="closeModal('modal-expositor')">Cancelar</button>
+        <button type="button" class="btn-secondary" onclick="closeModal('modal-expositor')">Cancelar</button>
         <button type="submit" class="btn-primary">Guardar Registro</button>
       </div>
     </form>
-
   </div>
 </div>
 <!-- / #MODAL EXPOSITOR -->
 
 
-<!-- # MODAL: NUEVA / EDITAR CATEGORÍA
-     [EDITABLE: saveCategoriaHandler() en Core.js procesa este formulario]
--->
+<!-- # MODAL: NUEVA / EDITAR CATEGORÍA -->
 <div id="modal-categoria" class="modal-overlay">
   <div class="modal-box">
-
     <div class="modal-header">
       <h2 class="modal-title" id="modal-cat-title">Nueva Categoría</h2>
       <button class="modal-close" onclick="closeModal('modal-categoria')">✕</button>
     </div>
-
     <form id="form-categoria" onsubmit="saveCategoriaHandler(event)">
       <input type="hidden" id="cat-id">
       <div class="modal-body">
-
         <div class="form-row">
           <div class="form-group" style="flex:0 0 90px;">
             <label class="form-label">Emoji *</label>
-            <input type="text" id="cat-emoji" class="form-input"
-                   required maxlength="4" placeholder="🎨"
-                   style="text-align:center;font-size:1.3rem;">
+            <input type="text" id="cat-emoji" class="form-input" required maxlength="4"
+                   placeholder="🎨" style="text-align:center;font-size:1.3rem;">
           </div>
           <div class="form-group" style="flex:1;">
-            <label class="form-label">Nombre de Categoría *</label>
-            <input type="text" id="cat-nombre" class="form-input"
-                   required placeholder="Ej. Artesanías">
+            <label class="form-label">Nombre *</label>
+            <input type="text" id="cat-nombre" class="form-input" required placeholder="Ej. Artesanías">
           </div>
         </div>
-
         <div class="form-group">
           <label class="form-label">Color Distintivo *</label>
           <div style="display:flex;align-items:center;gap:12px;">
@@ -628,161 +674,227 @@
             </span>
           </div>
         </div>
-
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-secondary"
-                onclick="closeModal('modal-categoria')">Cancelar</button>
+        <button type="button" class="btn-secondary" onclick="closeModal('modal-categoria')">Cancelar</button>
         <button type="submit" class="btn-primary">Guardar Categoría</button>
       </div>
     </form>
-
   </div>
 </div>
 <!-- / #MODAL CATEGORÍA -->
 
 
 <!-- # MODAL: EDITAR PROPIEDADES DE MESA (canvas)
-     Se abre con doble clic sobre una mesa en el canvas.
-     [EDITABLE: saveTableEdit() en Core.js procesa este formulario]
+     [NUEVO] Botón de eliminar mesa incluido aquí.
 -->
 <div id="modal-editar-mesa" class="modal-overlay">
   <div class="modal-box">
-
     <div class="modal-header">
-      <h2 class="modal-title">Editar Propiedades de Mesa</h2>
+      <h2 class="modal-title">Editar Mesa del Plano</h2>
       <button class="modal-close" onclick="closeModal('modal-editar-mesa')">✕</button>
     </div>
-
     <div class="modal-body">
       <input type="hidden" id="edit-table-id">
-
       <div class="form-group">
-        <label class="form-label">Nombre / Etiqueta de la Mesa:</label>
+        <label class="form-label">Nombre / Etiqueta de la Mesa</label>
         <input type="text" id="edit-table-name" class="form-input" placeholder="Ej. Mesa A-01">
       </div>
-
       <div class="form-group">
-        <label class="form-label">Expositor Asignado:</label>
+        <label class="form-label">Expositor Asignado</label>
         <select id="edit-table-exhibitor" class="form-select">
           <option value="">-- Sin asignar (Mesa Libre) --</option>
         </select>
       </div>
-
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Ancho (px):</label>
+          <label class="form-label">Ancho (px)</label>
           <input type="number" id="edit-table-width" class="form-input" min="20" step="5">
         </div>
         <div class="form-group">
-          <label class="form-label">Largo (px):</label>
+          <label class="form-label">Largo (px)</label>
           <input type="number" id="edit-table-height" class="form-input" min="20" step="5">
         </div>
       </div>
     </div>
-
     <div class="modal-footer">
-      <button type="button" class="btn-secondary"
-              onclick="closeModal('modal-editar-mesa')">Cancelar</button>
+      <!-- [NUEVO] Botón eliminar mesa desde el modal -->
+      <button type="button" class="btn-danger"
+              onclick="deleteTable(document.getElementById('edit-table-id').value); closeModal('modal-editar-mesa');">
+        🗑️ Eliminar Mesa
+      </button>
+      <button type="button" class="btn-secondary" onclick="closeModal('modal-editar-mesa')">Cancelar</button>
       <button type="button" class="btn-primary" onclick="saveTableEdit()">Guardar Cambios</button>
     </div>
-
   </div>
 </div>
 <!-- / #MODAL EDITAR MESA -->
 
 
 <!-- # MODAL: CHECKLIST DEL EXPOSITOR
-     Lista de pendientes individual por expositor.
-     [EDITABLE: defaultChecklistItems() en Core.js define los ítems por defecto]
+     [NUEVO] Ítems ahora son editables (input type text en cada fila).
 -->
 <div id="modal-checklist" class="modal-overlay">
   <div class="modal-box">
-
     <div class="modal-header">
       <h2 class="modal-title" id="modal-checklist-title">Checklist</h2>
       <button class="modal-close" onclick="closeModal('modal-checklist')">✕</button>
     </div>
-
     <div class="modal-body">
       <input type="hidden" id="checklist-exp-id">
       <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin-bottom:12px;"
          id="checklist-exp-progress">0 / 0 completado</p>
-
-      <!-- Ítems inyectados por Core.js → renderExpositorChecklist() -->
+      <!-- Ítems con checkbox + campo editable + botón eliminar (Core.js → renderExpositorChecklist) -->
       <div id="checklist-exp-container" style="display:flex;flex-direction:column;gap:8px;"></div>
-
-      <!-- Agregar nuevo ítem -->
       <div class="form-row" style="margin-top:16px;align-items:flex-end;">
         <div class="form-group" style="flex:1;margin-bottom:0;">
           <label class="form-label">Agregar pendiente</label>
-          <input type="text" id="checklist-new-item" class="form-input"
-                 placeholder="Ej. Confirmar toldo">
+          <input type="text" id="checklist-new-item" class="form-input" placeholder="Ej. Confirmar toldo">
         </div>
         <button type="button" class="btn-primary" style="height:44px;"
                 onclick="addExpositorChecklistItem()">+ Agregar</button>
       </div>
     </div>
-
     <div class="modal-footer">
-      <button type="button" class="btn-secondary"
-              onclick="closeModal('modal-checklist')">Cerrar</button>
+      <button type="button" class="btn-secondary" onclick="closeModal('modal-checklist')">Cerrar</button>
     </div>
-
   </div>
 </div>
 <!-- / #MODAL CHECKLIST -->
 
 
+<!-- # MODAL: AGREGAR INVITADO -->
+<div id="modal-invitado" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Agregar Invitado</h2>
+      <button class="modal-close" onclick="closeModal('modal-invitado')">✕</button>
+    </div>
+    <form id="form-invitado" onsubmit="saveInvitadoHandler(event)">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Nombre Completo *</label>
+          <input type="text" id="inv-nombre" class="form-input" required placeholder="Ej. Roberto Sánchez">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas / Observaciones</label>
+          <textarea id="inv-notas" class="form-textarea" placeholder="Ej. Viene con familia, VIP..."></textarea>
+        </div>
+        <div class="form-group">
+          <div class="form-switch">
+            <span class="switch-label">¿Ya confirmó asistencia?</span>
+            <label class="switch">
+              <input type="checkbox" id="inv-confirmado">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('modal-invitado')">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar Invitado</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!-- / #MODAL INVITADO -->
+
+
+<!-- # MODAL: LOGO / IMAGEN DEL BAZAR
+     [NUEVO] Imagen que reemplaza el emoji 🎪 en la tabla de bazares.
+-->
+<div id="modal-logo-bazar" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Logo del Bazar — <span id="logo-modal-bazaar-name"></span></h2>
+      <button class="modal-close" onclick="closeModal('modal-logo-bazar')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="logo-bazar-id">
+      <input type="hidden" id="logo-base64">
+      <div class="avatar-upload-area"
+           onclick="document.getElementById('logo-file-input').click()" style="height:160px;">
+        <div class="avatar-preview-lg" id="logo-preview-box"
+             style="width:100px;height:100px;font-size:2.5rem;border-radius:12px;">🎪</div>
+        <div class="avatar-upload-hint">Clic para seleccionar imagen (JPG, PNG, WebP)</div>
+        <input type="file" id="logo-file-input" accept="image/*" style="display:none"
+               onchange="handleLogoUpload(event)">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-danger" onclick="removeLogoHandler()">🗑️ Quitar Logo</button>
+      <button type="button" class="btn-secondary" onclick="closeModal('modal-logo-bazar')">Cancelar</button>
+      <button type="button" class="btn-primary" onclick="saveLogoHandler()">Guardar Logo</button>
+    </div>
+  </div>
+</div>
+<!-- / #MODAL LOGO BAZAR -->
+
+
 <!-- ═══════════════════════════════════════════════════════════════════
      # PLANTILLA PDF — Oculta, usada por html2pdf para generar recibos
+     [NUEVO] Incluye sección de adelanto, saldo restante y fecha límite.
      [EDITABLE: modifica el diseño del comprobante aquí]
-     generatePDFInvoice() en Core.js rellena los IDs antes de exportar.
 ═══════════════════════════════════════════════════════════════════ -->
 <div id="invoice-template"
-     style="display:none;padding:30px;font-family:Arial,sans-serif;background:#fff;color:#333;">
+     style="display:none;padding:30px;font-family:Arial,sans-serif;background:#fff;color:#333;max-width:700px;">
 
   <div style="display:flex;justify-content:space-between;align-items:center;
-              border-bottom:2px solid #0d9488;padding-bottom:15px;margin-bottom:20px;">
+              border-bottom:3px solid #0d9488;padding-bottom:15px;margin-bottom:20px;">
     <div>
-      <h1 style="color:#0d9488;margin:0;font-size:24px;">COMPROBANTE DE RESERVA</h1>
-      <p style="margin:5px 0 0;color:#666;font-size:14px;">
-        EXPOSITORES.COM — Gestión de Eventos
-      </p>
+      <h1 style="color:#0d9488;margin:0;font-size:22px;">COMPROBANTE DE RESERVA</h1>
+      <p style="margin:5px 0 0;color:#666;font-size:13px;">EXPOSITORES.COM — Gestión de Eventos</p>
     </div>
     <div style="text-align:right;">
-      <span id="pdf-invoice-id"
-            style="font-weight:bold;font-size:16px;color:#0d9488;">FOLIO #0000</span><br>
-      <small id="pdf-invoice-date" style="color:#777;">Fecha: DD/MM/AAAA</small>
+      <div id="pdf-invoice-id" style="font-weight:bold;font-size:15px;color:#0d9488;">FOLIO #0000</div>
+      <div id="pdf-invoice-date" style="font-size:12px;color:#777;">Fecha: —</div>
     </div>
   </div>
 
-  <div style="margin-bottom:25px;font-size:14px;line-height:1.8;">
-    <p id="pdf-exp-negocio"><strong>Marca / Negocio:</strong> -</p>
-    <p id="pdf-exp-nombre"><strong>Titular:</strong> -</p>
-    <p id="pdf-exp-contact"><strong>Contacto:</strong> -</p>
-    <p id="pdf-exp-mesa"><strong>Ubicación:</strong> -</p>
-    <p id="pdf-exp-status"><strong>Estado:</strong> -</p>
+  <!-- Datos del expositor -->
+  <div style="margin-bottom:20px;font-size:13px;line-height:2;">
+    <div id="pdf-exp-negocio"></div>
+    <div id="pdf-exp-nombre"></div>
+    <div id="pdf-exp-contact"></div>
+    <div id="pdf-exp-mesa"></div>
   </div>
 
-  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
-              padding:20px;text-align:right;margin-top:30px;">
-    <span style="font-size:14px;color:#64748b;">Monto Total Contratado:</span>
-    <h2 id="pdf-exp-monto" style="margin:5px 0 0;color:#0d9488;font-size:28px;">$0.00 MXN</h2>
+  <!-- Desglose financiero -->
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;">
+    <table style="width:100%;font-size:13px;border-collapse:collapse;">
+      <tr>
+        <td style="padding:6px 0;color:#64748b;"><div id="pdf-exp-costo"></div></td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#10b981;"><div id="pdf-exp-adelanto"></div></td>
+      </tr>
+      <tr style="border-top:1px solid #e2e8f0;">
+        <td style="padding:8px 0 0;font-weight:bold;"><div id="pdf-exp-saldo"></div></td>
+      </tr>
+      <tr>
+        <td style="padding:4px 0;font-size:12px;color:#64748b;"><div id="pdf-exp-fecha-limite"></div></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Estado del pago y monto principal -->
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;text-align:right;">
+    <div id="pdf-exp-status" style="font-size:13px;margin-bottom:8px;text-align:left;"></div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">Monto a liquidar / Total:</div>
+    <div id="pdf-exp-monto" style="font-size:28px;font-weight:900;color:#0d9488;"></div>
   </div>
 
 </div>
 <!-- / #PLANTILLA PDF -->
 
 
-<!-- # TOAST — Notificaciones temporales (gestionado por Core.js → showToast()) -->
+<!-- # TOAST — Notificaciones (gestionado por Core.js → showToast()) -->
 <div id="toast"></div>
 
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     # SCRIPTS — Módulo principal
-     Debe ir al final del <body> para que el DOM esté listo.
-     [EDITABLE: si agregas módulos JS adicionales, cárgalos ANTES de Core.js]
+     # SCRIPTS — Core.js debe ir al final del <body>
+     [EDITABLE: carga módulos adicionales ANTES de Core.js]
 ═══════════════════════════════════════════════════════════════════ -->
 <script type="module" src="Core.js"></script>
 
