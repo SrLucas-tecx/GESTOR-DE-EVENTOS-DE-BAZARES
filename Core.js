@@ -46,6 +46,18 @@ function emptyCostsConfig() {
   };
 }
 
+function emptyCustomMetrics() {
+  return [];
+}
+
+function defaultMapConfig() {
+  return { pixelsPerMeter: 100, backgroundOpacity: 1 };
+}
+
+function createFloor(id, name, tables = [], bgImage = null, backgroundOpacity = 1) {
+  return { id, name, tables, bgImage, backgroundOpacity };
+}
+
 const DEFAULT_STATE = {
   // Catálogo de categorías compartido entre todos los bazares.
   categorias: [
@@ -66,6 +78,7 @@ const DEFAULT_STATE = {
       name: "Bazar Primavera",
       bgImage: null,
       logoImage: null,       // <- NUEVO: imagen de logo/portada del bazar
+      mapConfig: defaultMapConfig(),
       expositores: [
         {
           id: "exp-1",
@@ -115,21 +128,24 @@ const DEFAULT_STATE = {
       },
       // [NUEVO] Lista de invitados del bazar
       invitados: [
-        { id: "inv-1", nombre: "Roberto Sánchez", confirmado: true,  asistio: false, notas: "Viene con familia" },
-        { id: "inv-2", nombre: "Laura Martínez",  confirmado: false, asistio: false, notas: "" }
-      ]
+        { id: "inv-1", nombre: "Roberto Sánchez", expositorId: "", confirmado: true, asistio: false, notas: "Viene con familia" },
+        { id: "inv-2", nombre: "Laura Martínez", expositorId: "", confirmado: false, asistio: false, notas: "" }
+      ],
+      customMetrics: []
     },
     "bazaar-2": {
       id: "bazaar-2",
       name: "Bazar Nocturno",
       bgImage: null,
       logoImage: null,
+      mapConfig: defaultMapConfig(),
       expositores: [],
       tables: [
         { id: "t201", name: "Mesa N-01", x: 100, y: 100, w: 90, h: 50, exhibitorId: "", attended: false }
       ],
       costsConfig: emptyCostsConfig(),
       invitados: []
+      ,customMetrics: []
     }
   },
 
@@ -158,7 +174,7 @@ function loadState() {
   } catch (err) {
     console.warn("Error cargando estado:", err);
   }
-  return cloneDefaultState();
+  return migrateState(cloneDefaultState());
 }
 
 // migrateState: asegura que bazares viejos tengan los campos nuevos.
@@ -167,6 +183,27 @@ function migrateState(parsed) {
 
   Object.values(parsed.bazaars || {}).forEach((bz) => {
     if (!bz.invitados)   bz.invitados   = [];
+    if (!bz.customMetrics) bz.customMetrics = emptyCustomMetrics();
+    if (!bz.mapConfig) bz.mapConfig = defaultMapConfig();
+    if (!Number.isFinite(Number(bz.mapConfig.pixelsPerMeter)) || bz.mapConfig.pixelsPerMeter <= 0) {
+      bz.mapConfig.pixelsPerMeter = 100;
+    }
+    if (!Number.isFinite(Number(bz.mapConfig.backgroundOpacity))) bz.mapConfig.backgroundOpacity = 1;
+    bz.mapConfig.backgroundOpacity = Math.max(0, Math.min(1, Number(bz.mapConfig.backgroundOpacity)));
+    if (!Array.isArray(bz.floors) || bz.floors.length === 0) {
+      bz.floors = [createFloor(`${bz.id}-floor-1`, "Planta baja", bz.tables || [], bz.bgImage || null, bz.mapConfig.backgroundOpacity)];
+    }
+    bz.floors.forEach((floor, index) => {
+      if (!floor.id) floor.id = `${bz.id}-floor-${index + 1}`;
+      if (!floor.name) floor.name = `Piso ${index + 1}`;
+      if (!Array.isArray(floor.tables)) floor.tables = [];
+      if (floor.bgImage === undefined) floor.bgImage = null;
+      if (!Number.isFinite(Number(floor.backgroundOpacity))) floor.backgroundOpacity = 1;
+      floor.backgroundOpacity = Math.max(0, Math.min(1, Number(floor.backgroundOpacity)));
+    });
+    if (!bz.activeFloorId || !bz.floors.some((floor) => floor.id === bz.activeFloorId)) {
+      bz.activeFloorId = bz.floors[0].id;
+    }
     if (!bz.logoImage)   bz.logoImage   = null;
 
     // Migrar costsConfig: renombrar tablesUnit->tablesTotal, chairsUnit->chairsTotal
@@ -186,6 +223,14 @@ function migrateState(parsed) {
     (bz.expositores || []).forEach((exp) => {
       if (exp.adelanto           === undefined) exp.adelanto           = 0;
       if (exp.fechaLimitePago    === undefined) exp.fechaLimitePago    = "";
+      if (!exp.metricValues) exp.metricValues = {};
+    });
+    getActiveTables(bz).forEach((table) => {
+      if (table.rotation === undefined) table.rotation = 0;
+    });
+    bz.invitados.forEach((inv) => {
+      if (inv.expositorId === undefined) inv.expositorId = "";
+      if (inv.asistio === undefined) inv.asistio = false;
     });
   });
   return parsed;
@@ -201,6 +246,15 @@ function saveState() {
 
 function getActiveBazaar() {
   return AppState.bazaars[AppState.currentBazaarId] || null;
+}
+
+function getActiveFloor(bz = getActiveBazaar()) {
+  if (!bz) return null;
+  return bz.floors?.find((floor) => floor.id === bz.activeFloorId) || bz.floors?.[0] || null;
+}
+
+function getActiveTables(bz = getActiveBazaar()) {
+  return getActiveFloor(bz)?.tables || [];
 }
 
 // ==========================================
@@ -262,6 +316,45 @@ function switchTab(tabId) {
   if (tabId === "invitados")    renderInvitados();
   if (tabId === "bazares")      renderBazaresTabla();
   if (tabId === "plantillas")   renderPlantillas();
+  renderFabMenu(tabId);
+}
+
+const fabActions = {
+  expositores: [{ label: "👤 Nuevo Expositor", action: openModalExpositorForCurrentCategory }],
+  categorias: [{ label: "🏷️ Nueva Categoría", action: openModalCategoria }],
+  invitados: [{ label: "🎟️ Agregar Invitado", action: openModalInvitado }],
+  costos: [{ label: "💸 Agregar Gasto", action: addExtraCostRow }],
+  mapa: [
+    { label: "🪑 Nueva Mesa", action: addTableToCore },
+    { label: "🏢 Nuevo Piso", action: addFloor }
+  ],
+  estadisticas: [{ label: "📈 Nueva Métrica", action: addCustomMetric }],
+  bazares: [{ label: "🏪 Nuevo Bazar", action: createBazaar }]
+};
+
+function renderFabMenu(tabId = "expositores") {
+  const menu = document.getElementById("fab-add-menu");
+  if (!menu) return;
+  const actions = fabActions[tabId] || fabActions.expositores;
+  menu.innerHTML = actions.map((item, index) =>
+    `<button class="fab-add-item" onclick="runFabAction('${tabId}', ${index})">${item.label}</button>`
+  ).join("");
+  menu.classList.remove("open");
+  menu.setAttribute("aria-hidden", "true");
+}
+
+function toggleFabMenu() {
+  const menu = document.getElementById("fab-add-menu");
+  if (!menu) return;
+  const isOpen = menu.classList.toggle("open");
+  menu.setAttribute("aria-hidden", String(!isOpen));
+}
+
+function runFabAction(tabId, actionIndex) {
+  const menu = document.getElementById("fab-add-menu");
+  if (menu) menu.classList.remove("open");
+  const action = fabActions[tabId]?.[actionIndex]?.action;
+  if (typeof action === "function") action();
 }
 
 // ==========================================
@@ -270,7 +363,10 @@ function switchTab(tabId) {
 function toggleDarkMode() {
   document.body.classList.toggle("dark");
   const icon = document.getElementById("dark-icon");
-  if (icon) icon.textContent = document.body.classList.contains("dark") ? "☀️" : "🌙";
+  const label = document.getElementById("dark-label");
+  const isDark = document.body.classList.contains("dark");
+  if (icon) icon.textContent = isDark ? "☀️" : "🌙";
+  if (label) label.textContent = isDark ? "Modo Claro" : "Modo Oscuro";
 }
 
 function toggleBackupMenu() {
@@ -288,6 +384,22 @@ function exportarJSON() {
   a.download = `expositores_backup_${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   showToast("✅ JSON descargado correctamente");
+}
+
+function exportarJSONCompleto() {
+  const backup = {
+    app: "EXPOSITORES.COM",
+    version: 3,
+    exportedAt: new Date().toISOString(),
+    data: AppState
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `expositores_respaldo_completo_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast("✅ Respaldo completo descargado");
 }
 
 function exportarCSV() {
@@ -324,7 +436,12 @@ function handleImportJSON(e) {
   reader.onload = (evt) => {
     try {
       const parsed = JSON.parse(evt.target.result);
-      AppState = migrateState(parsed);
+      const importedState = parsed.data && parsed.app === "EXPOSITORES.COM" ? parsed.data : parsed;
+      if (!importedState || typeof importedState !== "object" || !importedState.bazaars) {
+        throw new Error("Estructura de respaldo inválida");
+      }
+      if (!confirm("La importación reemplazará los datos actuales. ¿Deseas continuar?")) return;
+      AppState = migrateState(importedState);
       saveState();
       renderAll();
       showToast("✅ Datos importados correctamente");
@@ -350,13 +467,106 @@ function renderBazaarSelector() {
 function updateMapaBazaarLabel() {
   const el = document.getElementById("mapa-bazaar-name-display");
   if (el) el.textContent = getActiveBazaar()?.name || "—";
+  const scaleInput = document.getElementById("map-pixels-per-meter");
+  if (scaleInput) scaleInput.value = getPixelsPerMeter();
+  renderFloorSelector();
+  const opacity = Number(getActiveFloor()?.backgroundOpacity ?? 1);
+  const opacityInput = document.getElementById("floor-plan-opacity");
+  const opacityValue = document.getElementById("floor-plan-opacity-value");
+  if (opacityInput) opacityInput.value = Math.round(opacity * 100);
+  if (opacityValue) opacityValue.textContent = `${Math.round(opacity * 100)}%`;
+}
+
+function getPixelsPerMeter() {
+  return Number(getActiveBazaar()?.mapConfig?.pixelsPerMeter) || 100;
+}
+
+function updateMapScale(value) {
+  const bz = getActiveBazaar();
+  const pixelsPerMeter = Math.max(1, Number(value) || 100);
+  if (!bz) return;
+  if (!bz.mapConfig) bz.mapConfig = defaultMapConfig();
+  bz.mapConfig.pixelsPerMeter = pixelsPerMeter;
+  saveState();
+  updateMapaBazaarLabel();
+  showToast(`✅ Escala actualizada: ${pixelsPerMeter} px = 1 m`);
+}
+
+function updateFloorPlanOpacity(value) {
+  const bz = getActiveBazaar();
+  const floor = getActiveFloor(bz);
+  if (!bz || !floor) return;
+  const opacity = Math.max(0, Math.min(1, Number(value) / 100));
+  floor.backgroundOpacity = opacity;
+  const output = document.getElementById("floor-plan-opacity-value");
+  if (output) output.textContent = `${Math.round(opacity * 100)}%`;
+  saveState();
+  bazaarCanvas.render();
+}
+
+function renderFloorSelector() {
+  const select = document.getElementById("floor-select");
+  const bz = getActiveBazaar();
+  if (!select || !bz?.floors) return;
+  select.innerHTML = bz.floors.map((floor) =>
+    `<option value="${floor.id}" ${floor.id === bz.activeFloorId ? "selected" : ""}>${escapeHTML(floor.name)}</option>`
+  ).join("");
+}
+
+function switchFloor(floorId) {
+  const bz = getActiveBazaar();
+  if (!bz?.floors?.some((floor) => floor.id === floorId)) return;
+  bz.activeFloorId = floorId;
+  bazaarCanvas.selectedTableId = null;
+  saveState();
+  bazaarCanvas.loadBgImage();
+  bazaarCanvas.render();
+  renderChecklist();
+  updateMapaBazaarLabel();
+}
+
+function addFloor() {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  const name = prompt("Nombre del nuevo piso:", `Piso ${(bz.floors?.length || 0) + 1}`);
+  if (!name?.trim()) return;
+  const floor = createFloor(`${bz.id}-floor-${Date.now()}`, name.trim());
+  if (!bz.floors) bz.floors = [];
+  bz.floors.push(floor);
+  bz.activeFloorId = floor.id;
+  saveState();
+  renderAll();
+  bazaarCanvas.loadBgImage();
+  bazaarCanvas.render();
+  showToast(`✅ ${floor.name} creado`);
+}
+
+function deleteCurrentFloor() {
+  const bz = getActiveBazaar();
+  if (!bz?.floors || bz.floors.length <= 1) {
+    showToast("Debe existir al menos un piso", "error");
+    return;
+  }
+  const floor = getActiveFloor(bz);
+  if (!floor || !confirm(`¿Eliminar "${floor.name}" y sus mesas?`)) return;
+  bz.floors = bz.floors.filter((item) => item.id !== floor.id);
+  bz.activeFloorId = bz.floors[0].id;
+  bazaarCanvas.selectedTableId = null;
+  saveState();
+  renderAll();
+  bazaarCanvas.loadBgImage();
+  bazaarCanvas.render();
+  showToast("🗑️ Piso eliminado");
 }
 
 function switchBazaar(bazaarId) {
   if (!AppState.bazaars[bazaarId]) return;
   AppState.currentBazaarId = bazaarId;
+  bazaarCanvas.selectedTableId = null;
   saveState();
   renderAll();
+  bazaarCanvas.loadBgImage();
+  bazaarCanvas.render();
 }
 
 function createBazaar() {
@@ -365,10 +575,11 @@ function createBazaar() {
   const id = "bazaar-" + Date.now();
   AppState.bazaars[id] = {
     id, name: name.trim(),
-    bgImage: null, logoImage: null,
+    bgImage: null, logoImage: null, mapConfig: defaultMapConfig(),
     expositores: [], tables: [],
     costsConfig: emptyCostsConfig(),
-    invitados: []
+    invitados: [], customMetrics: emptyCustomMetrics(),
+    floors: [createFloor(`${id}-floor-1`, "Planta baja")], activeFloorId: `${id}-floor-1`
   };
   AppState.currentBazaarId = id;
   saveState();
@@ -388,8 +599,9 @@ function deleteBazaarById(bazaarId) {
   if (remaining.length === 0) {
     // Si no quedan bazares, crea uno vacío para no romper la app
     const newId = "bazaar-" + Date.now();
-    AppState.bazaars[newId] = { id: newId, name: "Mi Primer Bazar", bgImage: null, logoImage: null,
-      expositores: [], tables: [], costsConfig: emptyCostsConfig(), invitados: [] };
+    AppState.bazaars[newId] = { id: newId, name: "Mi Primer Bazar", bgImage: null, logoImage: null, mapConfig: defaultMapConfig(),
+      expositores: [], tables: [], costsConfig: emptyCostsConfig(), invitados: [], customMetrics: emptyCustomMetrics(),
+      floors: [createFloor(`${newId}-floor-1`, "Planta baja")], activeFloorId: `${newId}-floor-1` };
     AppState.currentBazaarId = newId;
   }
   saveState();
@@ -527,6 +739,7 @@ function renderAll() {
   renderChecklist();
   renderInvitados();
   renderPlantillas();
+  renderCustomMetrics();
 }
 
 function handleSearch(val) {
@@ -544,6 +757,52 @@ function setFilterCategory(catId, btnEl) {
 function setFilterStatus(status) {
   AppState.filterStatus = status;
   renderExpositores();
+}
+
+function renderCustomMetrics() {
+  const bz = getActiveBazaar();
+  const container = document.getElementById("custom-metrics-list");
+  if (!bz || !container) return;
+  const metrics = bz.customMetrics || (bz.customMetrics = []);
+  container.innerHTML = metrics.length === 0
+    ? `<p class="form-hint">Aún no hay métricas. Crea una para capturarla en los expositores.</p>`
+    : metrics.map((metric) => `
+      <div class="custom-metric-row">
+        <input class="form-input" value="${escapeHTML(metric.name)}" onchange="updateCustomMetric('${metric.id}','name',this.value)" placeholder="Ej. Seguidores en redes">
+        <select class="form-select" onchange="updateCustomMetric('${metric.id}','type',this.value)">
+          <option value="number" ${metric.type === "number" ? "selected" : ""}>Número</option>
+          <option value="currency" ${metric.type === "currency" ? "selected" : ""}>Dinero</option>
+          <option value="percentage" ${metric.type === "percentage" ? "selected" : ""}>Porcentaje</option>
+        </select>
+        <button class="btn-danger btn-sm" onclick="removeCustomMetric('${metric.id}')">🗑️</button>
+      </div>`).join("");
+}
+
+function addCustomMetric() {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  if (!bz.customMetrics) bz.customMetrics = [];
+  bz.customMetrics.push({ id: `metric-${Date.now()}`, name: "Nueva métrica", type: "number" });
+  saveState();
+  renderAll();
+  showToast("✅ Métrica creada");
+}
+
+function updateCustomMetric(id, field, value) {
+  const metric = (getActiveBazaar()?.customMetrics || []).find((item) => item.id === id);
+  if (!metric) return;
+  metric[field] = field === "name" ? value.trim() || "Métrica" : value;
+  saveState();
+  renderAll();
+}
+
+function removeCustomMetric(id) {
+  const bz = getActiveBazaar();
+  if (!bz || !confirm("¿Eliminar esta métrica y sus valores?")) return;
+  bz.customMetrics = (bz.customMetrics || []).filter((metric) => metric.id !== id);
+  bz.expositores.forEach((exp) => { if (exp.metricValues) delete exp.metricValues[id]; });
+  saveState();
+  renderAll();
 }
 
 // ==========================================
@@ -845,7 +1104,7 @@ function closeModal(id) {
   if (el) el.classList.remove("open");
 }
 
-function openModalExpositor(id = null) {
+function openModalExpositor(id = null, categoryId = null) {
   populateCategoriaSelect();
   const form = document.getElementById("form-expositor");
   form.reset();
@@ -853,6 +1112,7 @@ function openModalExpositor(id = null) {
   document.getElementById("exp-foto-base64").value  = "";
   const box = document.getElementById("avatar-preview-box");
   if (box) box.innerHTML = "📷";
+  renderExpositorMetricFields({});
 
   if (id) {
     const exp = getActiveBazaar().expositores.find((e) => e.id === id);
@@ -870,19 +1130,45 @@ function openModalExpositor(id = null) {
       document.getElementById("exp-fecha-limite").value  = exp.fechaLimitePago || "";
       document.getElementById("exp-pagado").checked      = exp.pagado;
       document.getElementById("exp-notas").value         = exp.notas || "";
+      renderExpositorMetricFields(exp.metricValues || {});
       document.getElementById("exp-foto-base64").value   = exp.foto || "";
       if (exp.foto && box) box.innerHTML = `<img src="${exp.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     }
   } else {
     document.getElementById("modal-exp-title").textContent = "Nuevo Expositor";
+    if (categoryId && AppState.categorias.some((category) => category.id === categoryId)) {
+      document.getElementById("exp-categoria").value = categoryId;
+    }
   }
   openModal("modal-expositor");
+}
+
+function openModalExpositorForCurrentCategory() {
+  const categoryId = AppState.filterCategory === "all" ? null : AppState.filterCategory;
+  openModalExpositor(null, categoryId);
 }
 
 function populateCategoriaSelect() {
   const sel = document.getElementById("exp-categoria");
   if (!sel) return;
   sel.innerHTML = AppState.categorias.map((c) => `<option value="${c.id}">${c.emoji} ${escapeHTML(c.nombre)}</option>`).join("");
+}
+
+function renderExpositorMetricFields(values) {
+  const container = document.getElementById("expositor-custom-metrics");
+  const metrics = getActiveBazaar()?.customMetrics || [];
+  if (!container) return;
+  container.innerHTML = metrics.length === 0 ? "" : `
+    <div class="form-group">
+      <label class="form-label">Métricas personalizadas</label>
+      <div class="custom-metrics-input-grid">
+        ${metrics.map((metric) => `<div>
+          <label class="form-hint">${escapeHTML(metric.name)}</label>
+          <input type="number" min="0" step="any" class="form-input" data-metric-id="${metric.id}"
+                 value="${Number(values[metric.id] || 0)}" placeholder="0">
+        </div>`).join("")}
+      </div>
+    </div>`;
 }
 
 function handleFotoUpload(e) {
@@ -904,6 +1190,11 @@ function saveExpositorHandler(e) {
   const id = document.getElementById("exp-id").value;
   const existing = id ? bz.expositores.find((x) => x.id === id) : null;
 
+  const metricValues = {};
+  document.querySelectorAll("#expositor-custom-metrics [data-metric-id]").forEach((input) => {
+    metricValues[input.dataset.metricId] = Number(input.value || 0);
+  });
+
   const expData = {
     id:             id || "exp-" + Date.now(),
     nombre:         document.getElementById("exp-nombre").value.trim(),
@@ -918,7 +1209,8 @@ function saveExpositorHandler(e) {
     pagado:         document.getElementById("exp-pagado").checked,
     notas:          document.getElementById("exp-notas").value.trim(),
     foto:           document.getElementById("exp-foto-base64").value,
-    checklist:      existing ? existing.checklist : defaultChecklistItems()
+    checklist:      existing ? existing.checklist : defaultChecklistItems(),
+    metricValues
   };
 
   if (id) {
@@ -1278,15 +1570,18 @@ function renderInvitados() {
 
   if (invitados.length === 0) {
     container.innerHTML = `
-      <tr><td colspan="5" style="text-align:center;color:var(--color-text-muted);padding:24px;">
+      <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:24px;">
         Sin invitados registrados. Agrega uno con "+ Agregar Invitado".
       </td></tr>`;
     return;
   }
 
-  container.innerHTML = invitados.map((inv) => `
+  container.innerHTML = invitados.map((inv) => {
+    const exp = bz.expositores.find((item) => item.id === inv.expositorId);
+    return `
     <tr>
       <td><strong>${escapeHTML(inv.nombre)}</strong></td>
+      <td>${exp ? escapeHTML(exp.negocio) : "<span style=\"color:var(--color-text-muted)\">Sin vincular</span>"}</td>
       <td>${escapeHTML(inv.notas || "—")}</td>
       <td>
         <label class="switch" style="transform:scale(0.85);display:inline-block;">
@@ -1309,7 +1604,8 @@ function renderInvitados() {
       <td>
         <button class="btn-danger btn-sm" onclick="deleteInvitado('${inv.id}')">🗑️</button>
       </td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 }
 
 function toggleInvConfirmado(id) {
@@ -1334,6 +1630,11 @@ function deleteInvitado(id) {
 
 function openModalInvitado() {
   document.getElementById("form-invitado").reset();
+  const select = document.getElementById("inv-expositor");
+  if (select) {
+    select.innerHTML = `<option value="">-- Sin vincular --</option>` +
+      getActiveBazaar().expositores.map((exp) => `<option value="${exp.id}">${escapeHTML(exp.negocio)} (${escapeHTML(exp.nombre)})</option>`).join("");
+  }
   openModal("modal-invitado");
 }
 
@@ -1344,6 +1645,7 @@ function saveInvitadoHandler(e) {
   bz.invitados.push({
     id:          "inv-" + Date.now(),
     nombre:      document.getElementById("inv-nombre").value.trim(),
+    expositorId: document.getElementById("inv-expositor").value,
     notas:       document.getElementById("inv-notas").value.trim(),
     confirmado:  document.getElementById("inv-confirmado").checked,
     asistio:     false
@@ -1361,11 +1663,12 @@ function renderChecklist() {
   const container = document.getElementById("checklist-container");
   if (!container) return;
   const bz = getActiveBazaar();
-  if (!bz.tables || bz.tables.length === 0) {
+  const tables = getActiveTables(bz);
+  if (tables.length === 0) {
     container.innerHTML = `<p style="font-size:var(--fs-xs);color:var(--color-text-muted);">No hay mesas en este bazar.</p>`;
     return;
   }
-  container.innerHTML = bz.tables.map((t) => {
+  container.innerHTML = tables.map((t) => {
     const exp = bz.expositores.find((e) => e.id === t.exhibitorId);
     return `
       <div class="card-meta-item" style="display:flex;justify-content:space-between;align-items:center;">
@@ -1386,7 +1689,7 @@ function renderChecklist() {
 
 function toggleAttendance(tableId) {
   const bz = getActiveBazaar();
-  const t  = bz.tables.find((item) => item.id === tableId);
+  const t  = getActiveTables(bz).find((item) => item.id === tableId);
   if (t) {
     t.attended = !t.attended;
     saveState();
@@ -1405,6 +1708,7 @@ class BazaarCanvasManager {
     this.scale = 1.0; this.panX = 0; this.panY = 0;
     this.isPanning = false; this.isDraggingTable = false;
     this.draggedTable = null;
+    this.selectedTableId = null;
     this.startMouseX = 0; this.startMouseY = 0;
     this.dragOffsetX = 0; this.dragOffsetY = 0;
     this.bgImageObj = null;
@@ -1423,9 +1727,10 @@ class BazaarCanvasManager {
 
   loadBgImage() {
     const bz = this.getCurrentBazaar();
-    if (bz && bz.bgImage) {
+    const floor = getActiveFloor(bz);
+    if (floor?.bgImage) {
       this.bgImageObj = new Image();
-      this.bgImageObj.src = bz.bgImage;
+      this.bgImageObj.src = floor.bgImage;
       this.bgImageObj.onload = () => this.render();
     } else {
       this.bgImageObj = null;
@@ -1452,15 +1757,18 @@ class BazaarCanvasManager {
   handleMouseDown(e) {
     const { rawX, rawY, worldX, worldY } = this.getCanvasCoords(e);
     const bz = this.getCurrentBazaar();
-    for (let i = bz.tables.length - 1; i >= 0; i--) {
-      const t = bz.tables[i];
-      if (worldX >= t.x && worldX <= t.x + t.w && worldY >= t.y && worldY <= t.y + t.h) {
+    const tables = getActiveTables(bz);
+    for (let i = tables.length - 1; i >= 0; i--) {
+      const t = tables[i];
+      if (this.isPointInsideTable(t, worldX, worldY)) {
+        this.selectedTableId = t.id;
         this.isDraggingTable = true; this.draggedTable = t;
         this.dragOffsetX = worldX - t.x; this.dragOffsetY = worldY - t.y;
         this.canvas.style.cursor = "grabbing"; return;
       }
     }
     this.isPanning = true;
+    this.selectedTableId = null;
     this.startMouseX = rawX - this.panX;
     this.startMouseY = rawY - this.panY;
     this.canvas.style.cursor = "grabbing";
@@ -1488,12 +1796,24 @@ class BazaarCanvasManager {
   handleDoubleClick(e) {
     const { worldX, worldY } = this.getCanvasCoords(e);
     const bz = this.getCurrentBazaar();
-    for (let i = bz.tables.length - 1; i >= 0; i--) {
-      const t = bz.tables[i];
-      if (worldX >= t.x && worldX <= t.x + t.w && worldY >= t.y && worldY <= t.y + t.h) {
+    const tables = getActiveTables(bz);
+    for (let i = tables.length - 1; i >= 0; i--) {
+      const t = tables[i];
+      if (this.isPointInsideTable(t, worldX, worldY)) {
         openModalTableEdit(t.id); return;
       }
     }
+  }
+
+  isPointInsideTable(table, x, y) {
+    const angle = -(Number(table.rotation) || 0) * Math.PI / 180;
+    const centerX = table.x + table.w / 2;
+    const centerY = table.y + table.h / 2;
+    const dx = x - centerX;
+    const dy = y - centerY;
+    const localX = dx * Math.cos(angle) - dy * Math.sin(angle) + centerX;
+    const localY = dx * Math.sin(angle) + dy * Math.cos(angle) + centerY;
+    return localX >= table.x && localX <= table.x + table.w && localY >= table.y && localY <= table.y + table.h;
   }
 
   render() {
@@ -1501,27 +1821,29 @@ class BazaarCanvasManager {
     const w = this.canvas.width, h = this.canvas.height;
     this.ctx.save();
     this.ctx.clearRect(0, 0, w, h);
+    if (!this.bgImageObj) this.drawGrid(w, h);
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.scale, this.scale);
     if (this.bgImageObj) {
+      const opacity = Number(getActiveFloor(this.getCurrentBazaar())?.backgroundOpacity ?? 1);
+      this.ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
       this.ctx.drawImage(this.bgImageObj, 0, 0);
-    } else {
-      this.drawGrid();
+      this.ctx.globalAlpha = 1;
     }
     const bz = this.getCurrentBazaar();
-    if (bz && bz.tables) bz.tables.forEach((t) => this.drawTable(t));
+    getActiveTables(bz).forEach((t) => this.drawTable(t));
     this.ctx.restore();
   }
 
-  drawGrid() {
+  drawGrid(width, height) {
     this.ctx.strokeStyle = "rgba(13,148,136,0.15)";
     this.ctx.lineWidth = 1;
     const gs = 20;
-    for (let x = 0; x < 2000; x += gs) {
-      this.ctx.beginPath(); this.ctx.moveTo(x, 0); this.ctx.lineTo(x, 2000); this.ctx.stroke();
+    for (let x = 0; x <= width; x += gs) {
+      this.ctx.beginPath(); this.ctx.moveTo(x, 0); this.ctx.lineTo(x, height); this.ctx.stroke();
     }
-    for (let y = 0; y < 2000; y += gs) {
-      this.ctx.beginPath(); this.ctx.moveTo(0, y); this.ctx.lineTo(2000, y); this.ctx.stroke();
+    for (let y = 0; y <= height; y += gs) {
+      this.ctx.beginPath(); this.ctx.moveTo(0, y); this.ctx.lineTo(width, y); this.ctx.stroke();
     }
   }
 
@@ -1535,6 +1857,10 @@ class BazaarCanvasManager {
       if (cat) { fillColor = cat.color + "25"; borderColor = cat.color; }
       else     { fillColor = "#e0f2fe"; borderColor = "#0284c7"; }
     }
+    this.ctx.save();
+    this.ctx.translate(t.x + t.w / 2, t.y + t.h / 2);
+    this.ctx.rotate((Number(t.rotation) || 0) * Math.PI / 180);
+    this.ctx.translate(-(t.x + t.w / 2), -(t.y + t.h / 2));
     this.ctx.shadowColor = "rgba(0,0,0,0.08)"; this.ctx.shadowBlur = 6;
     this.ctx.shadowOffsetX = 2; this.ctx.shadowOffsetY = 2;
     this.ctx.fillStyle = fillColor; this.ctx.strokeStyle = borderColor; this.ctx.lineWidth = 2;
@@ -1549,6 +1875,7 @@ class BazaarCanvasManager {
       const txt = exhibitor.negocio.length > 11 ? exhibitor.negocio.slice(0, 9) + ".." : exhibitor.negocio;
       this.ctx.fillText(txt, t.x + t.w / 2, t.y + (t.h * 2) / 3);
     }
+    this.ctx.restore();
   }
 }
 
@@ -1573,8 +1900,10 @@ function resetBazaarZoom() {
 function resetBazaarCanvas() {
   if (!confirm("¿Eliminar todas las mesas e imagen de fondo del plano? Esta acción no se puede deshacer.")) return;
   const bz = getActiveBazaar();
-  bz.tables  = [];
-  bz.bgImage = null;
+  const floor = getActiveFloor(bz);
+  if (!floor) return;
+  floor.tables = [];
+  floor.bgImage = null;
   bazaarCanvas.bgImageObj = null;
   bazaarCanvas.scale = 1.0;
   bazaarCanvas.panX  = 0;
@@ -1592,7 +1921,9 @@ function handleFloorPlanUpload(e) {
   reader.onload = (evt) => {
     const bz = getActiveBazaar();
     if (bz) {
-      bz.bgImage = evt.target.result;
+      const floor = getActiveFloor(bz);
+      if (!floor) return;
+      floor.bgImage = evt.target.result;
       saveState();
       bazaarCanvas.loadBgImage();
       showToast("✅ Imagen de fondo cargada");
@@ -1605,12 +1936,13 @@ function addTableToCore() {
   const bz  = getActiveBazaar();
   if (!bz) return;
   const id  = "t-" + Date.now();
-  const cnt = bz.tables.length + 1;
-  bz.tables.push({
+  const tables = getActiveTables(bz);
+  const cnt = tables.length + 1;
+  tables.push({
     id, name: `Mesa ${cnt}`,
     x: 80 + ((cnt - 1) % 6) * 110,
     y: 80 + Math.floor((cnt - 1) / 6) * 80,
-    w: 90, h: 50, exhibitorId: "", attended: false
+    w: 90, h: 50, rotation: 0, exhibitorId: "", attended: false
   });
   saveState(); bazaarCanvas.render(); renderChecklist();
   showToast("Mesa agregada al plano");
@@ -1620,19 +1952,23 @@ function addTableToCore() {
 function deleteTable(tableId) {
   const bz = getActiveBazaar();
   if (!confirm(`¿Eliminar esta mesa del plano?`)) return;
-  bz.tables = bz.tables.filter((t) => t.id !== tableId);
+  const floor = getActiveFloor(bz);
+  if (!floor) return;
+  floor.tables = floor.tables.filter((t) => t.id !== tableId);
   saveState(); bazaarCanvas.render(); renderChecklist();
   showToast("🗑️ Mesa eliminada del plano");
 }
 
 function openModalTableEdit(tableId) {
   const bz = getActiveBazaar();
-  const t  = bz.tables.find((item) => item.id === tableId);
+  const t  = getActiveTables(bz).find((item) => item.id === tableId);
   if (!t) return;
   document.getElementById("edit-table-id").value    = t.id;
   document.getElementById("edit-table-name").value  = t.name;
-  document.getElementById("edit-table-width").value = t.w;
-  document.getElementById("edit-table-height").value = t.h;
+  const pixelsPerCentimeter = getPixelsPerMeter() / 100;
+  document.getElementById("edit-table-width-cm").value = Math.round(t.w / pixelsPerCentimeter);
+  document.getElementById("edit-table-height-cm").value = Math.round(t.h / pixelsPerCentimeter);
+  document.getElementById("edit-table-rotation").value = Number(t.rotation) || 0;
   const sel = document.getElementById("edit-table-exhibitor");
   if (sel) {
     sel.innerHTML = `<option value="">-- Sin asignar (Mesa Libre) --</option>` +
@@ -1646,16 +1982,43 @@ function openModalTableEdit(tableId) {
 function saveTableEdit() {
   const id = document.getElementById("edit-table-id").value;
   const bz = getActiveBazaar();
-  const t  = bz.tables.find((item) => item.id === id);
+  const t  = getActiveTables(bz).find((item) => item.id === id);
   if (t) {
     t.name        = document.getElementById("edit-table-name").value.trim() || t.name;
     t.exhibitorId = document.getElementById("edit-table-exhibitor").value;
-    t.w           = Number(document.getElementById("edit-table-width").value  || t.w);
-    t.h           = Number(document.getElementById("edit-table-height").value || t.h);
+    const pixelsPerCentimeter = getPixelsPerMeter() / 100;
+    t.w           = Math.max(1, Number(document.getElementById("edit-table-width-cm").value || 1) * pixelsPerCentimeter);
+    t.h           = Math.max(1, Number(document.getElementById("edit-table-height-cm").value || 1) * pixelsPerCentimeter);
+    t.rotation    = ((Number(document.getElementById("edit-table-rotation").value) || 0) % 360 + 360) % 360;
     saveState(); bazaarCanvas.render(); renderChecklist();
     closeModal("modal-editar-mesa");
     showToast("✅ Mesa actualizada");
   }
+}
+
+function rotateEditingTable(delta) {
+  const tableId = document.getElementById("edit-table-id")?.value;
+  const table = getActiveTables().find((item) => item.id === tableId);
+  if (!table) return;
+  table.rotation = ((Number(table.rotation) || 0) + delta + 360) % 360;
+  const rotationInput = document.getElementById("edit-table-rotation");
+  if (rotationInput) rotationInput.value = table.rotation;
+  saveState();
+  bazaarCanvas.render();
+  showToast(`Mesa girada a ${table.rotation}°`);
+}
+
+function rotateSelectedTable(delta) {
+  const tableId = bazaarCanvas.selectedTableId;
+  const table = getActiveTables().find((item) => item.id === tableId);
+  if (!table) {
+    showToast("Selecciona una mesa primero", "error");
+    return;
+  }
+  table.rotation = ((Number(table.rotation) || 0) + delta + 360) % 360;
+  saveState();
+  bazaarCanvas.render();
+  showToast(`Mesa girada a ${table.rotation}°`);
 }
 
 // ==========================================
@@ -1664,10 +2027,20 @@ function saveTableEdit() {
 // ==========================================
 let chartCategoriesInstance = null;
 let chartPaymentsInstance   = null;
+let chartCustomInstance     = null;
 
 function updateCharts() {
   if (typeof Chart === "undefined") return;
   const bz = getActiveBazaar();
+  const customMetrics = bz.customMetrics || [];
+  const customSelect = document.getElementById("custom-chart-metric");
+  if (customSelect) {
+    const current = customSelect.value;
+    customSelect.innerHTML = customMetrics.length
+      ? customMetrics.map((metric) => `<option value="${metric.id}">${escapeHTML(metric.name)}</option>`).join("")
+      : `<option value="">Sin métricas</option>`;
+    if (customMetrics.some((metric) => metric.id === current)) customSelect.value = current;
+  }
 
   const ctxCat = document.getElementById("chart-categorias");
   if (ctxCat) {
@@ -1696,6 +2069,20 @@ function updateCharts() {
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
     });
   }
+
+  const ctxCustom = document.getElementById("chart-custom");
+  if (ctxCustom) {
+    if (chartCustomInstance) chartCustomInstance.destroy();
+    const metric = customMetrics.find((item) => item.id === customSelect?.value) || customMetrics[0];
+    chartCustomInstance = metric ? new Chart(ctxCustom, {
+      type: "bar",
+      data: {
+        labels: bz.expositores.map((exp) => exp.negocio),
+        datasets: [{ label: metric.name, data: bz.expositores.map((exp) => Number(exp.metricValues?.[metric.id] || 0)), backgroundColor: "#0d9488" }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+    }) : null;
+  }
 }
 
 // ==========================================
@@ -1706,12 +2093,14 @@ window.switchTab                     = switchTab;
 window.toggleDarkMode                = toggleDarkMode;
 window.toggleBackupMenu              = toggleBackupMenu;
 window.exportarJSON                  = exportarJSON;
+window.exportarJSONCompleto           = exportarJSONCompleto;
 window.exportarCSV                   = exportarCSV;
 window.handleImportJSON              = handleImportJSON;
 window.handleSearch                  = handleSearch;
 window.setFilterCategory             = setFilterCategory;
 window.setFilterStatus               = setFilterStatus;
 window.openModalExpositor            = openModalExpositor;
+window.openModalExpositorForCurrentCategory = openModalExpositorForCurrentCategory;
 window.closeModal                    = closeModal;
 window.handleFotoUpload              = handleFotoUpload;
 window.saveExpositorHandler          = saveExpositorHandler;
@@ -1726,6 +2115,9 @@ window.addExtraCostRow               = addExtraCostRow;
 window.updateExtraCost               = updateExtraCost;
 window.removeExtraCostRow            = removeExtraCostRow;
 window.switchBazaar                  = switchBazaar;
+window.switchFloor                   = switchFloor;
+window.addFloor                      = addFloor;
+window.deleteCurrentFloor            = deleteCurrentFloor;
 window.createBazaar                  = createBazaar;
 window.deleteBazaarById              = deleteBazaarById;
 window.switchBazaarAndGo             = switchBazaarAndGo;
@@ -1738,10 +2130,14 @@ window.removeLogoHandler             = removeLogoHandler;
 window.zoomBazaar                    = zoomBazaar;
 window.resetBazaarZoom               = resetBazaarZoom;
 window.resetBazaarCanvas             = resetBazaarCanvas;
+window.updateMapScale                = updateMapScale;
 window.handleFloorPlanUpload         = handleFloorPlanUpload;
 window.addTableToCore                = addTableToCore;
 window.deleteTable                   = deleteTable;
 window.saveTableEdit                 = saveTableEdit;
+window.rotateEditingTable             = rotateEditingTable;
+window.rotateSelectedTable             = rotateSelectedTable;
+window.updateFloorPlanOpacity          = updateFloorPlanOpacity;
 window.toggleAttendance              = toggleAttendance;
 window.openExpositorChecklist        = openExpositorChecklist;
 window.toggleExpositorChecklistItem  = toggleExpositorChecklistItem;
@@ -1757,9 +2153,14 @@ window.saveInvitadoHandler           = saveInvitadoHandler;
 window.toggleInvConfirmado           = toggleInvConfirmado;
 window.toggleInvAsistio              = toggleInvAsistio;
 window.deleteInvitado                = deleteInvitado;
+window.addCustomMetric                = addCustomMetric;
+window.updateCustomMetric             = updateCustomMetric;
+window.removeCustomMetric             = removeCustomMetric;
+window.updateCharts                   = updateCharts;
 
 document.addEventListener("DOMContentLoaded", () => {
   renderAll();
+  renderFabMenu("expositores");
   bazaarCanvas.init();
 
   // Cierra modales al hacer clic en el fondo oscuro

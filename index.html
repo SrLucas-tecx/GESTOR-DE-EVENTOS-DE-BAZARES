@@ -14,7 +14,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="Styles.css">
 </head>
-<body>
+<body class="dark">
 
 <div class="app-layout">
 
@@ -51,7 +51,7 @@
     <!-- # SIDEBAR / Footer: modo oscuro + menú de respaldo -->
     <div class="sidebar-footer">
       <button class="btn-icon" onclick="toggleDarkMode()">
-        <span id="dark-icon">🌙</span> Modo Oscuro
+        <span id="dark-icon">☀️</span> <span id="dark-label">Modo Claro</span>
       </button>
       <!-- Menú de respaldo: el <div> es HERMANO del <button>, no hijo -->
       <div style="position:relative;">
@@ -61,6 +61,7 @@
         <div id="backup-menu" class="backup-menu">
           <div class="backup-menu-label">Exportar / Importar</div>
           <button class="backup-menu-item" onclick="exportarJSON()">📄 Guardar Datos (JSON)</button>
+          <button class="backup-menu-item" onclick="exportarJSONCompleto()">🛡️ Crear Respaldo Completo</button>
           <button class="backup-menu-item" onclick="exportarCSV()">📊 Excel (.CSV en Columnas)</button>
           <div class="backup-menu-divider"></div>
           <label class="backup-menu-item" style="cursor:pointer;">
@@ -100,7 +101,7 @@
                oninput="handleSearch(this.value)">
       </div>
 
-      <button class="btn-primary" onclick="openModalExpositor()">+ Nuevo Expositor</button>
+      <button class="btn-primary" onclick="openModalExpositorForCurrentCategory()">+ Nuevo Expositor</button>
     </header>
     <!-- / #HEADER -->
 
@@ -347,16 +348,41 @@
             <label class="form-label" style="margin:0;">Bazar:</label>
             <strong id="mapa-bazaar-name-display" style="color:var(--color-accent);">—</strong>
           </div>
+          <div class="control-group-inline floor-controls">
+            <label class="form-label" style="margin:0;">Piso:</label>
+            <select id="floor-select" class="filter-select" onchange="switchFloor(this.value)"></select>
+            <button class="btn-secondary btn-sm" onclick="addFloor()" title="Agregar piso">➕ Piso</button>
+            <button class="btn-danger btn-sm" onclick="deleteCurrentFloor()" title="Eliminar piso">🗑️</button>
+          </div>
+          <div class="control-group-inline">
+            <label class="form-label" style="margin:0;">Escala:</label>
+            <input type="number" id="map-pixels-per-meter" class="form-input" min="1" step="1" style="width:105px;"
+                   onchange="updateMapScale(this.value)" title="Píxeles que representan un metro">
+            <span class="form-hint">px = 1 m</span>
+          </div>
           <div class="control-group-inline">
             <button class="btn-secondary btn-sm" onclick="zoomBazaar(0.1)">➕ Zoom In</button>
             <button class="btn-secondary btn-sm" onclick="zoomBazaar(-0.1)">➖ Zoom Out</button>
             <button class="btn-secondary btn-sm" onclick="resetBazaarZoom()">🔄 Reset Zoom</button>
+          </div>
+          <div class="control-group-inline rotation-toolbar">
+            <span class="form-label" style="margin:0;">Girar mesa:</span>
+            <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(-90)"
+                    title="Girar mesa seleccionada 90 grados a la izquierda" aria-label="Girar a la izquierda">↶</button>
+            <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(90)"
+                    title="Girar mesa seleccionada 90 grados a la derecha" aria-label="Girar a la derecha">↷</button>
           </div>
           <div class="control-group-inline">
             <input type="file" id="floor-plan-upload" accept="image/*" style="display:none;"
                    onchange="handleFloorPlanUpload(event)">
             <button class="btn-secondary btn-sm"
                     onclick="document.getElementById('floor-plan-upload').click()">🖼️ Cargar Fondo</button>
+          </div>
+          <div class="control-group-inline map-opacity-control">
+            <label class="form-label" style="margin:0;">Opacidad:</label>
+            <input type="range" id="floor-plan-opacity" min="0" max="100" step="5"
+                   oninput="updateFloorPlanOpacity(this.value)" title="Opacidad de la imagen de fondo">
+            <output id="floor-plan-opacity-value">100%</output>
           </div>
           <div class="control-group-inline">
             <button class="btn-primary btn-sm" onclick="addTableToCore()">➕ Nueva Mesa</button>
@@ -433,6 +459,7 @@
             <thead>
               <tr>
                 <th>Nombre</th>
+                <th>Expositor</th>
                 <th>Notas</th>
                 <th>Confirmó asistencia</th>
                 <th>Asistió al evento</th>
@@ -452,6 +479,16 @@
            [EDITABLE: agrega más canvas + regístralos en updateCharts()]
       ───────────────────────────────────────────────────────── -->
       <section id="sec-estadisticas" class="page-section">
+        <div class="chart-card custom-metrics-panel">
+          <div class="section-header" style="justify-content:space-between;margin-bottom:12px;">
+            <div>
+              <h2 class="section-title" style="font-size:var(--fs-lg);">Métricas personalizadas</h2>
+              <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Crea indicadores propios y captura su valor en cada expositor.</p>
+            </div>
+            <button class="btn-primary btn-sm" onclick="addCustomMetric()">+ Nueva métrica</button>
+          </div>
+          <div id="custom-metrics-list"></div>
+        </div>
         <div class="charts-grid">
           <div class="chart-card">
             <h3>Distribución por Categorías</h3>
@@ -460,6 +497,13 @@
           <div class="chart-card">
             <h3>Balance Global de Pagos</h3>
             <div class="chart-wrap"><canvas id="chart-pagos"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="section-header" style="justify-content:space-between;margin-bottom:12px;">
+              <h3 style="margin-bottom:0;">Métrica personalizada</h3>
+              <select id="custom-chart-metric" class="filter-select" onchange="updateCharts()"></select>
+            </div>
+            <div class="chart-wrap"><canvas id="chart-custom"></canvas></div>
           </div>
         </div>
       </section>
@@ -521,7 +565,10 @@
 <!-- ═══════════════════════════════════════════════════════════════════
      # FAB — Botón flotante de acción rápida
 ═══════════════════════════════════════════════════════════════════ -->
-<button class="fab" onclick="openModalExpositor()" title="Añadir Expositor">+</button>
+<div class="fab-container">
+  <div id="fab-add-menu" class="fab-add-menu" aria-hidden="true"></div>
+  <button class="fab" onclick="toggleFabMenu()" title="Agregar en esta pantalla" aria-label="Agregar en esta pantalla">+</button>
+</div>
 
 
 <!-- ═══════════════════════════════════════════════════════════════════
@@ -631,6 +678,7 @@
           <textarea id="exp-notas" class="form-textarea"
                     placeholder="Notas sobre luz, sombreado, necesidades especiales..."></textarea>
         </div>
+        <div id="expositor-custom-metrics" class="custom-metrics-fields"></div>
 
       </div>
       <div class="modal-footer">
@@ -708,12 +756,22 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Ancho (px)</label>
-          <input type="number" id="edit-table-width" class="form-input" min="20" step="5">
+          <label class="form-label">Ancho (cm)</label>
+          <input type="number" id="edit-table-width-cm" class="form-input" min="1" step="1">
         </div>
         <div class="form-group">
-          <label class="form-label">Largo (px)</label>
-          <input type="number" id="edit-table-height" class="form-input" min="20" step="5">
+          <label class="form-label">Largo (cm)</label>
+          <input type="number" id="edit-table-height-cm" class="form-input" min="1" step="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rotación (grados)</label>
+        <div class="rotation-controls">
+          <button type="button" class="rotation-button" onclick="rotateEditingTable(-90)"
+                  title="Girar 90 grados a la izquierda" aria-label="Girar 90 grados a la izquierda">↶</button>
+          <input type="number" id="edit-table-rotation" class="form-input" min="0" max="359" step="1">
+          <button type="button" class="rotation-button" onclick="rotateEditingTable(90)"
+                  title="Girar 90 grados a la derecha" aria-label="Girar 90 grados a la derecha">↷</button>
         </div>
       </div>
     </div>
@@ -779,6 +837,11 @@
         <div class="form-group">
           <label class="form-label">Notas / Observaciones</label>
           <textarea id="inv-notas" class="form-textarea" placeholder="Ej. Viene con familia, VIP..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expositor relacionado</label>
+          <select id="inv-expositor" class="form-select"></select>
+          <p class="form-hint">Permite confirmar la asistencia del expositor desde esta lista.</p>
         </div>
         <div class="form-group">
           <div class="form-switch">
