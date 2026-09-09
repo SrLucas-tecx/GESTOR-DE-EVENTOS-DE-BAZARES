@@ -344,7 +344,7 @@
       ───────────────────────────────────────────────────────── -->
       <section id="sec-mapa" class="page-section">
 
-        <!-- Barra de controles del plano -->
+        <!-- ── BARRA SUPERIOR: Bazar/Piso + Escala + Zoom ── -->
         <div class="map-controls-panel">
           <div class="control-group-inline">
             <label class="form-label" style="margin:0;">Bazar:</label>
@@ -353,87 +353,151 @@
           <div class="control-group-inline floor-controls">
             <label class="form-label" style="margin:0;">Piso:</label>
             <select id="floor-select" class="filter-select" onchange="switchFloor(this.value)"></select>
-            <button class="btn-secondary btn-sm" onclick="addFloor()" title="Agregar piso">➕ Piso</button>
-            <button class="btn-danger btn-sm" onclick="deleteCurrentFloor()" title="Eliminar piso">🗑️</button>
+            <button class="btn-secondary btn-sm" onclick="addFloor()">➕ Piso</button>
+            <button class="btn-danger btn-sm" onclick="deleteCurrentFloor()">🗑️</button>
           </div>
           <div class="control-group-inline">
             <label class="form-label" style="margin:0;">Escala:</label>
-            <input type="number" id="map-pixels-per-meter" class="form-input" min="1" step="1" style="width:105px;"
-                   onchange="updateMapScale(this.value)" title="Píxeles que representan un metro">
+            <input type="number" id="map-pixels-per-meter" class="form-input" min="1" step="1"
+                   style="width:105px;" onchange="updateMapScale(this.value)">
             <span class="form-hint">px = 1 m</span>
           </div>
           <div class="control-group-inline">
-            <button class="btn-secondary btn-sm" onclick="zoomBazaar(0.1)">➕ Zoom In</button>
-            <button class="btn-secondary btn-sm" onclick="zoomBazaar(-0.1)">➖ Zoom Out</button>
-            <button class="btn-secondary btn-sm" onclick="resetBazaarZoom()">🔄 Reset Zoom</button>
+            <button class="btn-secondary btn-sm" onclick="zoomBazaar(0.15)">🔍+</button>
+            <button class="btn-secondary btn-sm" onclick="zoomBazaar(-0.15)">🔍−</button>
+            <button class="btn-secondary btn-sm" onclick="resetBazaarZoom()">🔄 Reset</button>
           </div>
-          <div class="control-group-inline rotation-toolbar">
-            <span class="form-label" style="margin:0;">Girar mesa:</span>
-            <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(-90)"
-                    title="Girar mesa seleccionada 90 grados a la izquierda" aria-label="Girar a la izquierda">↶</button>
-            <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(90)"
-                    title="Girar mesa seleccionada 90 grados a la derecha" aria-label="Girar a la derecha">↷</button>
+        </div>
+
+        <!-- ── BARRA DE HERRAMIENTAS DEL CANVAS ── -->
+        <!-- [EDITABLE: agrega más botones .canvas-mode-btn con data-mode para nuevos modos] -->
+        <div class="canvas-toolbar">
+
+          <!-- Grupo: Modos -->
+          <div class="canvas-toolbar-group">
+            <span class="canvas-toolbar-label">Modo</span>
+            <button class="canvas-mode-btn active" data-mode="select"
+                    onclick="setCanvasMode('select')" title="Mover mesas y elementos">
+              🖱️ Seleccionar
+            </button>
+            <button class="canvas-mode-btn" data-mode="imgEdit"
+                    onclick="setCanvasMode('imgEdit')" title="Manipular imagen de fondo con handles">
+              📐 Editar Imagen
+            </button>
+            <button class="canvas-mode-btn" data-mode="zone"
+                    onclick="setCanvasMode('zone')" title="Dibujar zonas / áreas en el plano">
+              🕸️ Zonas
+            </button>
           </div>
-          <div class="control-group-inline">
+
+          <!-- Grupo: Imagen de fondo -->
+          <div class="canvas-toolbar-group">
+            <span class="canvas-toolbar-label">Imagen de Fondo</span>
             <input type="file" id="floor-plan-upload" accept="image/*" style="display:none;"
                    onchange="handleFloorPlanUpload(event)">
             <button class="btn-secondary btn-sm"
-                    onclick="document.getElementById('floor-plan-upload').click()">🖼️ Cargar Fondo</button>
-          </div>
-          <div class="control-group-inline map-opacity-control">
-            <label class="form-label" style="margin:0;">Opacidad:</label>
-            <input type="range" id="floor-plan-opacity" min="0" max="100" step="5"
-                   oninput="updateFloorPlanOpacity(this.value)" title="Opacidad de la imagen de fondo">
+                    onclick="document.getElementById('floor-plan-upload').click()">🖼️ Cargar</button>
+            <label class="form-label" style="margin:0;white-space:nowrap;">Opac:</label>
+            <input type="range" id="floor-plan-opacity" min="0" max="100" step="5" style="width:80px;"
+                   oninput="updateFloorPlanOpacity(this.value)">
             <output id="floor-plan-opacity-value">100%</output>
-          </div>
-          <div class="control-group-inline map-opacity-control">
-            <label class="form-label" style="margin:0;">Tamaño fondo:</label>
-            <input type="range" id="floor-plan-scale" min="25" max="300" step="5"
-                   oninput="updateFloorPlanScale(this.value)" title="Tamaño de la imagen de fondo">
+            <label class="form-label" style="margin:0;white-space:nowrap;">Tam:</label>
+            <input type="range" id="floor-plan-scale" min="5" max="500" step="5" style="width:90px;"
+                   oninput="updateFloorPlanScale(this.value)">
             <output id="floor-plan-scale-value">100%</output>
+            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(-20, 0)">◀</button>
+            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(20, 0)">▶</button>
+            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(0, -20)">▲</button>
+            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(0, 20)">▼</button>
           </div>
-          <div class="control-group-inline">
-            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(-10, 0)" title="Mover fondo a la izquierda">← Fondo</button>
-            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(10, 0)" title="Mover fondo a la derecha">Fondo →</button>
-            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(0, -10)" title="Mover fondo hacia arriba">↑</button>
-            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(0, 10)" title="Mover fondo hacia abajo">↓</button>
-          </div>
-          <div class="control-group-inline">
+
+          <!-- Grupo: Mesas y Elementos -->
+          <div class="canvas-toolbar-group">
+            <span class="canvas-toolbar-label">Añadir</span>
+            <button class="btn-primary btn-sm" onclick="addTableToCore()">➕ Mesa</button>
             <button class="btn-secondary btn-sm" onclick="addMapElement()">＋ Elemento</button>
+                <button class="btn-danger btn-sm" onclick="deleteSelectedMapObject()"
+                  title="Eliminar únicamente la mesa, elemento o zona seleccionada">🗑️ Eliminar seleccionado</button>
+            <div class="canvas-toolbar-group" style="border:none;padding:0;">
+              <span class="canvas-toolbar-label">Girar:</span>
+              <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(-90)">↶</button>
+              <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(90)">↷</button>
+            </div>
           </div>
-          <div class="control-group-inline">
-            <button class="btn-primary btn-sm" onclick="addTableToCore()">➕ Nueva Mesa</button>
-            <!-- [NUEVO] Limpiar TODO el plano (mesas + imagen fondo) -->
-            <button class="btn-danger btn-sm" onclick="resetBazaarCanvas()"
-                    title="Elimina todas las mesas e imagen de fondo">🗑️ Limpiar Plano</button>
+
+          <!-- Grupo: Peligro -->
+          <div class="canvas-toolbar-group">
+            <span class="canvas-toolbar-label">Limpiar</span>
+            <button class="btn-danger btn-sm" onclick="resetBazaarCanvas()">🗑️ Todo el Plano</button>
           </div>
         </div>
 
-        <!-- Canvas + Panel de asistencia -->
-        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+        <!-- ── ÁREA PRINCIPAL: Canvas + Paneles laterales ── -->
+        <div class="map-main-area">
 
           <!-- Canvas drag-and-drop -->
-          <div class="map-viewport" style="flex:1;min-width:300px;">
-            <canvas id="bazaar-canvas" width="850" height="550"
-                    style="cursor:grab;display:block;"></canvas>
+          <div class="map-viewport" style="flex:1;min-width:300px;position:relative;">
+            <canvas id="bazaar-canvas" width="900" height="560"
+                    style="cursor:grab;display:block;width:100%;"></canvas>
+            <!-- Badge de modo activo sobre el canvas -->
+            <div id="canvas-mode-badge" style="
+                position:absolute;top:10px;left:10px;
+                background:var(--color-accent);color:#fff;
+                font-size:var(--fs-xs);font-weight:700;padding:4px 10px;
+                border-radius:var(--radius-full);pointer-events:none;opacity:.85;">
+              🖱️ Seleccionar
+            </div>
           </div>
 
-          <!-- Panel de asistencia — incluye botón 🗑️ por mesa (Core.js → renderChecklist) -->
-          <div class="chart-card" style="width:320px;flex-shrink:0;max-height:550px;overflow-y:auto;">
-            <h3>📋 Asistencia y Mesas</h3>
-            <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin-bottom:12px;">
-              Confirma asistencia o elimina mesas con el botón 🗑️ de cada fila.
-            </p>
-            <div id="checklist-container" style="display:flex;flex-direction:column;gap:10px;"></div>
-          </div>
+          <!-- Panel derecho: Asistencia + Zonas -->
+          <div class="map-side-panel">
 
+            <!-- Panel de asistencia de mesas -->
+            <div class="chart-card" style="flex-shrink:0;">
+              <h3>📋 Asistencia y Mesas</h3>
+              <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin-bottom:10px;">
+                Toggle asistencia o elimina con 🗑️.
+              </p>
+              <div id="checklist-container" style="display:flex;flex-direction:column;gap:8px;"></div>
+            </div>
+
+            <!-- Panel de zonas (visible solo en modo "zone") -->
+            <!-- [EDITABLE: agrega aquí más controles de zonas si los necesitas] -->
+            <div id="zones-panel" class="chart-card" style="display:none;flex-shrink:0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h3 style="margin:0;">🕸️ Zonas del Plano</h3>
+                <div style="display:flex;gap:6px;">
+                  <button class="btn-secondary btn-sm" onclick="exportZonesJSON()">📥 Exportar</button>
+                  <button class="btn-danger btn-sm" onclick="clearAllZones()">🗑️ Todas</button>
+                </div>
+              </div>
+              <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin-bottom:10px;">
+                Clic → añade punto. Cierra con clic en el 1.er punto, doble clic, o
+                <kbd style="font-size:10px;padding:1px 4px;border:1px solid var(--color-border);border-radius:3px;">clic derecho</kbd> para cancelar.
+              </p>
+              <div id="zones-list" style="max-height:260px;overflow-y:auto;"></div>
+            </div>
+
+          </div>
         </div>
 
-        <p class="map-help-text" style="margin-top:10px;">
-          💡 <strong>Arrastrar plano:</strong> clic y arrastra el espacio vacío. |
-          <strong>Mover mesa:</strong> clic y arrastra la mesa. |
-          <strong>Editar mesa:</strong> doble clic sobre ella.
-        </p>
+        <!-- Instrucciones dinámicas (cambian con el modo) -->
+        <div id="map-help-row" style="margin-top:10px;">
+          <p class="map-help-text" id="map-help-select">
+            💡 <strong>Arrastrar plano:</strong> clic en espacio vacío. |
+            <strong>Mover mesa:</strong> clic y arrastra. |
+            <strong>Editar mesa:</strong> doble clic.
+          </p>
+          <p class="map-help-text" id="map-help-imgEdit" style="display:none;color:var(--color-accent2);">
+            📐 <strong>Modo Editar Imagen:</strong> arrastra la imagen para moverla.
+            Arrastra los <strong>8 handles blancos</strong> para redimensionarla libremente.
+            La rueda del ratón hace zoom.
+          </p>
+          <p class="map-help-text" id="map-help-zone" style="display:none;color:var(--color-accent);">
+            🕸️ <strong>Modo Zonas:</strong> clic = añadir punto · Clic en el ●primer punto o doble clic = cerrar zona ·
+            Clic derecho = cancelar · Arrastra puntos para editarlos.
+          </p>
+        </div>
 
       </section>
       <!-- / #SECCIÓN PLANO DEL EVENTO -->
@@ -951,6 +1015,37 @@
   </div>
 </div>
 <!-- / #MODAL EDITAR ELEMENTO -->
+
+
+<!-- # MODAL: EDITAR ZONA DEL PLANO -->
+<div id="modal-editar-zona" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Editar Zona del Plano</h2>
+      <button class="modal-close" onclick="closeModal('modal-editar-zona')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-zone-id">
+      <div class="form-group">
+        <label class="form-label">Título de la zona</label>
+        <input type="text" id="edit-zone-label" class="form-input" placeholder="Ej. Área de comida">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Color de la zona</label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="color" id="edit-zone-color" class="form-input" style="width:64px;height:44px;padding:2px;cursor:pointer;">
+          <span class="form-hint">Se aplicará al relleno, borde y título.</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-danger" onclick="deleteZoneFromModal()">🗑️ Eliminar zona</button>
+      <button type="button" class="btn-secondary" onclick="closeModal('modal-editar-zona')">Cancelar</button>
+      <button type="button" class="btn-primary" onclick="saveZoneEdit()">Guardar Cambios</button>
+    </div>
+  </div>
+</div>
+<!-- / #MODAL EDITAR ZONA -->
 
 
 <!-- # MODAL: CHECKLIST DEL EXPOSITOR

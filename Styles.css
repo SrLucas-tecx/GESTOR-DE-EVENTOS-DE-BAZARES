@@ -775,3 +775,130 @@ input:checked+.slider::before{transform:translateX(20px)}
 .minute-table .form-input{min-width:110px;padding:7px 9px}
 .minute-table td:last-child{white-space:nowrap;width:1%}
 @media(max-width:768px){.payments-table-wrap{overflow-x:auto}}
+/* ═══════════════════════════════════════════════════════════════
+   # CANVAS TOOLBAR — Barra de herramientas del mapa (v3)
+   [EDITABLE: agrega grupos con .canvas-toolbar-group]
+═══════════════════════════════════════════════════════════════ */
+.canvas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  align-items: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.canvas-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+  border-right: 1.5px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.canvas-toolbar-group:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.canvas-toolbar-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  white-space: nowrap;
+}
+
+/* Botones de modo del canvas */
+.canvas-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  border: 1.5px solid var(--color-border);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.canvas-mode-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.canvas-mode-btn.active {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 8px rgba(13,148,136,.3);
+}
+
+/* ─── ÁREA PRINCIPAL DEL MAPA ─── */
+.map-main-area {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* Panel lateral de zonas + asistencia */
+.map-side-panel {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 560px;
+  overflow-y: auto;
+}
+
+/* ─── ZONE PANEL ITEMS ─── */
+#zones-list input[type="text"] {
+  background: none;
+  border: none;
+  outline: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--color-text);
+  flex: 1;
+  cursor: text;
+}
+
+#zones-list input[type="text"]:hover {
+  border-bottom: 1px dashed var(--color-border);
+}
+
+#zones-list input[type="color"] {
+  width: 24px;
+  height: 24px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .map-side-panel { width: 100%; max-height: none; flex-direction: row; flex-wrap: wrap; }
+  .map-side-panel .chart-card { flex: 1; min-width: 260px; }
+}
+
+@media (max-width: 768px) {
+  .canvas-toolbar { gap: var(--space-1); padding: var(--space-2); }
+  .canvas-toolbar-group { padding-right: var(--space-2); gap: var(--space-1); }
+  .map-main-area { flex-direction: column; }
+  .map-side-panel { width: 100%; }
+}
