@@ -386,6 +386,21 @@
                    oninput="updateFloorPlanOpacity(this.value)" title="Opacidad de la imagen de fondo">
             <output id="floor-plan-opacity-value">100%</output>
           </div>
+          <div class="control-group-inline map-opacity-control">
+            <label class="form-label" style="margin:0;">Tamaño fondo:</label>
+            <input type="range" id="floor-plan-scale" min="25" max="300" step="5"
+                   oninput="updateFloorPlanScale(this.value)" title="Tamaño de la imagen de fondo">
+            <output id="floor-plan-scale-value">100%</output>
+          </div>
+          <div class="control-group-inline">
+            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(-10, 0)" title="Mover fondo a la izquierda">← Fondo</button>
+            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(10, 0)" title="Mover fondo a la derecha">Fondo →</button>
+            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(0, -10)" title="Mover fondo hacia arriba">↑</button>
+            <button class="btn-secondary btn-sm" onclick="moveFloorPlan(0, 10)" title="Mover fondo hacia abajo">↓</button>
+          </div>
+          <div class="control-group-inline">
+            <button class="btn-secondary btn-sm" onclick="addMapElement()">＋ Elemento</button>
+          </div>
           <div class="control-group-inline">
             <button class="btn-primary btn-sm" onclick="addTableToCore()">➕ Nueva Mesa</button>
             <!-- [NUEVO] Limpiar TODO el plano (mesas + imagen fondo) -->
@@ -496,7 +511,7 @@
         <div class="payments-table-wrap">
           <table class="payments-table minute-table">
             <thead>
-              <tr><th>Hora</th><th>Actividad</th><th>Responsable</th><th>Notas</th><th>Acciones</th></tr>
+              <tr><th>Hora</th><th>Actividad</th><th>Área encargada</th><th>Responsable</th><th>Notas</th><th>Acciones</th></tr>
             </thead>
             <tbody id="minute-by-minute-list"></tbody>
           </table>
@@ -648,6 +663,26 @@
           <div class="form-group">
             <label class="form-label">Ubicación / N° Mesa *</label>
             <input type="text" id="exp-ubicacion" class="form-input" required placeholder="Ej. Mesa C-12">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Número de mesas solicitadas</label>
+            <select id="exp-mesas-cantidad" class="form-select" onchange="toggleOtherTableCount()">
+              <option value="1">1 mesa</option>
+              <option value="2">2 mesas</option>
+              <option value="3">3 mesas</option>
+              <option value="4">4 mesas</option>
+              <option value="5">5 mesas</option>
+              <option value="otro">Otro</option>
+            </select>
+            <input type="number" id="exp-mesas-otro" class="form-input" min="1" step="1"
+                   placeholder="Cantidad de mesas" style="display:none;margin-top:8px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Área encargada</label>
+            <input type="text" id="exp-area-encargada" class="form-input" placeholder="Ej. Montaje, electricidad">
           </div>
         </div>
 
@@ -811,6 +846,111 @@
   </div>
 </div>
 <!-- / #MODAL EDITAR MESA -->
+
+
+<!-- # MODAL: NUEVO ELEMENTO DEL PLANO -->
+<div id="modal-nuevo-elemento" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Agregar Elemento al Plano</h2>
+      <button class="modal-close" onclick="closeModal('modal-nuevo-elemento')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Tipo de elemento</label>
+        <select id="new-element-type" class="form-select" onchange="updateNewElementEmoji()">
+          <option value="electricidad">⚡ Zona eléctrica</option>
+          <option value="pilar">▣ Pilar</option>
+          <option value="entrada">↗ Entrada</option>
+          <option value="otro">• Otro / personalizado</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nombre del elemento</label>
+          <input type="text" id="new-element-label" class="form-input" placeholder="Ej. Extintor, columna, área VIP">
+          <p id="new-element-custom-hint" class="form-hint">Escribe el nombre que aparecerá en el plano.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Emoji</label>
+          <input type="text" id="new-element-emoji" class="form-input" maxlength="4" placeholder="⚡">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Ancho (px)</label>
+          <input type="number" id="new-element-width" class="form-input" min="5" value="30">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alto (px)</label>
+          <input type="number" id="new-element-height" class="form-input" min="5" value="30">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" onclick="closeModal('modal-nuevo-elemento')">Cancelar</button>
+      <button type="button" class="btn-primary" onclick="saveNewMapElement()">Agregar al Plano</button>
+    </div>
+  </div>
+</div>
+<!-- / #MODAL NUEVO ELEMENTO -->
+
+
+<!-- # MODAL: EDITAR ELEMENTO DEL PLANO -->
+<div id="modal-editar-elemento" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Editar Elemento del Plano</h2>
+      <button class="modal-close" onclick="closeModal('modal-editar-elemento')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-element-id">
+      <div class="form-group">
+        <label class="form-label">Tipo de elemento</label>
+        <select id="edit-element-type" class="form-select">
+          <option value="electricidad">⚡ Zona eléctrica</option>
+          <option value="pilar">▣ Pilar</option>
+          <option value="entrada">↗ Entrada</option>
+          <option value="otro">• Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Etiqueta</label>
+        <input type="text" id="edit-element-label" class="form-input" placeholder="Ej. Contacto eléctrico">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emoji</label>
+        <input type="text" id="edit-element-emoji" class="form-input" maxlength="4" placeholder="⚡">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Posición X</label>
+          <input type="number" id="edit-element-x" class="form-input" step="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Posición Y</label>
+          <input type="number" id="edit-element-y" class="form-input" step="1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Ancho (px)</label>
+          <input type="number" id="edit-element-width" class="form-input" min="5" step="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alto (px)</label>
+          <input type="number" id="edit-element-height" class="form-input" min="5" step="1">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-danger" onclick="deleteMapElementFromModal()">🗑️ Eliminar</button>
+      <button type="button" class="btn-secondary" onclick="closeModal('modal-editar-elemento')">Cancelar</button>
+      <button type="button" class="btn-primary" onclick="saveMapElementEdit()">Guardar Cambios</button>
+    </div>
+  </div>
+</div>
+<!-- / #MODAL EDITAR ELEMENTO -->
 
 
 <!-- # MODAL: CHECKLIST DEL EXPOSITOR

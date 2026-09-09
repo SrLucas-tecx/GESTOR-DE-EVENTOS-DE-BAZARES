@@ -59,7 +59,7 @@ function defaultMapConfig() {
 }
 
 function createFloor(id, name, tables = [], bgImage = null, backgroundOpacity = 1) {
-  return { id, name, tables, bgImage, backgroundOpacity };
+  return { id, name, tables, bgImage, backgroundOpacity, bgScale: 1, bgX: 0, bgY: 0, elements: [] };
 }
 
 const DEFAULT_STATE = {
@@ -210,6 +210,20 @@ function migrateState(parsed) {
       if (floor.bgImage === undefined) floor.bgImage = null;
       if (!Number.isFinite(Number(floor.backgroundOpacity))) floor.backgroundOpacity = 1;
       floor.backgroundOpacity = Math.max(0, Math.min(1, Number(floor.backgroundOpacity)));
+      if (!Number.isFinite(Number(floor.bgScale)) || floor.bgScale <= 0) floor.bgScale = 1;
+      if (!Number.isFinite(Number(floor.bgX))) floor.bgX = 0;
+      if (!Number.isFinite(Number(floor.bgY))) floor.bgY = 0;
+      if (!Array.isArray(floor.elements)) floor.elements = [];
+      floor.elements.forEach((element) => {
+        if (!element.id) element.id = `element-${Date.now()}-${Math.random()}`;
+        if (!element.type) element.type = "otro";
+        if (!element.label) element.label = "Elemento";
+        if (!Number.isFinite(Number(element.x))) element.x = 100;
+        if (!Number.isFinite(Number(element.y))) element.y = 100;
+        if (!Number.isFinite(Number(element.width)) || element.width <= 0) element.width = 30;
+        if (!Number.isFinite(Number(element.height)) || element.height <= 0) element.height = 30;
+        if (!element.emoji) element.emoji = { electricidad: "⚡", pilar: "▣", entrada: "↗", otro: "•" }[element.type] || "•";
+      });
     });
     if (!bz.activeFloorId || !bz.floors.some((floor) => floor.id === bz.activeFloorId)) {
       bz.activeFloorId = bz.floors[0].id;
@@ -235,6 +249,12 @@ function migrateState(parsed) {
       if (exp.fechaLimitePago    === undefined) exp.fechaLimitePago    = "";
       if (!exp.publicationStatus) exp.publicationStatus = "pendiente";
       if (exp.banned === undefined) exp.banned = false;
+      if (exp.mesasCantidad === undefined) exp.mesasCantidad = 1;
+      if (exp.mesasCantidadOtro === undefined) exp.mesasCantidadOtro = "";
+      if (exp.areaEncargada === undefined) exp.areaEncargada = "";
+    });
+    (bz.minuteByMinute || []).forEach((row) => {
+      if (row.area === undefined) row.area = "";
     });
     getActiveTables(bz).forEach((table) => {
       if (table.rotation === undefined) table.rotation = 0;
@@ -435,13 +455,15 @@ function exportarCSV() {
   const bz = getActiveBazaar();
   if (!bz) return;
   const headers = ["Nombre", "Negocio", "Categoría", "Teléfono", "Email",
-                   "Ubicación", "Costo Total", "Adelanto", "Saldo", "Fecha Límite", "Estado", "Notas"];
+                   "Ubicación", "Mesas Solicitadas", "Área Encargada", "Costo Total", "Adelanto", "Saldo", "Fecha Límite", "Estado", "Notas"];
   const catMap = {};
   AppState.categorias.forEach((c) => (catMap[c.id] = `${c.emoji} ${c.nombre}`));
 
   const rows = bz.expositores.map((e) => [
     e.nombre, e.negocio, catMap[e.categoria] || "",
     e.tel, e.email, e.ubicacion,
+    e.mesasCantidad === "otro" ? e.mesasCantidadOtro : e.mesasCantidad || 1,
+    e.areaEncargada || "",
     e.costo, e.adelanto || 0,
     (e.costo - (e.adelanto || 0)),
     e.fechaLimitePago || "",
@@ -504,6 +526,12 @@ function updateMapaBazaarLabel() {
   const opacityValue = document.getElementById("floor-plan-opacity-value");
   if (opacityInput) opacityInput.value = Math.round(opacity * 100);
   if (opacityValue) opacityValue.textContent = `${Math.round(opacity * 100)}%`;
+  const floor = getActiveFloor();
+  const bgScale = Number(floor?.bgScale || 1);
+  const bgScaleInput = document.getElementById("floor-plan-scale");
+  const scaleValue = document.getElementById("floor-plan-scale-value");
+  if (bgScaleInput) bgScaleInput.value = Math.round(bgScale * 100);
+  if (scaleValue) scaleValue.textContent = `${Math.round(bgScale * 100)}%`;
 }
 
 function getPixelsPerMeter() {
@@ -533,6 +561,122 @@ function updateFloorPlanOpacity(value) {
   bazaarCanvas.render();
 }
 
+function updateFloorPlanScale(value) {
+  const floor = getActiveFloor();
+  if (!floor) return;
+  floor.bgScale = Math.max(0.25, Math.min(3, Number(value) / 100));
+  const output = document.getElementById("floor-plan-scale-value");
+  if (output) output.textContent = `${Math.round(floor.bgScale * 100)}%`;
+  saveState();
+  bazaarCanvas.render();
+}
+
+function moveFloorPlan(deltaX, deltaY) {
+  const floor = getActiveFloor();
+  if (!floor) return;
+  floor.bgX = Number(floor.bgX || 0) + deltaX;
+  floor.bgY = Number(floor.bgY || 0) + deltaY;
+  saveState();
+  bazaarCanvas.render();
+}
+
+function addMapElement() {
+  const floor = getActiveFloor();
+  if (!floor) return;
+  const typeInput = document.getElementById("new-element-type");
+  if (typeInput) typeInput.value = "electricidad";
+  document.getElementById("new-element-label").value = "";
+  document.getElementById("new-element-emoji").value = "⚡";
+  document.getElementById("new-element-width").value = 30;
+  document.getElementById("new-element-height").value = 30;
+  updateNewElementEmoji();
+  openModal("modal-nuevo-elemento");
+}
+
+function updateNewElementEmoji() {
+  const type = document.getElementById("new-element-type")?.value || "otro";
+  const defaults = { electricidad: "⚡", pilar: "▣", entrada: "↗", otro: "•" };
+  const emojiInput = document.getElementById("new-element-emoji");
+  if (emojiInput) emojiInput.value = defaults[type] || "•";
+  const labelInput = document.getElementById("new-element-label");
+  const hint = document.getElementById("new-element-custom-hint");
+  if (labelInput) {
+    labelInput.required = type === "otro";
+    labelInput.placeholder = type === "otro" ? "Ej. Extintor, columna, área VIP" : "Ej. Contacto eléctrico";
+  }
+  if (hint) hint.textContent = type === "otro"
+    ? "Escribe el nombre del nuevo elemento personalizado."
+    : "Puedes cambiar este nombre antes de agregarlo.";
+}
+
+function saveNewMapElement() {
+  const floor = getActiveFloor();
+  const type = document.getElementById("new-element-type").value;
+  const defaults = { electricidad: "Zona eléctrica", pilar: "Pilar", entrada: "Entrada", otro: "Elemento" };
+  const label = document.getElementById("new-element-label").value.trim();
+  const emoji = document.getElementById("new-element-emoji").value.trim() || "•";
+  if (!floor) return;
+  if (type === "otro" && !label) {
+    showToast("Escribe el nombre del elemento personalizado", "error");
+    return;
+  }
+  const elementLabel = label || defaults[type];
+  floor.elements = floor.elements || [];
+  floor.elements.push({
+    id: `element-${Date.now()}`, type, label: elementLabel, emoji, x: 120, y: 120,
+    width: Math.max(5, Number(document.getElementById("new-element-width").value || 30)),
+    height: Math.max(5, Number(document.getElementById("new-element-height").value || 30))
+  });
+  saveState();
+  bazaarCanvas.render();
+  closeModal("modal-nuevo-elemento");
+  showToast(`✅ ${elementLabel} agregado al plano`);
+}
+
+function openModalMapElementEdit(elementId) {
+  const element = (getActiveFloor()?.elements || []).find((item) => item.id === elementId);
+  if (!element) return;
+  document.getElementById("edit-element-id").value = element.id;
+  document.getElementById("edit-element-type").value = element.type || "otro";
+  document.getElementById("edit-element-label").value = element.label || "Elemento";
+  document.getElementById("edit-element-emoji").value = element.emoji || "•";
+  document.getElementById("edit-element-x").value = Math.round(Number(element.x) || 0);
+  document.getElementById("edit-element-y").value = Math.round(Number(element.y) || 0);
+  document.getElementById("edit-element-width").value = Math.round(Number(element.width) || 30);
+  document.getElementById("edit-element-height").value = Math.round(Number(element.height) || 30);
+  openModal("modal-editar-elemento");
+}
+
+function saveMapElementEdit() {
+  const elementId = document.getElementById("edit-element-id").value;
+  const element = (getActiveFloor()?.elements || []).find((item) => item.id === elementId);
+  if (!element) return;
+  element.type = document.getElementById("edit-element-type").value;
+  element.label = document.getElementById("edit-element-label").value.trim() || "Elemento";
+  element.emoji = document.getElementById("edit-element-emoji").value.trim() || "•";
+  element.x = Number(document.getElementById("edit-element-x").value || 0);
+  element.y = Number(document.getElementById("edit-element-y").value || 0);
+  element.width = Math.max(5, Number(document.getElementById("edit-element-width").value || 30));
+  element.height = Math.max(5, Number(document.getElementById("edit-element-height").value || 30));
+  bazaarCanvas.selectedElementId = element.id;
+  saveState();
+  bazaarCanvas.render();
+  closeModal("modal-editar-elemento");
+  showToast("✅ Elemento actualizado");
+}
+
+function deleteMapElementFromModal() {
+  const elementId = document.getElementById("edit-element-id").value;
+  const floor = getActiveFloor();
+  if (!floor || !confirm("¿Eliminar este elemento del plano?")) return;
+  floor.elements = (floor.elements || []).filter((item) => item.id !== elementId);
+  bazaarCanvas.selectedElementId = null;
+  saveState();
+  bazaarCanvas.render();
+  closeModal("modal-editar-elemento");
+  showToast("🗑️ Elemento eliminado");
+}
+
 function renderFloorSelector() {
   const select = document.getElementById("floor-select");
   const bz = getActiveBazaar();
@@ -547,6 +691,7 @@ function switchFloor(floorId) {
   if (!bz?.floors?.some((floor) => floor.id === floorId)) return;
   bz.activeFloorId = floorId;
   bazaarCanvas.selectedTableId = null;
+  bazaarCanvas.selectedElementId = null;
   saveState();
   bazaarCanvas.loadBgImage();
   bazaarCanvas.render();
@@ -828,13 +973,14 @@ function renderMinuteByMinute() {
   if (!container || !bz) return;
   const rows = bz.minuteByMinute || (bz.minuteByMinute = []);
   if (!rows.length) {
-    container.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin actividades programadas.</td></tr>`;
+    container.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin actividades programadas.</td></tr>`;
     return;
   }
   container.innerHTML = rows.map((row) => `
     <tr>
       <td><input class="form-input" type="time" value="${escapeHTML(row.time)}" onchange="updateMinuteRow('${row.id}','time',this.value)"></td>
       <td><input class="form-input" value="${escapeHTML(row.activity)}" onchange="updateMinuteRow('${row.id}','activity',this.value)"></td>
+      <td><input class="form-input" value="${escapeHTML(row.area)}" placeholder="Ej. Montaje" onchange="updateMinuteRow('${row.id}','area',this.value)"></td>
       <td><input class="form-input" value="${escapeHTML(row.responsible)}" onchange="updateMinuteRow('${row.id}','responsible',this.value)"></td>
       <td><input class="form-input" value="${escapeHTML(row.notes)}" onchange="updateMinuteRow('${row.id}','notes',this.value)"></td>
       <td><button class="btn-danger btn-sm" onclick="deleteMinuteRow('${row.id}')">🗑️</button></td>
@@ -845,7 +991,7 @@ function addMinuteRow() {
   const bz = getActiveBazaar();
   if (!bz) return;
   if (!bz.minuteByMinute) bz.minuteByMinute = [];
-  bz.minuteByMinute.push({ id: `minute-${Date.now()}`, time: "", activity: "Nueva actividad", responsible: "", notes: "" });
+  bz.minuteByMinute.push({ id: `minute-${Date.now()}`, time: "", activity: "Nueva actividad", area: "", responsible: "", notes: "" });
   saveState();
   renderMinuteByMinute();
 }
@@ -874,7 +1020,7 @@ function exportarMinutoAMinutoCSV() {
   if (!bz) return;
   const rows = minuteRowsForExport();
   const quote = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
-  const csv = [["Hora", "Actividad", "Responsable", "Notas"], ...rows.map((row) => [row.time, row.activity, row.responsible, row.notes])]
+  const csv = [["Hora", "Actividad", "Área encargada", "Responsable", "Notas"], ...rows.map((row) => [row.time, row.activity, row.area, row.responsible, row.notes])]
     .map((row) => row.map(quote).join(";")).join("\n");
   const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
   const link = document.createElement("a");
@@ -919,9 +1065,9 @@ function exportarMinutoAMinutoPDF() {
       <div style="color:#64748b;margin-top:4px;">Actividades programadas: ${rows.length}</div>
     </div>
     <table style="width:100%;table-layout:fixed;font-size:12px;border-collapse:collapse;">
-      <colgroup><col style="width:12%"><col style="width:32%"><col style="width:24%"><col style="width:32%"></colgroup>
-      <thead><tr>${["Hora", "Actividad", "Responsable", "Notas"].map((label) => `<th style="text-align:left;background:#ccfbf1;color:#0f766e;padding:9px;border-bottom:2px solid #0d9488;">${label}</th>`).join("")}</tr></thead>
-      <tbody>${rows.length ? rows.map((row, index) => `<tr style="${index % 2 ? "background:#f8fafc;" : ""}page-break-inside:avoid;">${[row.time, row.activity, row.responsible, row.notes].map((value) => `<td style="padding:9px;border-bottom:1px solid #e2e8f0;vertical-align:top;word-wrap:break-word;">${escapeHTML(value || "—")}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="4" style="padding:18px;text-align:center;color:#64748b;">Sin actividades programadas.</td></tr>`}</tbody>
+      <colgroup><col style="width:11%"><col style="width:28%"><col style="width:20%"><col style="width:18%"><col style="width:23%"></colgroup>
+      <thead><tr>${["Hora", "Actividad", "Área encargada", "Responsable", "Notas"].map((label) => `<th style="text-align:left;background:#ccfbf1;color:#0f766e;padding:9px;border-bottom:2px solid #0d9488;">${label}</th>`).join("")}</tr></thead>
+      <tbody>${rows.length ? rows.map((row, index) => `<tr style="${index % 2 ? "background:#f8fafc;" : ""}page-break-inside:avoid;">${[row.time, row.activity, row.area, row.responsible, row.notes].map((value) => `<td style="padding:9px;border-bottom:1px solid #e2e8f0;vertical-align:top;word-wrap:break-word;">${escapeHTML(value || "—")}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="5" style="padding:18px;text-align:center;color:#64748b;">Sin actividades programadas.</td></tr>`}</tbody>
     </table>
     <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;text-align:center;">Documento generado por BAZARIX</div>`;
   document.body.appendChild(wrapper);
@@ -1005,6 +1151,11 @@ function renderExpositores() {
             <div class="card-meta-label">Ubicación</div>
             <div class="card-meta-value">${escapeHTML(exp.ubicacion)}</div>
           </div>
+          <div class="card-meta-item">
+            <div class="card-meta-label">Mesas solicitadas</div>
+            <div class="card-meta-value">${escapeHTML(exp.mesasCantidad === "otro" ? exp.mesasCantidadOtro : exp.mesasCantidad || "1")} mesa(s)</div>
+          </div>
+          ${exp.areaEncargada ? `<div class="card-meta-item"><div class="card-meta-label">Área encargada</div><div class="card-meta-value">${escapeHTML(exp.areaEncargada)}</div></div>` : ""}
           <div class="card-meta-item">
             <div class="card-meta-label">Costo Total</div>
             <div class="card-meta-value">${formatCurrency(exp.costo)}</div>
@@ -1261,6 +1412,10 @@ function openModalExpositor(id = null, categoryId = null) {
       document.getElementById("exp-negocio").value       = exp.negocio;
       document.getElementById("exp-categoria").value     = exp.categoria;
       document.getElementById("exp-ubicacion").value     = exp.ubicacion;
+      document.getElementById("exp-mesas-cantidad").value = exp.mesasCantidad || "1";
+      document.getElementById("exp-mesas-otro").value = exp.mesasCantidadOtro || "";
+      document.getElementById("exp-area-encargada").value = exp.areaEncargada || "";
+      toggleOtherTableCount();
       document.getElementById("exp-tel").value           = exp.tel || "";
       document.getElementById("exp-email").value         = exp.email || "";
       document.getElementById("exp-costo").value         = exp.costo;
@@ -1278,6 +1433,15 @@ function openModalExpositor(id = null, categoryId = null) {
     }
   }
   openModal("modal-expositor");
+}
+
+function toggleOtherTableCount() {
+  const select = document.getElementById("exp-mesas-cantidad");
+  const input = document.getElementById("exp-mesas-otro");
+  if (!select || !input) return;
+  const custom = select.value === "otro";
+  input.style.display = custom ? "block" : "none";
+  input.required = custom;
 }
 
 function openModalExpositorForCurrentCategory() {
@@ -1316,6 +1480,9 @@ function saveExpositorHandler(e) {
     negocio:        document.getElementById("exp-negocio").value.trim(),
     categoria:      document.getElementById("exp-categoria").value,
     ubicacion:      document.getElementById("exp-ubicacion").value.trim(),
+    mesasCantidad:  document.getElementById("exp-mesas-cantidad").value,
+    mesasCantidadOtro: document.getElementById("exp-mesas-otro").value.trim(),
+    areaEncargada: document.getElementById("exp-area-encargada").value.trim(),
     tel:            document.getElementById("exp-tel").value.trim(),
     email:          document.getElementById("exp-email").value.trim(),
     costo:          Number(document.getElementById("exp-costo").value || 0),
@@ -1822,9 +1989,9 @@ class BazaarCanvasManager {
   constructor() {
     this.canvas = null; this.ctx = null;
     this.scale = 1.0; this.panX = 0; this.panY = 0;
-    this.isPanning = false; this.isDraggingTable = false;
-    this.draggedTable = null;
-    this.selectedTableId = null;
+    this.isPanning = false; this.isDraggingTable = false; this.isDraggingElement = false;
+    this.draggedTable = null; this.draggedElement = null;
+    this.selectedTableId = null; this.selectedElementId = null;
     this.startMouseX = 0; this.startMouseY = 0;
     this.dragOffsetX = 0; this.dragOffsetY = 0;
     this.bgImageObj = null;
@@ -1878,13 +2045,30 @@ class BazaarCanvasManager {
       const t = tables[i];
       if (this.isPointInsideTable(t, worldX, worldY)) {
         this.selectedTableId = t.id;
+        this.selectedElementId = null;
         this.isDraggingTable = true; this.draggedTable = t;
         this.dragOffsetX = worldX - t.x; this.dragOffsetY = worldY - t.y;
         this.canvas.style.cursor = "grabbing"; return;
       }
     }
+    const elements = getActiveFloor(bz)?.elements || [];
+    for (let i = elements.length - 1; i >= 0; i--) {
+      const element = elements[i];
+      if (this.isPointInsideElement(element, worldX, worldY)) {
+        this.selectedTableId = null;
+        this.selectedElementId = element.id;
+        this.isDraggingElement = true;
+        this.draggedElement = element;
+        this.dragOffsetX = worldX - element.x;
+        this.dragOffsetY = worldY - element.y;
+        this.canvas.style.cursor = "grabbing";
+        this.render();
+        return;
+      }
+    }
     this.isPanning = true;
     this.selectedTableId = null;
+    this.selectedElementId = null;
     this.startMouseX = rawX - this.panX;
     this.startMouseY = rawY - this.panY;
     this.canvas.style.cursor = "grabbing";
@@ -1896,6 +2080,10 @@ class BazaarCanvasManager {
       this.draggedTable.x = Math.round(worldX - this.dragOffsetX);
       this.draggedTable.y = Math.round(worldY - this.dragOffsetY);
       this.render();
+    } else if (this.isDraggingElement && this.draggedElement) {
+      this.draggedElement.x = Math.round(worldX - this.dragOffsetX);
+      this.draggedElement.y = Math.round(worldY - this.dragOffsetY);
+      this.render();
     } else if (this.isPanning) {
       this.panX = rawX - this.startMouseX;
       this.panY = rawY - this.startMouseY;
@@ -1904,8 +2092,10 @@ class BazaarCanvasManager {
   }
 
   handleMouseUp() {
-    if (this.isDraggingTable) saveState();
-    this.isDraggingTable = false; this.draggedTable = null; this.isPanning = false;
+    if (this.isDraggingTable || this.isDraggingElement) saveState();
+    this.isDraggingTable = false; this.draggedTable = null;
+    this.isDraggingElement = false; this.draggedElement = null;
+    this.isPanning = false;
     if (this.canvas) this.canvas.style.cursor = "grab";
   }
 
@@ -1917,6 +2107,13 @@ class BazaarCanvasManager {
       const t = tables[i];
       if (this.isPointInsideTable(t, worldX, worldY)) {
         openModalTableEdit(t.id); return;
+      }
+    }
+    const elements = getActiveFloor(bz)?.elements || [];
+    for (let i = elements.length - 1; i >= 0; i--) {
+      if (this.isPointInsideElement(elements[i], worldX, worldY)) {
+        openModalMapElementEdit(elements[i].id);
+        return;
       }
     }
   }
@@ -1932,6 +2129,13 @@ class BazaarCanvasManager {
     return localX >= table.x && localX <= table.x + table.w && localY >= table.y && localY <= table.y + table.h;
   }
 
+  isPointInsideElement(element, x, y) {
+    const width = Math.max(5, Number(element.width) || 30);
+    const height = Math.max(5, Number(element.height) || 30);
+    return x >= element.x - width / 2 && x <= element.x + width / 2 &&
+           y >= element.y - height / 2 && y <= element.y + height / 2;
+  }
+
   render() {
     if (!this.ctx || !this.canvas) return;
     const w = this.canvas.width, h = this.canvas.height;
@@ -1941,12 +2145,16 @@ class BazaarCanvasManager {
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.scale, this.scale);
     if (this.bgImageObj) {
-      const opacity = Number(getActiveFloor(this.getCurrentBazaar())?.backgroundOpacity ?? 1);
+      const floor = getActiveFloor(this.getCurrentBazaar());
+      const opacity = Number(floor?.backgroundOpacity ?? 1);
       this.ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
-      this.ctx.drawImage(this.bgImageObj, 0, 0);
+      const bgScale = Number(floor?.bgScale || 1);
+      this.ctx.drawImage(this.bgImageObj, Number(floor?.bgX || 0), Number(floor?.bgY || 0),
+        this.bgImageObj.naturalWidth * bgScale, this.bgImageObj.naturalHeight * bgScale);
       this.ctx.globalAlpha = 1;
     }
     const bz = this.getCurrentBazaar();
+    this.drawMapElements(getActiveFloor(bz)?.elements || []);
     getActiveTables(bz).forEach((t) => this.drawTable(t));
     this.ctx.restore();
   }
@@ -1961,6 +2169,42 @@ class BazaarCanvasManager {
     for (let y = 0; y <= height; y += gs) {
       this.ctx.beginPath(); this.ctx.moveTo(0, y); this.ctx.lineTo(width, y); this.ctx.stroke();
     }
+  }
+
+  drawMapElements(elements) {
+    const styles = {
+      electricidad: { color: "#f59e0b", icon: "⚡" },
+      pilar: { color: "#64748b", icon: "▣" },
+      entrada: { color: "#0d9488", icon: "↗" },
+      otro: { color: "#8b5cf6", icon: "•" }
+    };
+    elements.forEach((element) => {
+      const style = styles[element.type] || styles.otro;
+      this.ctx.save();
+      this.ctx.fillStyle = style.color;
+      this.ctx.globalAlpha = 0.9;
+      this.ctx.beginPath();
+      const width = Math.max(5, Number(element.width) || 30);
+      const height = Math.max(5, Number(element.height) || 30);
+      this.ctx.roundRect(element.x - width / 2, element.y - height / 2, width, height, 5);
+      this.ctx.fill();
+      if (element.id === this.selectedElementId) {
+        this.ctx.strokeStyle = "#1e293b";
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        this.ctx.roundRect(element.x - width / 2 - 4, element.y - height / 2 - 4, width + 8, height + 8, 7);
+        this.ctx.stroke();
+      }
+      this.ctx.fillStyle = "#fff";
+      this.ctx.font = "bold 15px sans-serif";
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillText(element.emoji || style.icon, element.x, element.y);
+      this.ctx.fillStyle = "#1e293b";
+      this.ctx.font = "bold 10px sans-serif";
+      this.ctx.fillText(element.label, element.x, element.y + 26);
+      this.ctx.restore();
+    });
   }
 
   drawTable(t) {
@@ -2020,6 +2264,10 @@ function resetBazaarCanvas() {
   if (!floor) return;
   floor.tables = [];
   floor.bgImage = null;
+  floor.elements = [];
+  floor.bgScale = 1;
+  floor.bgX = 0;
+  floor.bgY = 0;
   bazaarCanvas.bgImageObj = null;
   bazaarCanvas.scale = 1.0;
   bazaarCanvas.panX  = 0;
@@ -2040,6 +2288,9 @@ function handleFloorPlanUpload(e) {
       const floor = getActiveFloor(bz);
       if (!floor) return;
       floor.bgImage = evt.target.result;
+      floor.bgScale = 1;
+      floor.bgX = 0;
+      floor.bgY = 0;
       saveState();
       bazaarCanvas.loadBgImage();
       showToast("✅ Imagen de fondo cargada");
@@ -2288,6 +2539,15 @@ window.saveTableEdit                 = saveTableEdit;
 window.rotateEditingTable             = rotateEditingTable;
 window.rotateSelectedTable             = rotateSelectedTable;
 window.updateFloorPlanOpacity          = updateFloorPlanOpacity;
+window.updateFloorPlanScale            = updateFloorPlanScale;
+window.moveFloorPlan                   = moveFloorPlan;
+window.addMapElement                   = addMapElement;
+window.updateNewElementEmoji            = updateNewElementEmoji;
+window.saveNewMapElement                = saveNewMapElement;
+window.openModalMapElementEdit         = openModalMapElementEdit;
+window.saveMapElementEdit              = saveMapElementEdit;
+window.deleteMapElementFromModal       = deleteMapElementFromModal;
+window.toggleOtherTableCount           = toggleOtherTableCount;
 window.toggleAttendance              = toggleAttendance;
 window.openExpositorChecklist        = openExpositorChecklist;
 window.toggleExpositorChecklistItem  = toggleExpositorChecklistItem;
