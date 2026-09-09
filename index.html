@@ -41,7 +41,7 @@
       <button class="nav-item"         onclick="switchTab('finanzas')">💰 Control de Pagos</button>
       <button class="nav-item"         onclick="switchTab('costos')">📊 Costos del Evento</button>
       <button class="nav-item"         onclick="switchTab('mapa')">🗺️ Plano del Evento</button>
-      <button class="nav-item"         onclick="switchTab('invitados')">🎟️ Lista de Invitados</button>
+      <button class="nav-item"         onclick="switchTab('invitados')">🎟️ Lista de Expositores</button>
           <button class="nav-item"         onclick="switchTab('minuto-a-minuto')">🕒 Minuto a Minuto</button>
       <button class="nav-item"         onclick="switchTab('estadisticas')">📈 Métricas y Gráficas</button>
 
@@ -405,6 +405,7 @@
             <input type="range" id="floor-plan-scale" min="5" max="500" step="5" style="width:90px;"
                    oninput="updateFloorPlanScale(this.value)">
             <output id="floor-plan-scale-value">100%</output>
+            <button class="btn-secondary btn-sm" onclick="rotateFloorPlan(90)" title="Girar imagen 90 grados">↻ 90°</button>
             <button class="btn-secondary btn-sm" onclick="moveFloorPlan(-20, 0)">◀</button>
             <button class="btn-secondary btn-sm" onclick="moveFloorPlan(20, 0)">▶</button>
             <button class="btn-secondary btn-sm" onclick="moveFloorPlan(0, -20)">▲</button>
@@ -515,7 +516,7 @@
           <div class="stat-card accent-teal">
             <div class="stat-icon">🎟️</div>
             <div class="stat-value" id="inv-stat-total">0</div>
-            <div class="stat-label">Total Invitados</div>
+            <div class="stat-label">Total de Expositores</div>
           </div>
           <div class="stat-card accent-green">
             <div class="stat-icon">✅</div>
@@ -530,8 +531,8 @@
         </div>
 
         <div class="section-header" style="justify-content:space-between;">
-          <h2 class="section-title">Lista de Invitados</h2>
-          <button class="btn-primary" onclick="openModalInvitado()">+ Agregar Invitado</button>
+          <h2 class="section-title">Lista de Expositores</h2>
+          <button class="btn-primary" onclick="openModalInvitado()">+ Agregar Expositor</button>
         </div>
 
         <!-- Tabla de invitados -->
@@ -552,7 +553,7 @@
         </div>
 
       </section>
-      <!-- / #SECCIÓN LISTA DE INVITADOS -->
+      <!-- / #SECCIÓN LISTA DE EXPOSITORES -->
 
 
       <!-- ─────────────────────────────────────────────────────────

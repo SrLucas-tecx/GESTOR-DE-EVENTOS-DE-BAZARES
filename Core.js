@@ -59,7 +59,7 @@ function defaultMapConfig() {
 }
 
 function createFloor(id, name, tables = [], bgImage = null, backgroundOpacity = 1) {
-  return { id, name, tables, bgImage, backgroundOpacity, bgScale: 1, bgX: 0, bgY: 0, elements: [] };
+  return { id, name, tables, bgImage, backgroundOpacity, bgScale: 1, bgScaleX: 1, bgScaleY: 1, bgRotation: 0, bgX: 0, bgY: 0, elements: [] };
 }
 
 const DEFAULT_STATE = {
@@ -211,6 +211,10 @@ function migrateState(parsed) {
       if (!Number.isFinite(Number(floor.backgroundOpacity))) floor.backgroundOpacity = 1;
       floor.backgroundOpacity = Math.max(0, Math.min(1, Number(floor.backgroundOpacity)));
       if (!Number.isFinite(Number(floor.bgScale)) || floor.bgScale <= 0) floor.bgScale = 1;
+      if (!Number.isFinite(Number(floor.bgScaleX)) || floor.bgScaleX <= 0) floor.bgScaleX = floor.bgScale;
+      if (!Number.isFinite(Number(floor.bgScaleY)) || floor.bgScaleY <= 0) floor.bgScaleY = floor.bgScale;
+      if (!Number.isFinite(Number(floor.bgRotation))) floor.bgRotation = 0;
+      floor.bgRotation = ((Number(floor.bgRotation) % 360) + 360) % 360;
       if (!Number.isFinite(Number(floor.bgX))) floor.bgX = 0;
       if (!Number.isFinite(Number(floor.bgY))) floor.bgY = 0;
       if (!Array.isArray(floor.elements)) floor.elements = [];
@@ -333,7 +337,7 @@ function switchTab(tabId) {
     costos:       "Costos del Evento",
     mapa:         "Plano Interactivo del Bazar",
     estadisticas: "Métricas y Gráficas",
-    invitados:    "Lista de Invitados",
+    invitados:    "Lista de Expositores",
     "minuto-a-minuto": "Minuto a Minuto",
     bazares:      "Mis Bazares",
     plantillas:   "Expositores Guardados"
@@ -364,6 +368,7 @@ const fabActions = {
   costos: [{ label: "💸 Agregar Gasto", action: addExtraCostRow }],
   mapa: [
     { label: "🪑 Nueva Mesa", action: addTableToCore },
+    { label: "📍 Nuevo Elemento", action: addMapElement },
     { label: "🏢 Nuevo Piso", action: addFloor }
   ],
   invitados: [{ label: "🎟️ Agregar Invitado", action: openModalInvitado }],
@@ -376,30 +381,34 @@ function renderFabMenu(tabId = "expositores") {
   const menu = document.getElementById("fab-add-menu");
   const container = document.querySelector(".fab-container");
   if (!menu) return;
-  // [FIX] Solo usa el fallback si el tab realmente no está registrado
-  // (no cuando su lista de acciones está vacía a propósito).
   const actions = Object.prototype.hasOwnProperty.call(fabActions, tabId)
     ? fabActions[tabId]
-    : fabActions.expositores;
+    : [];
   menu.innerHTML = actions.map((item, index) =>
     `<button class="fab-add-item" onclick="runFabAction('${tabId}', ${index})">${item.label}</button>`
   ).join("");
   menu.classList.remove("open");
   menu.setAttribute("aria-hidden", "true");
-  // [FIX] Si la pantalla actual no tiene ninguna acción de "agregar"
-  // (ej. Métricas, Control de Pagos, Expositores Guardados), se oculta
-  // el botón flotante por completo en vez de dejarlo sin efecto.
   if (container) container.style.display = actions.length ? "" : "none";
 }
 
 function toggleFabMenu() {
   const menu = document.getElementById("fab-add-menu");
   if (!menu) return;
+  const activeTab = document.querySelector(".page-section.active")?.id.replace(/^sec-/, "") || "";
+  const actions = fabActions[activeTab] || [];
+  if (actions.length === 1) {
+    actions[0].action();
+    return;
+  }
+  if (!actions.length) return;
   const isOpen = menu.classList.toggle("open");
   menu.setAttribute("aria-hidden", String(!isOpen));
 }
 
 function runFabAction(tabId, actionIndex) {
+  const activeSection = document.querySelector(".page-section.active")?.id || "";
+  if (activeSection !== `sec-${tabId}`) return;
   const menu = document.getElementById("fab-add-menu");
   if (menu) menu.classList.remove("open");
   const action = fabActions[tabId]?.[actionIndex]?.action;
@@ -565,6 +574,8 @@ function updateFloorPlanScale(value) {
   const floor = getActiveFloor();
   if (!floor) return;
   floor.bgScale = Math.max(0.25, Math.min(3, Number(value) / 100));
+  floor.bgScaleX = floor.bgScale;
+  floor.bgScaleY = floor.bgScale;
   const output = document.getElementById("floor-plan-scale-value");
   if (output) output.textContent = `${Math.round(floor.bgScale * 100)}%`;
   saveState();
@@ -578,6 +589,15 @@ function moveFloorPlan(deltaX, deltaY) {
   floor.bgY = Number(floor.bgY || 0) + deltaY;
   saveState();
   bazaarCanvas.render();
+}
+
+function rotateFloorPlan(delta) {
+  const floor = getActiveFloor();
+  if (!floor) return;
+  floor.bgRotation = ((Number(floor.bgRotation || 0) + delta) % 360 + 360) % 360;
+  saveState();
+  bazaarCanvas.render();
+  showToast(`✅ Imagen girada a ${floor.bgRotation}°`);
 }
 
 function addMapElement() {
@@ -1856,7 +1876,7 @@ function renderInvitados() {
   if (invitados.length === 0) {
     container.innerHTML = `
       <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:24px;">
-        Sin invitados registrados. Agrega uno con "+ Agregar Invitado".
+        Sin expositores registrados. Agrega uno con "+ Agregar Expositor".
       </td></tr>`;
     return;
   }
@@ -2168,7 +2188,8 @@ class BazaarCanvasManager {
         this.imgHandle     = handle;
         this.imgResizeStart = {
           bgX: Number(floor.bgX || 0), bgY: Number(floor.bgY || 0),
-          bgScale: Number(floor.bgScale || 1),
+          bgScaleX: Number(floor.bgScaleX || floor.bgScale || 1),
+          bgScaleY: Number(floor.bgScaleY || floor.bgScale || 1),
           imgW: this.bgImageObj.naturalWidth,
           imgH: this.bgImageObj.naturalHeight,
           mouseX: worldX, mouseY: worldY
@@ -2312,22 +2333,25 @@ class BazaarCanvasManager {
       if (!floor || !this.bgImageObj) return;
 
       if (this.imgResizing && this.imgResizeStart) {
-        const { bgX, bgY, bgScale, imgW, imgH, mouseX, mouseY } = this.imgResizeStart;
+        const { bgX, bgY, bgScaleX, bgScaleY, imgW, imgH, mouseX, mouseY } = this.imgResizeStart;
         const dx = worldX - mouseX;
         const dy = worldY - mouseY;
         const h  = this.imgHandle;
-        // Calcula el nuevo scale según el handle activo
-        const origW = imgW * bgScale;
-        const origH = imgH * bgScale;
-        let newScale = bgScale;
-        if (h === "br" || h === "tr" || h === "mr") newScale = Math.max(0.05, bgScale + dx / imgW);
-        if (h === "bl" || h === "tl" || h === "ml") newScale = Math.max(0.05, bgScale - dx / imgW);
-        if (h === "bc" || h === "tc")                newScale = Math.max(0.05, bgScale + dy / imgH);
-        floor.bgScale = newScale;
-        // Ajusta posición para anclar el handle opuesto
-        if (h === "tl" || h === "ml" || h === "bl")  floor.bgX = bgX + (origW - imgW * newScale);
-        if (h === "tc")                                floor.bgY = bgY;
-        if (h === "tl" || h === "tc" || h === "tr")   floor.bgY = bgY + (origH - imgH * newScale);
+        const origW = imgW * bgScaleX;
+        const origH = imgH * bgScaleY;
+        let newW = origW;
+        let newH = origH;
+        let newX = bgX;
+        let newY = bgY;
+        if (h.includes("r")) newW = Math.max(imgW * 0.05, origW + dx);
+        if (h.includes("l")) { newW = Math.max(imgW * 0.05, origW - dx); newX = bgX + origW - newW; }
+        if (h.includes("b")) newH = Math.max(imgH * 0.05, origH + dy);
+        if (h.includes("t")) { newH = Math.max(imgH * 0.05, origH - dy); newY = bgY + origH - newH; }
+        floor.bgX = newX;
+        floor.bgY = newY;
+        floor.bgScaleX = newW / imgW;
+        floor.bgScaleY = newH / imgH;
+        floor.bgScale = (floor.bgScaleX + floor.bgScaleY) / 2;
         this._syncImgSliders(floor);
         this.render(); return;
       }
@@ -2485,11 +2509,12 @@ class BazaarCanvasManager {
   // ── Helpers: manipulación de imagen ─────────────────────────────
   _getImgRect(floor) {
     if (!this.bgImageObj || !floor) return null;
-    const s = Number(floor.bgScale || 1);
+    const sx = Number(floor.bgScaleX || floor.bgScale || 1);
+    const sy = Number(floor.bgScaleY || floor.bgScale || 1);
     const x = Number(floor.bgX || 0);
     const y = Number(floor.bgY || 0);
-    const w = this.bgImageObj.naturalWidth  * s;
-    const h = this.bgImageObj.naturalHeight * s;
+    const w = this.bgImageObj.naturalWidth  * sx;
+    const h = this.bgImageObj.naturalHeight * sy;
     return { x, y, w, h };
   }
 
@@ -2497,7 +2522,7 @@ class BazaarCanvasManager {
     const r = this._getImgRect(floor);
     if (!r) return [];
     const { x, y, w, h } = r;
-    return [
+    const points = [
       { id:"tl", cx:x,       cy:y       },
       { id:"tc", cx:x+w/2,   cy:y       },
       { id:"tr", cx:x+w,     cy:y       },
@@ -2507,6 +2532,18 @@ class BazaarCanvasManager {
       { id:"bc", cx:x+w/2,   cy:y+h     },
       { id:"br", cx:x+w,     cy:y+h     },
     ];
+    const angle = Number(floor.bgRotation || 0) * Math.PI / 180;
+    const centerX = x + w / 2;
+    const centerY = y + h / 2;
+    return points.map((point) => {
+      const dx = point.cx - centerX;
+      const dy = point.cy - centerY;
+      return {
+        id: point.id,
+        cx: centerX + dx * Math.cos(angle) - dy * Math.sin(angle),
+        cy: centerY + dx * Math.sin(angle) + dy * Math.cos(angle)
+      };
+    });
   }
 
   _hitTestImgHandle(wx, wy, floor) {
@@ -2520,14 +2557,22 @@ class BazaarCanvasManager {
   _hitTestImg(wx, wy, floor) {
     const r = this._getImgRect(floor);
     if (!r) return false;
-    return wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h;
+    const angle = -Number(floor.bgRotation || 0) * Math.PI / 180;
+    const centerX = r.x + r.w / 2;
+    const centerY = r.y + r.h / 2;
+    const dx = wx - centerX;
+    const dy = wy - centerY;
+    const localX = centerX + dx * Math.cos(angle) - dy * Math.sin(angle);
+    const localY = centerY + dx * Math.sin(angle) + dy * Math.cos(angle);
+    return localX >= r.x && localX <= r.x + r.w && localY >= r.y && localY <= r.y + r.h;
   }
 
   _syncImgSliders(floor) {
     const scaleEl = document.getElementById("floor-plan-scale");
     const scaleValEl = document.getElementById("floor-plan-scale-value");
-    if (scaleEl) scaleEl.value = Math.round((floor.bgScale || 1) * 100);
-    if (scaleValEl) scaleValEl.textContent = `${Math.round((floor.bgScale || 1) * 100)}%`;
+    const scale = (Number(floor.bgScaleX || floor.bgScale || 1) + Number(floor.bgScaleY || floor.bgScale || 1)) / 2;
+    if (scaleEl) scaleEl.value = Math.round(scale * 100);
+    if (scaleValEl) scaleValEl.textContent = `${Math.round(scale * 100)}%`;
   }
 
   // Dibuja los handles de la imagen en modo imgEdit
@@ -2540,7 +2585,12 @@ class BazaarCanvasManager {
     this.ctx.strokeStyle = "#0d9488";
     this.ctx.lineWidth   = 2 / this.scale;
     this.ctx.setLineDash([6 / this.scale, 4 / this.scale]);
-    this.ctx.strokeRect(r.x, r.y, r.w, r.h);
+    this.ctx.beginPath();
+    const corners = this._getImgHandles(floor).filter((handle) => ["tl", "tr", "br", "bl"].includes(handle.id));
+    this.ctx.moveTo(corners[0].cx, corners[0].cy);
+    corners.slice(1).forEach((corner) => this.ctx.lineTo(corner.cx, corner.cy));
+    this.ctx.closePath();
+    this.ctx.stroke();
     this.ctx.setLineDash([]);
     // Handles
     const handleR = 7 / this.scale;
@@ -2554,12 +2604,13 @@ class BazaarCanvasManager {
       this.ctx.stroke();
     }
     // Label de tamaño
-    const scaleText = `${Math.round((floor.bgScale || 1) * 100)}%`;
+    const scaleX = Math.round(Number(floor.bgScaleX || floor.bgScale || 1) * 100);
+    const scaleY = Math.round(Number(floor.bgScaleY || floor.bgScale || 1) * 100);
     this.ctx.fillStyle  = "#0d9488";
     this.ctx.font       = `bold ${13 / this.scale}px sans-serif`;
     this.ctx.textAlign  = "left";
     this.ctx.textBaseline = "bottom";
-    this.ctx.fillText(`📐 ${scaleText}  ${Math.round(r.w)}×${Math.round(r.h)}px`, r.x + 4 / this.scale, r.y - 4 / this.scale);
+    this.ctx.fillText(`📐 ${scaleX}% × ${scaleY}%  ${Math.round(r.w)}×${Math.round(r.h)}px`, r.x + 4 / this.scale, r.y - 4 / this.scale);
     this.ctx.restore();
   }
 
@@ -2723,9 +2774,17 @@ class BazaarCanvasManager {
     if (this.bgImageObj && floor) {
       const opacity = Number(floor.backgroundOpacity ?? 1);
       this.ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
-      const bgScale = Number(floor.bgScale || 1);
-      this.ctx.drawImage(this.bgImageObj, Number(floor.bgX || 0), Number(floor.bgY || 0),
-        this.bgImageObj.naturalWidth * bgScale, this.bgImageObj.naturalHeight * bgScale);
+      const bgScaleX = Number(floor.bgScaleX || floor.bgScale || 1);
+      const bgScaleY = Number(floor.bgScaleY || floor.bgScale || 1);
+      const bgX = Number(floor.bgX || 0);
+      const bgY = Number(floor.bgY || 0);
+      const bgW = this.bgImageObj.naturalWidth * bgScaleX;
+      const bgH = this.bgImageObj.naturalHeight * bgScaleY;
+      this.ctx.save();
+      this.ctx.translate(bgX + bgW / 2, bgY + bgH / 2);
+      this.ctx.rotate(Number(floor.bgRotation || 0) * Math.PI / 180);
+      this.ctx.drawImage(this.bgImageObj, -bgW / 2, -bgH / 2, bgW, bgH);
+      this.ctx.restore();
       this.ctx.globalAlpha = 1;
     }
 
@@ -2926,6 +2985,9 @@ function resetBazaarCanvas() {
   floor.elements = [];
   floor.zones = [];
   floor.bgScale = 1;
+  floor.bgScaleX = 1;
+  floor.bgScaleY = 1;
+  floor.bgRotation = 0;
   floor.bgX = 0;
   floor.bgY = 0;
   bazaarCanvas.bgImageObj = null;
@@ -2961,6 +3023,9 @@ function handleFloorPlanUpload(e) {
       if (!floor) return;
       floor.bgImage = evt.target.result;
       floor.bgScale = 1;
+      floor.bgScaleX = 1;
+      floor.bgScaleY = 1;
+      floor.bgRotation = 0;
       floor.bgX = 0;
       floor.bgY = 0;
       saveState();
@@ -3200,6 +3265,8 @@ function updateCharts() {
 // [EDITABLE: si agregas una función llamada desde onclick en HTML, expórtala aquí]
 // ==========================================
 window.switchTab                     = switchTab;
+window.toggleFabMenu                 = toggleFabMenu;
+window.runFabAction                  = runFabAction;
 window.toggleDarkMode                = toggleDarkMode;
 window.toggleBackupMenu              = toggleBackupMenu;
 window.exportarJSON                  = exportarJSON;
@@ -3257,6 +3324,7 @@ window.rotateSelectedTable             = rotateSelectedTable;
 window.updateFloorPlanOpacity          = updateFloorPlanOpacity;
 window.updateFloorPlanScale            = updateFloorPlanScale;
 window.moveFloorPlan                   = moveFloorPlan;
+window.rotateFloorPlan                 = rotateFloorPlan;
 window.addMapElement                   = addMapElement;
 window.updateNewElementEmoji            = updateNewElementEmoji;
 window.saveNewMapElement                = saveNewMapElement;
