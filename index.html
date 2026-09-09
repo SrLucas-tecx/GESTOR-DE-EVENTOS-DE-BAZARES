@@ -6,7 +6,7 @@
   ═══════════════════════════════════════════════════════════════ -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EXPOSITORES.COM — Gestión de Bazares</title>
+  <title>BAZARIX — Gestión de Bazares</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
     <!-- # SIDEBAR / Logo -->
     <div class="sidebar-logo">
       <span class="logo-icon">🎪</span>
-      <span>EXPOSITORES</span>
+      <span>BAZARIX</span>
     </div>
 
     <!-- # SIDEBAR / Navegación principal -->
@@ -42,6 +42,7 @@
       <button class="nav-item"         onclick="switchTab('costos')">📊 Costos del Evento</button>
       <button class="nav-item"         onclick="switchTab('mapa')">🗺️ Plano del Evento</button>
       <button class="nav-item"         onclick="switchTab('invitados')">🎟️ Lista de Invitados</button>
+          <button class="nav-item"         onclick="switchTab('minuto-a-minuto')">🕒 Minuto a Minuto</button>
       <button class="nav-item"         onclick="switchTab('estadisticas')">📈 Métricas y Gráficas</button>
 
       <div class="nav-group-label">Configuración</div>
@@ -63,6 +64,7 @@
           <button class="backup-menu-item" onclick="exportarJSON()">📄 Guardar Datos (JSON)</button>
           <button class="backup-menu-item" onclick="exportarJSONCompleto()">🛡️ Crear Respaldo Completo</button>
           <button class="backup-menu-item" onclick="exportarCSV()">📊 Excel (.CSV en Columnas)</button>
+          <button class="backup-menu-item" onclick="exportarMinutoAMinutoCSV()">🕒 Excel Minuto a Minuto</button>
           <div class="backup-menu-divider"></div>
           <label class="backup-menu-item" style="cursor:pointer;">
             📥 Cargar Archivo JSON
@@ -475,20 +477,39 @@
 
 
       <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: MINUTO A MINUTO
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-minuto-a-minuto" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">Minuto a Minuto</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
+              Organiza las actividades del evento por horario y descarga el programa.
+            </p>
+          </div>
+          <div class="control-group-inline">
+            <button class="btn-secondary" onclick="exportarMinutoAMinutoCSV()">📊 Excel</button>
+            <button class="btn-primary" onclick="exportarMinutoAMinutoPDF()">📄 PDF</button>
+            <button class="btn-primary" onclick="addMinuteRow()">+ Agregar actividad</button>
+          </div>
+        </div>
+        <div class="payments-table-wrap">
+          <table class="payments-table minute-table">
+            <thead>
+              <tr><th>Hora</th><th>Actividad</th><th>Responsable</th><th>Notas</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="minute-by-minute-list"></tbody>
+          </table>
+        </div>
+      </section>
+      <!-- / #SECCIÓN MINUTO A MINUTO -->
+
+
+      <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: MÉTRICAS Y GRÁFICAS
            [EDITABLE: agrega más canvas + regístralos en updateCharts()]
       ───────────────────────────────────────────────────────── -->
       <section id="sec-estadisticas" class="page-section">
-        <div class="chart-card custom-metrics-panel">
-          <div class="section-header" style="justify-content:space-between;margin-bottom:12px;">
-            <div>
-              <h2 class="section-title" style="font-size:var(--fs-lg);">Métricas personalizadas</h2>
-              <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Crea indicadores propios y captura su valor en cada expositor.</p>
-            </div>
-            <button class="btn-primary btn-sm" onclick="addCustomMetric()">+ Nueva métrica</button>
-          </div>
-          <div id="custom-metrics-list"></div>
-        </div>
         <div class="charts-grid">
           <div class="chart-card">
             <h3>Distribución por Categorías</h3>
@@ -498,12 +519,15 @@
             <h3>Balance Global de Pagos</h3>
             <div class="chart-wrap"><canvas id="chart-pagos"></canvas></div>
           </div>
+          <!-- [NUEVO] Porcentaje de asistentes -->
           <div class="chart-card">
-            <div class="section-header" style="justify-content:space-between;margin-bottom:12px;">
-              <h3 style="margin-bottom:0;">Métrica personalizada</h3>
-              <select id="custom-chart-metric" class="filter-select" onchange="updateCharts()"></select>
-            </div>
-            <div class="chart-wrap"><canvas id="chart-custom"></canvas></div>
+            <h3 id="chart-asistencia-title">Porcentaje de Asistencia</h3>
+            <div class="chart-wrap"><canvas id="chart-asistencia"></canvas></div>
+          </div>
+          <!-- [NUEVO] Porcentaje de confirmación -->
+          <div class="chart-card">
+            <h3 id="chart-confirmacion-title">Confirmación de Invitados</h3>
+            <div class="chart-wrap"><canvas id="chart-confirmacion"></canvas></div>
           </div>
         </div>
       </section>
@@ -552,7 +576,7 @@
 
     <!-- # FOOTER -->
     <footer class="footer">
-      EXPOSITORES.COM &copy; 2026 — Plataforma Modular de Control de Bazares y Eventos.
+      BAZARIX &copy; 2026 — Plataforma Modular de Control de Bazares y Eventos.
     </footer>
 
   </main>
@@ -906,7 +930,7 @@
               border-bottom:3px solid #0d9488;padding-bottom:15px;margin-bottom:20px;">
     <div>
       <h1 style="color:#0d9488;margin:0;font-size:22px;">COMPROBANTE DE RESERVA</h1>
-      <p style="margin:5px 0 0;color:#666;font-size:13px;">EXPOSITORES.COM — Gestión de Eventos</p>
+      <p style="margin:5px 0 0;color:#666;font-size:13px;">BAZARIX — Gestión de Eventos</p>
     </div>
     <div style="text-align:right;">
       <div id="pdf-invoice-id" style="font-weight:bold;font-size:15px;color:#0d9488;">FOLIO #0000</div>

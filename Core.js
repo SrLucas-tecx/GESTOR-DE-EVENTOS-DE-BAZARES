@@ -1,5 +1,5 @@
 /**
- * EXPOSITORES.COM — Core.js v2.0
+ * BAZARIX — Core.js v2.0
  * ─────────────────────────────────────────────────────────────────
  * NUEVAS FUNCIONES EN ESTA VERSIÓN:
  *  1. Eliminar mesas del canvas (botón en modal editar mesa)
@@ -50,6 +50,10 @@ function emptyCustomMetrics() {
   return [];
 }
 
+function emptyMinuteByMinute() {
+  return [];
+}
+
 function defaultMapConfig() {
   return { pixelsPerMeter: 100, backgroundOpacity: 1 };
 }
@@ -94,6 +98,8 @@ const DEFAULT_STATE = {
           pagado: true,
           notas: "Cerca de toma de corriente",
           foto: "",
+          publicationStatus: "pendiente",
+          banned: false,
           checklist: defaultChecklistItems()
         },
         {
@@ -110,6 +116,8 @@ const DEFAULT_STATE = {
           pagado: false,
           notas: "Requiere espacio para hielera",
           foto: "",
+          publicationStatus: "pendiente",
+          banned: false,
           checklist: defaultChecklistItems()
         }
       ],
@@ -131,6 +139,7 @@ const DEFAULT_STATE = {
         { id: "inv-1", nombre: "Roberto Sánchez", expositorId: "", confirmado: true, asistio: false, notas: "Viene con familia" },
         { id: "inv-2", nombre: "Laura Martínez", expositorId: "", confirmado: false, asistio: false, notas: "" }
       ],
+      minuteByMinute: [],
       customMetrics: []
     },
     "bazaar-2": {
@@ -145,7 +154,7 @@ const DEFAULT_STATE = {
       ],
       costsConfig: emptyCostsConfig(),
       invitados: []
-      ,customMetrics: []
+      ,minuteByMinute: [], customMetrics: []
     }
   },
 
@@ -183,6 +192,7 @@ function migrateState(parsed) {
 
   Object.values(parsed.bazaars || {}).forEach((bz) => {
     if (!bz.invitados)   bz.invitados   = [];
+    if (!bz.minuteByMinute) bz.minuteByMinute = emptyMinuteByMinute();
     if (!bz.customMetrics) bz.customMetrics = emptyCustomMetrics();
     if (!bz.mapConfig) bz.mapConfig = defaultMapConfig();
     if (!Number.isFinite(Number(bz.mapConfig.pixelsPerMeter)) || bz.mapConfig.pixelsPerMeter <= 0) {
@@ -223,7 +233,8 @@ function migrateState(parsed) {
     (bz.expositores || []).forEach((exp) => {
       if (exp.adelanto           === undefined) exp.adelanto           = 0;
       if (exp.fechaLimitePago    === undefined) exp.fechaLimitePago    = "";
-      if (!exp.metricValues) exp.metricValues = {};
+      if (!exp.publicationStatus) exp.publicationStatus = "pendiente";
+      if (exp.banned === undefined) exp.banned = false;
     });
     getActiveTables(bz).forEach((table) => {
       if (table.rotation === undefined) table.rotation = 0;
@@ -303,6 +314,7 @@ function switchTab(tabId) {
     mapa:         "Plano Interactivo del Bazar",
     estadisticas: "Métricas y Gráficas",
     invitados:    "Lista de Invitados",
+    "minuto-a-minuto": "Minuto a Minuto",
     bazares:      "Mis Bazares",
     plantillas:   "Expositores Guardados"
   };
@@ -314,33 +326,50 @@ function switchTab(tabId) {
   if (tabId === "finanzas")     { renderFinanzasTable(); renderFinanzasStats(); }
   if (tabId === "costos")       renderCostosUI();
   if (tabId === "invitados")    renderInvitados();
+  if (tabId === "minuto-a-minuto") renderMinuteByMinute();
   if (tabId === "bazares")      renderBazaresTabla();
   if (tabId === "plantillas")   renderPlantillas();
   renderFabMenu(tabId);
 }
 
+// [FIX] Antes faltaban "finanzas" y "plantillas": al no existir su llave,
+// caían en el fallback de fabActions.expositores y el botón + mostraba
+// siempre "Nuevo Expositor" sin importar la pantalla en la que estuvieras.
+// Ahora cada pestaña tiene su propia entrada explícita (aunque esté vacía).
 const fabActions = {
   expositores: [{ label: "👤 Nuevo Expositor", action: openModalExpositorForCurrentCategory }],
   categorias: [{ label: "🏷️ Nueva Categoría", action: openModalCategoria }],
-  invitados: [{ label: "🎟️ Agregar Invitado", action: openModalInvitado }],
+  plantillas: [],
+  finanzas: [],
   costos: [{ label: "💸 Agregar Gasto", action: addExtraCostRow }],
   mapa: [
     { label: "🪑 Nueva Mesa", action: addTableToCore },
     { label: "🏢 Nuevo Piso", action: addFloor }
   ],
-  estadisticas: [{ label: "📈 Nueva Métrica", action: addCustomMetric }],
+  invitados: [{ label: "🎟️ Agregar Invitado", action: openModalInvitado }],
+  "minuto-a-minuto": [{ label: "🕒 Agregar actividad", action: addMinuteRow }],
+  estadisticas: [],
   bazares: [{ label: "🏪 Nuevo Bazar", action: createBazaar }]
 };
 
 function renderFabMenu(tabId = "expositores") {
   const menu = document.getElementById("fab-add-menu");
+  const container = document.querySelector(".fab-container");
   if (!menu) return;
-  const actions = fabActions[tabId] || fabActions.expositores;
+  // [FIX] Solo usa el fallback si el tab realmente no está registrado
+  // (no cuando su lista de acciones está vacía a propósito).
+  const actions = Object.prototype.hasOwnProperty.call(fabActions, tabId)
+    ? fabActions[tabId]
+    : fabActions.expositores;
   menu.innerHTML = actions.map((item, index) =>
     `<button class="fab-add-item" onclick="runFabAction('${tabId}', ${index})">${item.label}</button>`
   ).join("");
   menu.classList.remove("open");
   menu.setAttribute("aria-hidden", "true");
+  // [FIX] Si la pantalla actual no tiene ninguna acción de "agregar"
+  // (ej. Métricas, Control de Pagos, Expositores Guardados), se oculta
+  // el botón flotante por completo en vez de dejarlo sin efecto.
+  if (container) container.style.display = actions.length ? "" : "none";
 }
 
 function toggleFabMenu() {
@@ -381,14 +410,14 @@ function exportarJSON() {
   const blob = new Blob([data], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `expositores_backup_${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `bazarix_backup_${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   showToast("✅ JSON descargado correctamente");
 }
 
 function exportarJSONCompleto() {
   const backup = {
-    app: "EXPOSITORES.COM",
+    app: "BAZARIX",
     version: 3,
     exportedAt: new Date().toISOString(),
     data: AppState
@@ -396,7 +425,7 @@ function exportarJSONCompleto() {
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `expositores_respaldo_completo_${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `bazarix_respaldo_completo_${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
   showToast("✅ Respaldo completo descargado");
@@ -420,7 +449,7 @@ function exportarCSV() {
     e.notas
   ].map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`));
 
-  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+  const csv = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
   const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -436,7 +465,7 @@ function handleImportJSON(e) {
   reader.onload = (evt) => {
     try {
       const parsed = JSON.parse(evt.target.result);
-      const importedState = parsed.data && parsed.app === "EXPOSITORES.COM" ? parsed.data : parsed;
+      const importedState = parsed.data && ["BAZARIX", "BAZARICXS", "BARARIX-EXPOSITORES", "EXPOSITORES.COM"].includes(parsed.app) ? parsed.data : parsed;
       if (!importedState || typeof importedState !== "object" || !importedState.bazaars) {
         throw new Error("Estructura de respaldo inválida");
       }
@@ -579,6 +608,7 @@ function createBazaar() {
     expositores: [], tables: [],
     costsConfig: emptyCostsConfig(),
     invitados: [], customMetrics: emptyCustomMetrics(),
+    minuteByMinute: emptyMinuteByMinute(),
     floors: [createFloor(`${id}-floor-1`, "Planta baja")], activeFloorId: `${id}-floor-1`
   };
   AppState.currentBazaarId = id;
@@ -600,7 +630,7 @@ function deleteBazaarById(bazaarId) {
     // Si no quedan bazares, crea uno vacío para no romper la app
     const newId = "bazaar-" + Date.now();
     AppState.bazaars[newId] = { id: newId, name: "Mi Primer Bazar", bgImage: null, logoImage: null, mapConfig: defaultMapConfig(),
-      expositores: [], tables: [], costsConfig: emptyCostsConfig(), invitados: [], customMetrics: emptyCustomMetrics(),
+      expositores: [], tables: [], costsConfig: emptyCostsConfig(), invitados: [], minuteByMinute: emptyMinuteByMinute(), customMetrics: emptyCustomMetrics(),
       floors: [createFloor(`${newId}-floor-1`, "Planta baja")], activeFloorId: `${newId}-floor-1` };
     AppState.currentBazaarId = newId;
   }
@@ -739,7 +769,7 @@ function renderAll() {
   renderChecklist();
   renderInvitados();
   renderPlantillas();
-  renderCustomMetrics();
+  renderMinuteByMinute();
 }
 
 function handleSearch(val) {
@@ -759,50 +789,154 @@ function setFilterStatus(status) {
   renderExpositores();
 }
 
-function renderCustomMetrics() {
-  const bz = getActiveBazaar();
-  const container = document.getElementById("custom-metrics-list");
-  if (!bz || !container) return;
-  const metrics = bz.customMetrics || (bz.customMetrics = []);
-  container.innerHTML = metrics.length === 0
-    ? `<p class="form-hint">Aún no hay métricas. Crea una para capturarla en los expositores.</p>`
-    : metrics.map((metric) => `
-      <div class="custom-metric-row">
-        <input class="form-input" value="${escapeHTML(metric.name)}" onchange="updateCustomMetric('${metric.id}','name',this.value)" placeholder="Ej. Seguidores en redes">
-        <select class="form-select" onchange="updateCustomMetric('${metric.id}','type',this.value)">
-          <option value="number" ${metric.type === "number" ? "selected" : ""}>Número</option>
-          <option value="currency" ${metric.type === "currency" ? "selected" : ""}>Dinero</option>
-          <option value="percentage" ${metric.type === "percentage" ? "selected" : ""}>Porcentaje</option>
-        </select>
-        <button class="btn-danger btn-sm" onclick="removeCustomMetric('${metric.id}')">🗑️</button>
-      </div>`).join("");
+const PUBLICATION_STATUSES = ["pendiente", "parcial", "lista", "publicada"];
+const PUBLICATION_LABELS = {
+  pendiente: "Pendiente",
+  parcial: "Parcial",
+  lista: "Lista",
+  publicada: "Publicada"
+};
+
+function publicationStatusLabel(status) {
+  return PUBLICATION_LABELS[status] || PUBLICATION_LABELS.pendiente;
 }
 
-function addCustomMetric() {
+function cyclePublicationStatus(id) {
+  const exp = getActiveBazaar()?.expositores.find((item) => item.id === id);
+  if (!exp) return;
+  const currentIndex = PUBLICATION_STATUSES.indexOf(exp.publicationStatus || "pendiente");
+  exp.publicationStatus = PUBLICATION_STATUSES[(currentIndex + 1) % PUBLICATION_STATUSES.length];
+  saveState();
+  renderExpositores();
+  showToast(`📣 ${exp.negocio}: ${publicationStatusLabel(exp.publicationStatus)}`);
+}
+
+function toggleExpositorBan(id) {
+  const exp = getActiveBazaar()?.expositores.find((item) => item.id === id);
+  if (!exp) return;
+  const action = exp.banned ? "quitar el baneo a" : "banear a";
+  if (!confirm(`¿Deseas ${action} "${exp.negocio}"?`)) return;
+  exp.banned = !exp.banned;
+  saveState();
+  renderExpositores();
+  showToast(exp.banned ? "🚫 Expositor baneado" : "✅ Baneo retirado");
+}
+
+function renderMinuteByMinute() {
+  const container = document.getElementById("minute-by-minute-list");
+  const bz = getActiveBazaar();
+  if (!container || !bz) return;
+  const rows = bz.minuteByMinute || (bz.minuteByMinute = []);
+  if (!rows.length) {
+    container.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin actividades programadas.</td></tr>`;
+    return;
+  }
+  container.innerHTML = rows.map((row) => `
+    <tr>
+      <td><input class="form-input" type="time" value="${escapeHTML(row.time)}" onchange="updateMinuteRow('${row.id}','time',this.value)"></td>
+      <td><input class="form-input" value="${escapeHTML(row.activity)}" onchange="updateMinuteRow('${row.id}','activity',this.value)"></td>
+      <td><input class="form-input" value="${escapeHTML(row.responsible)}" onchange="updateMinuteRow('${row.id}','responsible',this.value)"></td>
+      <td><input class="form-input" value="${escapeHTML(row.notes)}" onchange="updateMinuteRow('${row.id}','notes',this.value)"></td>
+      <td><button class="btn-danger btn-sm" onclick="deleteMinuteRow('${row.id}')">🗑️</button></td>
+    </tr>`).join("");
+}
+
+function addMinuteRow() {
   const bz = getActiveBazaar();
   if (!bz) return;
-  if (!bz.customMetrics) bz.customMetrics = [];
-  bz.customMetrics.push({ id: `metric-${Date.now()}`, name: "Nueva métrica", type: "number" });
+  if (!bz.minuteByMinute) bz.minuteByMinute = [];
+  bz.minuteByMinute.push({ id: `minute-${Date.now()}`, time: "", activity: "Nueva actividad", responsible: "", notes: "" });
   saveState();
-  renderAll();
-  showToast("✅ Métrica creada");
+  renderMinuteByMinute();
 }
 
-function updateCustomMetric(id, field, value) {
-  const metric = (getActiveBazaar()?.customMetrics || []).find((item) => item.id === id);
-  if (!metric) return;
-  metric[field] = field === "name" ? value.trim() || "Métrica" : value;
+function updateMinuteRow(id, field, value) {
+  const row = (getActiveBazaar()?.minuteByMinute || []).find((item) => item.id === id);
+  if (!row) return;
+  row[field] = value;
   saveState();
-  renderAll();
 }
 
-function removeCustomMetric(id) {
+function deleteMinuteRow(id) {
   const bz = getActiveBazaar();
-  if (!bz || !confirm("¿Eliminar esta métrica y sus valores?")) return;
-  bz.customMetrics = (bz.customMetrics || []).filter((metric) => metric.id !== id);
-  bz.expositores.forEach((exp) => { if (exp.metricValues) delete exp.metricValues[id]; });
+  if (!bz) return;
+  bz.minuteByMinute = (bz.minuteByMinute || []).filter((row) => row.id !== id);
   saveState();
-  renderAll();
+  renderMinuteByMinute();
+}
+
+function minuteRowsForExport() {
+  return (getActiveBazaar()?.minuteByMinute || []).slice().sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+}
+
+function exportarMinutoAMinutoCSV() {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  const rows = minuteRowsForExport();
+  const quote = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const csv = [["Hora", "Actividad", "Responsable", "Notas"], ...rows.map((row) => [row.time, row.activity, row.responsible, row.notes])]
+    .map((row) => row.map(quote).join(";")).join("\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `minuto_a_minuto_${bz.name.replace(/[^a-z0-9]+/gi, "_")}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  showToast("✅ Minuto a Minuto exportado a Excel");
+}
+
+function exportarMinutoAMinutoPDF() {
+  const bz = getActiveBazaar();
+  if (!bz || !window.html2pdf) {
+    showToast("❌ Librería PDF no disponible", "error");
+    return;
+  }
+  const rows = minuteRowsForExport();
+  const issuedAt = new Date().toLocaleDateString("es-MX");
+  const wrapper = document.createElement("div");
+  wrapper.id = "minuto-a-minuto-pdf-wrapper";
+  // [FIX-3] "opacity:0" hacía que html2canvas capturara los píxeles TAL
+  // COMO SE VEN — y con opacidad 0 son transparentes, por eso el PDF salía
+  // en blanco. Se usa el mismo método que ya funciona en el comprobante de
+  // pago (generatePDFInvoice): display:none por defecto, y display:block
+  // solo un instante antes de capturar. Sin position:fixed, sin opacity,
+  // sin coordenadas negativas — nada que interfiera con la captura.
+  wrapper.style.cssText = "display:none;box-sizing:border-box;width:700px;padding:30px;font-family:Arial,sans-serif;background:#fff;color:#333;";
+  wrapper.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0d9488;padding-bottom:15px;margin-bottom:20px;">
+      <div>
+        <h1 style="color:#0d9488;margin:0;font-size:22px;">PROGRAMA DEL EVENTO</h1>
+        <p style="margin:5px 0 0;color:#666;font-size:13px;">BAZARIX — Gestión de Eventos</p>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:bold;font-size:15px;color:#0d9488;">MINUTO A MINUTO</div>
+        <div style="font-size:12px;color:#777;">Fecha: ${issuedAt}</div>
+      </div>
+    </div>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;font-size:13px;">
+      <div style="font-weight:bold;color:#0d9488;margin-bottom:5px;">Evento</div>
+      <div>${escapeHTML(bz.name)}</div>
+      <div style="color:#64748b;margin-top:4px;">Actividades programadas: ${rows.length}</div>
+    </div>
+    <table style="width:100%;table-layout:fixed;font-size:12px;border-collapse:collapse;">
+      <colgroup><col style="width:12%"><col style="width:32%"><col style="width:24%"><col style="width:32%"></colgroup>
+      <thead><tr>${["Hora", "Actividad", "Responsable", "Notas"].map((label) => `<th style="text-align:left;background:#ccfbf1;color:#0f766e;padding:9px;border-bottom:2px solid #0d9488;">${label}</th>`).join("")}</tr></thead>
+      <tbody>${rows.length ? rows.map((row, index) => `<tr style="${index % 2 ? "background:#f8fafc;" : ""}page-break-inside:avoid;">${[row.time, row.activity, row.responsible, row.notes].map((value) => `<td style="padding:9px;border-bottom:1px solid #e2e8f0;vertical-align:top;word-wrap:break-word;">${escapeHTML(value || "—")}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="4" style="padding:18px;text-align:center;color:#64748b;">Sin actividades programadas.</td></tr>`}</tbody>
+    </table>
+    <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;text-align:center;">Documento generado por BAZARIX</div>`;
+  document.body.appendChild(wrapper);
+  wrapper.style.display = "block";
+  window.html2pdf().set({
+    margin: 10,
+    filename: `minuto_a_minuto_${bz.name.replace(/[^a-z0-9]+/gi, "_")}.pdf`,
+    html2canvas: { scale: 2, backgroundColor: "#ffffff", useCORS: true },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    // Evita que una fila de la tabla se corte entre dos páginas del PDF.
+    pagebreak: { mode: ["css", "legacy"], avoid: ["tr"] }
+  }).from(wrapper).save().then(() => wrapper.remove()).catch(() => {
+    wrapper.remove();
+    showToast("❌ No se pudo generar el PDF", "error");
+  });
 }
 
 // ==========================================
@@ -843,7 +977,7 @@ function renderExpositores() {
     const saldo = Number(exp.costo || 0) - adelanto;
 
     return `
-      <div class="expositor-card ${exp.pagado ? "paid-card" : "unpaid-card"}">
+      <div class="expositor-card ${exp.banned ? "banned-card" : (exp.pagado ? "paid-card" : "unpaid-card")}">
         <div class="card-top">
           <div class="avatar-wrap">
             <div class="expositor-avatar">
@@ -861,6 +995,10 @@ function renderExpositores() {
         <span class="paid-badge ${exp.pagado ? "paid" : "unpaid"}">
           ${exp.pagado ? "✅ Pagado" : "⏳ Pendiente"}
         </span>
+        <button class="publication-status status-${escapeHTML(exp.publicationStatus || "pendiente")}" onclick="cyclePublicationStatus('${exp.id}')">
+          📣 Publicación: ${publicationStatusLabel(exp.publicationStatus)}
+        </button>
+        ${exp.banned ? `<span class="banned-badge">🚫 Expositor baneado</span>` : ""}
 
         <div class="card-meta">
           <div class="card-meta-item">
@@ -899,6 +1037,7 @@ function renderExpositores() {
           <button class="btn-secondary btn-sm" onclick="openExpositorChecklist('${exp.id}')">☑️ (${doneCount}/${checklist.length})</button>
           <button class="btn-secondary btn-sm" onclick="generatePDFInvoice('${exp.id}')">📄 Recibo</button>
           <button class="btn-secondary btn-sm" onclick="guardarComoPlantilla('${exp.id}')" title="Guardar expositor como plantilla">💾</button>
+          <button class="${exp.banned ? "btn-secondary" : "btn-danger"} btn-sm" onclick="toggleExpositorBan('${exp.id}')">${exp.banned ? "✅ Quitar baneo" : "🚫 Banear"}</button>
           <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')">🗑️</button>
         </div>
       </div>`;
@@ -1112,7 +1251,6 @@ function openModalExpositor(id = null, categoryId = null) {
   document.getElementById("exp-foto-base64").value  = "";
   const box = document.getElementById("avatar-preview-box");
   if (box) box.innerHTML = "📷";
-  renderExpositorMetricFields({});
 
   if (id) {
     const exp = getActiveBazaar().expositores.find((e) => e.id === id);
@@ -1130,7 +1268,6 @@ function openModalExpositor(id = null, categoryId = null) {
       document.getElementById("exp-fecha-limite").value  = exp.fechaLimitePago || "";
       document.getElementById("exp-pagado").checked      = exp.pagado;
       document.getElementById("exp-notas").value         = exp.notas || "";
-      renderExpositorMetricFields(exp.metricValues || {});
       document.getElementById("exp-foto-base64").value   = exp.foto || "";
       if (exp.foto && box) box.innerHTML = `<img src="${exp.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     }
@@ -1154,23 +1291,6 @@ function populateCategoriaSelect() {
   sel.innerHTML = AppState.categorias.map((c) => `<option value="${c.id}">${c.emoji} ${escapeHTML(c.nombre)}</option>`).join("");
 }
 
-function renderExpositorMetricFields(values) {
-  const container = document.getElementById("expositor-custom-metrics");
-  const metrics = getActiveBazaar()?.customMetrics || [];
-  if (!container) return;
-  container.innerHTML = metrics.length === 0 ? "" : `
-    <div class="form-group">
-      <label class="form-label">Métricas personalizadas</label>
-      <div class="custom-metrics-input-grid">
-        ${metrics.map((metric) => `<div>
-          <label class="form-hint">${escapeHTML(metric.name)}</label>
-          <input type="number" min="0" step="any" class="form-input" data-metric-id="${metric.id}"
-                 value="${Number(values[metric.id] || 0)}" placeholder="0">
-        </div>`).join("")}
-      </div>
-    </div>`;
-}
-
 function handleFotoUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -1190,11 +1310,6 @@ function saveExpositorHandler(e) {
   const id = document.getElementById("exp-id").value;
   const existing = id ? bz.expositores.find((x) => x.id === id) : null;
 
-  const metricValues = {};
-  document.querySelectorAll("#expositor-custom-metrics [data-metric-id]").forEach((input) => {
-    metricValues[input.dataset.metricId] = Number(input.value || 0);
-  });
-
   const expData = {
     id:             id || "exp-" + Date.now(),
     nombre:         document.getElementById("exp-nombre").value.trim(),
@@ -1209,8 +1324,9 @@ function saveExpositorHandler(e) {
     pagado:         document.getElementById("exp-pagado").checked,
     notas:          document.getElementById("exp-notas").value.trim(),
     foto:           document.getElementById("exp-foto-base64").value,
+    publicationStatus: existing?.publicationStatus || "pendiente",
+    banned:         existing?.banned || false,
     checklist:      existing ? existing.checklist : defaultChecklistItems(),
-    metricValues
   };
 
   if (id) {
@@ -2025,22 +2141,15 @@ function rotateSelectedTable(delta) {
 // 22. GRÁFICAS (Chart.js)
 // [EDITABLE: agrega más gráficas aquí siguiendo el mismo patrón]
 // ==========================================
-let chartCategoriesInstance = null;
-let chartPaymentsInstance   = null;
-let chartCustomInstance     = null;
+let chartCategoriesInstance   = null;
+let chartPaymentsInstance     = null;
+let chartCustomInstance       = null;
+let chartAttendanceInstance   = null;
+let chartConfirmationInstance = null;
 
 function updateCharts() {
   if (typeof Chart === "undefined") return;
   const bz = getActiveBazaar();
-  const customMetrics = bz.customMetrics || [];
-  const customSelect = document.getElementById("custom-chart-metric");
-  if (customSelect) {
-    const current = customSelect.value;
-    customSelect.innerHTML = customMetrics.length
-      ? customMetrics.map((metric) => `<option value="${metric.id}">${escapeHTML(metric.name)}</option>`).join("")
-      : `<option value="">Sin métricas</option>`;
-    if (customMetrics.some((metric) => metric.id === current)) customSelect.value = current;
-  }
 
   const ctxCat = document.getElementById("chart-categorias");
   if (ctxCat) {
@@ -2070,19 +2179,60 @@ function updateCharts() {
     });
   }
 
-  const ctxCustom = document.getElementById("chart-custom");
-  if (ctxCustom) {
-    if (chartCustomInstance) chartCustomInstance.destroy();
-    const metric = customMetrics.find((item) => item.id === customSelect?.value) || customMetrics[0];
-    chartCustomInstance = metric ? new Chart(ctxCustom, {
-      type: "bar",
+  // [NUEVO] Porcentaje de asistentes (invitados que asistieron vs no)
+  const ctxAsist = document.getElementById("chart-asistencia");
+  if (ctxAsist) {
+    const invitados  = bz.invitados || [];
+    const total      = invitados.length;
+    const asistieron = invitados.filter((i) => i.asistio).length;
+    const noAsist    = total - asistieron;
+    const pct        = total ? Math.round((asistieron / total) * 100) : 0;
+    const titleEl = document.getElementById("chart-asistencia-title");
+    if (titleEl) titleEl.textContent = `Porcentaje de Asistencia (${pct}%)`;
+    if (chartAttendanceInstance) chartAttendanceInstance.destroy();
+    chartAttendanceInstance = new Chart(ctxAsist, {
+      type: "doughnut",
       data: {
-        labels: bz.expositores.map((exp) => exp.negocio),
-        datasets: [{ label: metric.name, data: bz.expositores.map((exp) => Number(exp.metricValues?.[metric.id] || 0)), backgroundColor: "#0d9488" }]
+        labels: ["Asistieron", "No asistieron"],
+        datasets: [{ data: total ? [asistieron, noAsist] : [0, 1], backgroundColor: ["#0d9488", "#e2e8f0"] }]
       },
-      options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
-    }) : null;
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw} (${total ? Math.round((ctx.raw / total) * 100) : 0}%)` } }
+        }
+      }
+    });
   }
+
+  // [NUEVO] Porcentaje de confirmación de invitados
+  const ctxConf = document.getElementById("chart-confirmacion");
+  if (ctxConf) {
+    const invitados  = bz.invitados || [];
+    const total       = invitados.length;
+    const confirmados = invitados.filter((i) => i.confirmado).length;
+    const sinConfirmar = total - confirmados;
+    const pct = total ? Math.round((confirmados / total) * 100) : 0;
+    const titleEl = document.getElementById("chart-confirmacion-title");
+    if (titleEl) titleEl.textContent = `Confirmación de Invitados (${pct}%)`;
+    if (chartConfirmationInstance) chartConfirmationInstance.destroy();
+    chartConfirmationInstance = new Chart(ctxConf, {
+      type: "doughnut",
+      data: {
+        labels: ["Confirmados", "Sin confirmar"],
+        datasets: [{ data: total ? [confirmados, sinConfirmar] : [0, 1], backgroundColor: ["#f59e0b", "#e2e8f0"] }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw} (${total ? Math.round((ctx.raw / total) * 100) : 0}%)` } }
+        }
+      }
+    });
+  }
+
 }
 
 // ==========================================
@@ -2153,9 +2303,13 @@ window.saveInvitadoHandler           = saveInvitadoHandler;
 window.toggleInvConfirmado           = toggleInvConfirmado;
 window.toggleInvAsistio              = toggleInvAsistio;
 window.deleteInvitado                = deleteInvitado;
-window.addCustomMetric                = addCustomMetric;
-window.updateCustomMetric             = updateCustomMetric;
-window.removeCustomMetric             = removeCustomMetric;
+window.cyclePublicationStatus          = cyclePublicationStatus;
+window.toggleExpositorBan              = toggleExpositorBan;
+window.addMinuteRow                    = addMinuteRow;
+window.updateMinuteRow                 = updateMinuteRow;
+window.deleteMinuteRow                 = deleteMinuteRow;
+window.exportarMinutoAMinutoCSV        = exportarMinutoAMinutoCSV;
+window.exportarMinutoAMinutoPDF        = exportarMinutoAMinutoPDF;
 window.updateCharts                   = updateCharts;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -2176,6 +2330,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!menu) return;
     if (!menu.contains(e.target) && !e.target.closest('[onclick="toggleBackupMenu()"]')) {
       menu.classList.remove("open");
+    }
+  });
+
+  // [NUEVO] Cierra el menú del botón flotante (FAB) al hacer clic fuera de él
+  document.addEventListener("click", (e) => {
+    const fabMenu = document.getElementById("fab-add-menu");
+    if (!fabMenu) return;
+    if (!fabMenu.contains(e.target) && !e.target.closest(".fab")) {
+      fabMenu.classList.remove("open");
+      fabMenu.setAttribute("aria-hidden", "true");
     }
   });
 
