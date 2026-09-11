@@ -406,6 +406,13 @@ function toggleFabMenu() {
   menu.setAttribute("aria-hidden", String(!isOpen));
 }
 
+function toggleSocialFabMenu() {
+  const menu = document.getElementById("fab-social-menu");
+  if (!menu) return;
+  const isOpen = menu.classList.toggle("open");
+  menu.setAttribute("aria-hidden", String(!isOpen));
+}
+
 function runFabAction(tabId, actionIndex) {
   const activeSection = document.querySelector(".page-section.active")?.id || "";
   if (activeSection !== `sec-${tabId}`) return;
@@ -3266,6 +3273,7 @@ function updateCharts() {
 // ==========================================
 window.switchTab                     = switchTab;
 window.toggleFabMenu                 = toggleFabMenu;
+window.toggleSocialFabMenu           = toggleSocialFabMenu;
 window.runFabAction                  = runFabAction;
 window.toggleDarkMode                = toggleDarkMode;
 window.toggleBackupMenu              = toggleBackupMenu;
@@ -3384,6 +3392,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!fabMenu.contains(e.target) && !e.target.closest(".fab")) {
       fabMenu.classList.remove("open");
       fabMenu.setAttribute("aria-hidden", "true");
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    const socialMenu = document.getElementById("fab-social-menu");
+    if (!socialMenu) return;
+    if (!socialMenu.contains(e.target) && !e.target.closest(".fab-social")) {
+      socialMenu.classList.remove("open");
+      socialMenu.setAttribute("aria-hidden", "true");
     }
   });
 
