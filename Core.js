@@ -218,6 +218,7 @@ function migrateState(parsed) {
       if (!Number.isFinite(Number(floor.bgX))) floor.bgX = 0;
       if (!Number.isFinite(Number(floor.bgY))) floor.bgY = 0;
       if (!Array.isArray(floor.elements)) floor.elements = [];
+      if (!Array.isArray(floor.zones)) floor.zones = [];
       floor.elements.forEach((element) => {
         if (!element.id) element.id = `element-${Date.now()}-${Math.random()}`;
         if (!element.type) element.type = "otro";
@@ -2069,7 +2070,10 @@ class BazaarCanvasManager {
   // Carga zonas guardadas del piso activo
   loadZones() {
     const floor = getActiveFloor(this.getCurrentBazaar());
-    this.zones = (floor?.zones || []).map(z => ({ ...z, points: z.points.map(p => ({...p})) }));
+    this.zones = (floor?.zones || []).map((zone) => ({
+      ...zone,
+      points: Array.isArray(zone.points) ? zone.points.map((point) => ({ ...point })) : []
+    }));
     this.drawingZone = null;
   }
 
@@ -2759,9 +2763,14 @@ class BazaarCanvasManager {
   }
 
   deleteZone(id) {
-    this.zones = this.zones.filter(z => z.id !== id);
+    const previousLength = this.zones.length;
+    this.zones = this.zones.filter((zone) => zone.id !== id);
+    if (this.zones.length === previousLength) return false;
+    if (this.selectedZoneId === id) this.selectedZoneId = null;
+    if (this.drawingZone?.id === id) this.drawingZone = null;
     this.saveZones(); this.render(); this.updateZoneUI();
     showToast("🗑️ Zona eliminada");
+    return true;
   }
 
   render(mouseRawX, mouseRawY) {
@@ -3271,6 +3280,7 @@ function updateCharts() {
 // 23. EXPOSICIÓN GLOBAL DE FUNCIONES (window.*) + INIT
 // [EDITABLE: si agregas una función llamada desde onclick en HTML, expórtala aquí]
 // ==========================================
+window.bazaarCanvas                 = bazaarCanvas;
 window.switchTab                     = switchTab;
 window.toggleFabMenu                 = toggleFabMenu;
 window.toggleSocialFabMenu           = toggleSocialFabMenu;
