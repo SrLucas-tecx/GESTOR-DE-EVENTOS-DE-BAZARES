@@ -1245,42 +1245,8 @@
      # SCRIPTS — Core.js debe ir al final del <body>
      [EDITABLE: carga módulos adicionales ANTES de Core.js]
 ═══════════════════════════════════════════════════════════════════ -->
-<!-- ═══════════════════════════════════════════════════════════════
-     # MÓDULOS — Carga en orden de dependencias
-     Para agregar funcionalidad nueva: crea un archivo en modules/
-     y agrégalo aquí ANTES de init.js.
-═══════════════════════════════════════════════════════════════ -->
-
-<!-- 1. Base: estado y helpers -->
-<script src="modules/state.js"></script>
-<script src="modules/utils.js"></script>
-
-<!-- 2. Dominio de negocio (sin dependencias entre sí) -->
-<script src="modules/bazaars.js"></script>
-<script src="modules/eventos.js"></script>
-<script src="modules/expositores.js"></script>
-<script src="modules/categorias.js"></script>
-<script src="modules/finanzas.js"></script>
-<script src="modules/costos.js"></script>
-<script src="modules/modales.js"></script>
-<script src="modules/checklist.js"></script>
-<script src="modules/plantillas.js"></script>
-<script src="modules/invitados.js"></script>
-<script src="modules/asistencia.js"></script>
-<script src="modules/pdf.js"></script>
-
-<!-- 3. Canvas (depende de state + utils + bazaars) -->
-<script src="modules/canvas.js"></script>
-<script src="modules/canvas_helpers.js"></script>
-
-<!-- 4. Gráficas (depende de state) -->
-<script src="modules/charts.js"></script>
-
-<!-- 5. UI y navegación (depende de todos los módulos de render) -->
-<script src="modules/ui.js"></script>
-
-<!-- 6. Init: window.* exports + DOMContentLoaded (siempre al final) -->
-<script src="modules/init.js"></script>
+<!-- Orquestador: carga js/modules/*.js en orden -->
+<script src="main.js"></script>
 
 </body>
 </html>
