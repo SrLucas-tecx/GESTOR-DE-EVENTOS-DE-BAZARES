@@ -24,6 +24,7 @@ function switchTab(tabId) {
     invitados:    "Lista de Expositores",
     "minuto-a-minuto": "Minuto a Minuto",
     bazares:      "Mis Bazares",
+    alertas:      "⚠️ Alertas de Pago",
     plantillas:   "Expositores Guardados"
   };
   const titleEl = document.getElementById("page-title");
@@ -37,6 +38,8 @@ function switchTab(tabId) {
   if (tabId === "minuto-a-minuto") renderMinuteByMinute();
   if (tabId === "bazares")      renderBazaresTabla();
   if (tabId === "plantillas")   renderPlantillas();
+  if (tabId === "alertas")      { if (typeof renderAlertas === "function") renderAlertas(); }
+  if (tabId === "estadisticas") { updateCharts(); if (typeof renderMetricasFinancieras === "function") renderMetricasFinancieras(); }
   renderFabMenu(tabId);
 }
 

@@ -60,3 +60,8 @@ function renderFinanzasStats() {
 // ==========================================
 // 12. COSTOS DEL EVENTO
 // Ahora usa Costo TOTAL en lugar de Costo Unitario como campo principal.
+
+// Sprint 1: Llama al render de métricas cuando se actualizan finanzas
+function renderFinanzasExtras() {
+  if (typeof renderMetricasFinancieras === "function") renderMetricasFinancieras();
+}

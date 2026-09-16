@@ -148,12 +148,29 @@ class BazaarCanvasManager {
     });
   }
 
-  // Clic derecho: cancela zona en construcción
+  // Clic derecho: cancela zona en construcción O abre menú contextual
   handleRightClick(e) {
     if (this.mode === "zone" && this.drawingZone) {
       this.drawingZone = null;
       this.render();
       this.updateZoneUI();
+      return;
+    }
+    // Menú contextual en modo selección
+    if (this.mode === "select") {
+      const { worldX, worldY } = this.getCanvasCoords(e);
+      const bz     = this.getCurrentBazaar();
+      const tables = getActiveTables(bz);
+      // ¿Clic sobre una mesa?
+      for (let i = tables.length - 1; i >= 0; i--) {
+        if (this.isPointInsideTable(tables[i], worldX, worldY)) {
+          this.selectedTableId = tables[i].id;
+          showCanvasContextMenu(e.clientX, e.clientY, tables[i].id);
+          this.render();
+          return;
+        }
+      }
+      hideCanvasContextMenu();
     }
   }
 
@@ -389,8 +406,31 @@ class BazaarCanvasManager {
 
     // ── Modo select: lógica original ──
     if (this.isDraggingTable && this.draggedTable) {
-      this.draggedTable.x = Math.round(worldX - this.dragOffsetX);
-      this.draggedTable.y = Math.round(worldY - this.dragOffsetY);
+      let nx = Math.round(worldX - this.dragOffsetX);
+      let ny = Math.round(worldY - this.dragOffsetY);
+      // Snap entre mesas: si hay otra mesa cerca alinea bordes/centros
+      if (this.snapEnabled) {
+        const SNAP_DIST = 12 / this.scale;
+        const bz = this.getCurrentBazaar();
+        for (const t of getActiveTables(bz)) {
+          if (t.id === this.draggedTable.id) continue;
+          const dt = this.draggedTable;
+          // Snap borde izquierdo con borde derecho de otra mesa
+          if (Math.abs(nx - (t.x + t.w)) < SNAP_DIST) nx = t.x + t.w;
+          // Snap borde derecho con borde izquierdo
+          if (Math.abs((nx + dt.w) - t.x) < SNAP_DIST) nx = t.x - dt.w;
+          // Snap top con bottom
+          if (Math.abs(ny - (t.y + t.h)) < SNAP_DIST) ny = t.y + t.h;
+          // Snap bottom con top
+          if (Math.abs((ny + dt.h) - t.y) < SNAP_DIST) ny = t.y - dt.h;
+          // Snap centros X
+          if (Math.abs((nx + dt.w/2) - (t.x + t.w/2)) < SNAP_DIST) nx = t.x + (t.w - dt.w)/2;
+          // Snap centros Y
+          if (Math.abs((ny + dt.h/2) - (t.y + t.h/2)) < SNAP_DIST) ny = t.y + (t.h - dt.h)/2;
+        }
+      }
+      this.draggedTable.x = nx;
+      this.draggedTable.y = ny;
       this.render();
     } else if (this.isDraggingElement && this.draggedElement) {
       this.draggedElement.x = Math.round(worldX - this.dragOffsetX);
@@ -798,18 +838,25 @@ class BazaarCanvasManager {
       this.ctx.globalAlpha = 1;
     }
 
-    // Zonas poligonales (bajo mesas y elementos para no taparlas)
+    // Elementos y mesas (debajo de zonas)
     let mWX, mWY;
     if (mouseRawX !== undefined) {
       const rect = this.canvas.getBoundingClientRect();
       mWX = ((mouseRawX - rect.left) * (this.canvas.width / rect.width) - this.panX) / this.scale;
       mWY = ((mouseRawY - rect.top) * (this.canvas.height / rect.height) - this.panY) / this.scale;
     }
-    this.drawZones(mWX, mWY);
-
-    // Elementos del mapa y mesas
     this.drawMapElements(floor?.elements || []);
-    getActiveTables(bz).forEach((t) => this.drawTable(t));
+    if (this.showTables !== false) {
+      getActiveTables(bz).forEach((t) => this.drawTable(t));
+    }
+
+    // Zonas ENCIMA de mesas
+    if (this.showZones !== false) {
+      this.drawZones(mWX, mWY);
+    }
+
+    // Leyenda de categorías (esquina inferior izquierda, encima de todo)
+    if (this.showLegend) this.drawLegend(w, h);
 
     // Handles de imagen (sólo en modo imgEdit)
     if (this.mode === "imgEdit" && this.bgImageObj && floor) {
@@ -870,12 +917,39 @@ class BazaarCanvasManager {
   drawTable(t) {
     const bz = this.getCurrentBazaar();
     const exhibitor = bz.expositores.find((e) => e.id === t.exhibitorId);
-    let fillColor = "#ffffff", borderColor = "#94a3b8";
-    if (t.attended)       { fillColor = "#dcfce7"; borderColor = "#22c55e"; }
-    else if (exhibitor) {
-      const cat = AppState.categorias.find((c) => c.id === exhibitor.categoria);
-      if (cat) { fillColor = cat.color + "25"; borderColor = cat.color; }
-      else     { fillColor = "#e0f2fe"; borderColor = "#0284c7"; }
+
+    // ── TRES ESTADOS ─────────────────────────────────────────────
+    // Libre        → blanco, borde gris
+    // Pendiente    → poca opacidad (semitransparente)
+    // Asistió      → relleno sólido completo
+    // No asistió   → rojo distintivo
+    let fillColor   = "#ffffff";
+    let borderColor = "#94a3b8";
+    let nameColor   = "#64748b";
+    let bizColor    = "#94a3b8";
+
+    if (exhibitor) {
+      const cat       = AppState.categorias.find((c) => c.id === exhibitor.categoria);
+      const baseColor = (t.color && t.color !== "#ffffff") ? t.color : (cat ? cat.color : "#0284c7");
+
+      if (t.absent) {
+        fillColor   = "#fee2e2";
+        borderColor = "#ef4444";
+        nameColor   = "#991b1b";
+        bizColor    = "#dc2626";
+      } else if (t.attended) {
+        // Asistió / Confirmado → Relleno sólido y texto blanco
+        fillColor   = baseColor;
+        borderColor = baseColor;
+        nameColor   = "#ffffff";
+        bizColor    = "rgba(255,255,255,0.85)";
+      } else {
+        // Pendiente → Poca opacidad (~25%) y texto oscuro para legibilidad
+        fillColor   = baseColor + "40";
+        borderColor = baseColor + "99";
+        nameColor   = "#1e293b";
+        bizColor    = "#475569";
+      }
     }
     this.ctx.save();
     this.ctx.translate(t.x + t.w / 2, t.y + t.h / 2);
@@ -887,17 +961,72 @@ class BazaarCanvasManager {
     this.ctx.beginPath(); this.ctx.roundRect(t.x, t.y, t.w, t.h, 6);
     this.ctx.fill(); this.ctx.stroke();
     this.ctx.shadowColor = "transparent";
-    this.ctx.fillStyle = "#1e293b"; this.ctx.font = "bold 11px sans-serif";
+    this.ctx.fillStyle = nameColor; this.ctx.font = "bold 11px sans-serif";
     this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle";
     this.ctx.fillText(t.name || "Mesa", t.x + t.w / 2, t.y + (exhibitor ? t.h / 3 : t.h / 2));
     if (exhibitor) {
-      this.ctx.fillStyle = "#475569"; this.ctx.font = "9px sans-serif";
+      this.ctx.fillStyle = bizColor; this.ctx.font = "9px sans-serif";
       const txt = exhibitor.negocio.length > 11 ? exhibitor.negocio.slice(0, 9) + ".." : exhibitor.negocio;
       this.ctx.fillText(txt, t.x + t.w / 2, t.y + (t.h * 2) / 3);
     }
     this.ctx.restore();
   }
-}
+
+  // ── LEYENDA DE CATEGORÍAS ────────────────────────────────────
+  // Dibuja un recuadro en la esquina inf-izq del canvas con colores por categoría
+  drawLegend(canvasW, canvasH) {
+    const cats = AppState.categorias.filter((cat) => {
+      return getActiveTables(this.getCurrentBazaar())
+        .some((t) => {
+          const exp = this.getCurrentBazaar().expositores.find((e) => e.id === t.exhibitorId);
+          return exp && exp.categoria === cat.id;
+        });
+    });
+    if (cats.length === 0) return;
+
+    const ctx      = this.ctx;
+    const PAD      = 10;
+    const ROW_H    = 18;
+    const SW       = 12;  // color swatch width
+    const boxW     = 160;
+    const boxH     = PAD * 2 + cats.length * ROW_H + 16;
+    const bx       = PAD;
+    const by       = canvasH - boxH - PAD;
+
+    // Fondo semitransparente (espacio pantalla, no mundo)
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0); // reset transform → coordenadas de pantalla
+    ctx.fillStyle   = "rgba(15,23,42,0.75)";
+    ctx.strokeStyle = "rgba(13,148,136,0.6)";
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, boxH, 8);
+    ctx.fill(); ctx.stroke();
+
+    // Título
+    ctx.fillStyle = "#94a3b8";
+    ctx.font      = "bold 9px sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("CATEGORÍAS", bx + PAD, by + PAD);
+
+    // Filas
+    cats.forEach((cat, i) => {
+      const ry = by + PAD + 14 + i * ROW_H;
+      // Swatch
+      ctx.fillStyle = cat.color;
+      ctx.beginPath();
+      ctx.roundRect(bx + PAD, ry + 2, SW, SW, 3);
+      ctx.fill();
+      // Label
+      ctx.fillStyle = "#e2e8f0";
+      ctx.font      = "11px sans-serif";
+      ctx.fillText(`${cat.emoji} ${cat.nombre}`, bx + PAD + SW + 6, ry);
+    });
+    ctx.restore();
+  }
+
+} // end class BazaarCanvasManager
 
 const bazaarCanvas = new BazaarCanvasManager();
 
