@@ -25,15 +25,21 @@ class BazaarCanvasManager {
 
     // ── MODO ACTIVO ──
     this.mode = "select"; // "select" | "imgEdit" | "zone"
+    this.snapTables = true;
+    this.showLegend = true;
+    this.showTables = true;
+    this.showZones = true;
 
     // ── MANIPULACIÓN DE IMAGEN (mode === "imgEdit") ──
     // Handles: 8 puntos (esquinas + bordes) + centro para mover
     this.imgDragging   = false;   // arrastrando la imagen entera
     this.imgResizing   = false;   // arrastrando un handle de resize
+    this.imgRotating   = false;   // girando desde el handle tipo Canva
     this.imgHandle     = null;    // qué handle: "tl","tc","tr","ml","mr","bl","bc","br"
     this.imgDragOffX   = 0;
     this.imgDragOffY   = 0;
-    this.imgResizeStart = null;   // snapshot al iniciar resize {bgX,bgY,bgScale,mouseX,mouseY}
+    this.imgResizeStart = null;   // snapshot al iniciar resize con cursor en coordenadas locales
+    this.imgRotationStart = null;
 
     // ── ZONAS POLIGONALES (mode === "zone") ──
     // zones: [{ id, label, color, points:[{x,y}], closed }]
@@ -81,6 +87,8 @@ class BazaarCanvasManager {
     this.drawingZone   = null;
     this.imgDragging   = false;
     this.imgResizing   = false;
+    this.imgRotating   = false;
+    this.imgRotationStart = null;
     this.isDraggingZone = false;
     this.draggedZone = null;
     this.canvas.style.cursor = newMode === "zone" ? "crosshair"
@@ -148,29 +156,12 @@ class BazaarCanvasManager {
     });
   }
 
-  // Clic derecho: cancela zona en construcción O abre menú contextual
+  // Clic derecho: cancela zona en construcción
   handleRightClick(e) {
     if (this.mode === "zone" && this.drawingZone) {
       this.drawingZone = null;
       this.render();
       this.updateZoneUI();
-      return;
-    }
-    // Menú contextual en modo selección
-    if (this.mode === "select") {
-      const { worldX, worldY } = this.getCanvasCoords(e);
-      const bz     = this.getCurrentBazaar();
-      const tables = getActiveTables(bz);
-      // ¿Clic sobre una mesa?
-      for (let i = tables.length - 1; i >= 0; i--) {
-        if (this.isPointInsideTable(tables[i], worldX, worldY)) {
-          this.selectedTableId = tables[i].id;
-          showCanvasContextMenu(e.clientX, e.clientY, tables[i].id);
-          this.render();
-          return;
-        }
-      }
-      hideCanvasContextMenu();
     }
   }
 
@@ -200,18 +191,44 @@ class BazaarCanvasManager {
     if (this.mode === "imgEdit") {
       const floor = getActiveFloor(this.getCurrentBazaar());
       if (!this.bgImageObj || !floor) return;
+      const rotationHandle = this._hitTestImgRotationHandle(worldX, worldY, floor);
+      if (rotationHandle) {
+        const rect = this._getImgRect(floor);
+        const centerX = rect.x + rect.w / 2;
+        const centerY = rect.y + rect.h / 2;
+        this.imgRotating = true;
+        this.imgRotationStart = {
+          centerX,
+          centerY,
+          pointerAngle: Math.atan2(worldY - centerY, worldX - centerX),
+          rotation: Number(floor.bgRotation || 0)
+        };
+        this.canvas.style.cursor = "crosshair";
+        return;
+      }
       // Comprobar si clic en handle de resize
       const handle = this._hitTestImgHandle(worldX, worldY, floor);
       if (handle) {
+        const bgX = Number(floor.bgX || 0);
+        const bgY = Number(floor.bgY || 0);
+        const bgScaleX = Number(floor.bgScaleX || floor.bgScale || 1);
+        const bgScaleY = Number(floor.bgScaleY || floor.bgScale || 1);
+        const centerX = bgX + this.bgImageObj.naturalWidth * bgScaleX / 2;
+        const centerY = bgY + this.bgImageObj.naturalHeight * bgScaleY / 2;
+        const rotation = Number(floor.bgRotation || 0) * Math.PI / 180;
+        const oppositeId = this._getOppositeImgHandle(handle);
+        const oppositeHandle = this._getImgHandles(floor).find((item) => item.id === oppositeId);
         this.imgResizing   = true;
         this.imgHandle     = handle;
         this.imgResizeStart = {
-          bgX: Number(floor.bgX || 0), bgY: Number(floor.bgY || 0),
-          bgScaleX: Number(floor.bgScaleX || floor.bgScale || 1),
-          bgScaleY: Number(floor.bgScaleY || floor.bgScale || 1),
+          bgX, bgY, bgScaleX, bgScaleY,
           imgW: this.bgImageObj.naturalWidth,
           imgH: this.bgImageObj.naturalHeight,
-          mouseX: worldX, mouseY: worldY
+          centerX,
+          centerY,
+          rotation,
+          anchorWorldX: oppositeHandle?.cx ?? centerX,
+          anchorWorldY: oppositeHandle?.cy ?? centerY
         };
         return;
       }
@@ -351,24 +368,46 @@ class BazaarCanvasManager {
       const floor = getActiveFloor(this.getCurrentBazaar());
       if (!floor || !this.bgImageObj) return;
 
+      if (this.imgRotating && this.imgRotationStart) {
+        const { centerX, centerY, pointerAngle, rotation } = this.imgRotationStart;
+        const currentAngle = Math.atan2(worldY - centerY, worldX - centerX);
+        const delta = (currentAngle - pointerAngle) * 180 / Math.PI;
+        floor.bgRotation = ((rotation + delta) % 360 + 360) % 360;
+        this.render();
+        return;
+      }
+
       if (this.imgResizing && this.imgResizeStart) {
-        const { bgX, bgY, bgScaleX, bgScaleY, imgW, imgH, mouseX, mouseY } = this.imgResizeStart;
-        const rotation = Number(floor.bgRotation || 0) * Math.PI / 180;
-        const worldDx = worldX - mouseX;
-        const worldDy = worldY - mouseY;
-        const dx = worldDx * Math.cos(rotation) + worldDy * Math.sin(rotation);
-        const dy = -worldDx * Math.sin(rotation) + worldDy * Math.cos(rotation);
+        const { bgX, bgY, bgScaleX, bgScaleY, imgW, imgH,
+          centerX, centerY, rotation, anchorWorldX, anchorWorldY } = this.imgResizeStart;
+        const localMouse = this._worldToImageLocal(worldX, worldY, centerX, centerY, rotation);
         const h  = this.imgHandle;
         const origW = imgW * bgScaleX;
         const origH = imgH * bgScaleY;
+        const minW = imgW * 0.05;
+        const minH = imgH * 0.05;
         let newW = origW;
         let newH = origH;
         let newX = bgX;
         let newY = bgY;
-        if (h.includes("r")) newW = Math.max(imgW * 0.05, origW + dx);
-        if (h.includes("l")) { newW = Math.max(imgW * 0.05, origW - dx); newX = bgX + origW - newW; }
-        if (h.includes("b")) newH = Math.max(imgH * 0.05, origH + dy);
-        if (h.includes("t")) { newH = Math.max(imgH * 0.05, origH - dy); newY = bgY + origH - newH; }
+        if (h.includes("r")) newW = Math.max(minW, localMouse.x - bgX);
+        if (h.includes("l")) {
+          newW = Math.max(minW, bgX + origW - localMouse.x);
+          newX = bgX + origW - newW;
+        }
+        if (h.includes("b")) newH = Math.max(minH, localMouse.y - bgY);
+        if (h.includes("t")) {
+          newH = Math.max(minH, bgY + origH - localMouse.y);
+          newY = bgY + origH - newH;
+        }
+        const anchorOffsetX = h.includes("l") ? newW / 2 : h.includes("r") ? -newW / 2 : 0;
+        const anchorOffsetY = h.includes("t") ? newH / 2 : h.includes("b") ? -newH / 2 : 0;
+        const rotatedOffsetX = anchorOffsetX * Math.cos(rotation) - anchorOffsetY * Math.sin(rotation);
+        const rotatedOffsetY = anchorOffsetX * Math.sin(rotation) + anchorOffsetY * Math.cos(rotation);
+        const newCenterX = anchorWorldX - rotatedOffsetX;
+        const newCenterY = anchorWorldY - rotatedOffsetY;
+        newX = newCenterX - newW / 2;
+        newY = newCenterY - newH / 2;
         floor.bgX = newX;
         floor.bgY = newY;
         floor.bgScaleX = newW / imgW;
@@ -385,9 +424,11 @@ class BazaarCanvasManager {
       }
       // Cursor según hover de handle
       const h = this._hitTestImgHandle(worldX, worldY, floor);
+      const rotationHandle = this._hitTestImgRotationHandle(worldX, worldY, floor);
       const cursors = { tl:"nw-resize", tc:"n-resize", tr:"ne-resize", ml:"w-resize",
                         mr:"e-resize", bl:"sw-resize", bc:"s-resize", br:"se-resize" };
-      this.canvas.style.cursor = h ? cursors[h] : (this._hitTestImg(worldX, worldY, floor) ? "move" : "default");
+      this.canvas.style.cursor = rotationHandle ? "crosshair"
+        : h ? cursors[h] : (this._hitTestImg(worldX, worldY, floor) ? "move" : "default");
       return;
     }
 
@@ -406,35 +447,13 @@ class BazaarCanvasManager {
 
     // ── Modo select: lógica original ──
     if (this.isDraggingTable && this.draggedTable) {
-      let nx = Math.round(worldX - this.dragOffsetX);
-      let ny = Math.round(worldY - this.dragOffsetY);
-      // Snap entre mesas: si hay otra mesa cerca alinea bordes/centros
-      if (this.snapEnabled) {
-        const SNAP_DIST = 12 / this.scale;
-        const bz = this.getCurrentBazaar();
-        for (const t of getActiveTables(bz)) {
-          if (t.id === this.draggedTable.id) continue;
-          const dt = this.draggedTable;
-          // Snap borde izquierdo con borde derecho de otra mesa
-          if (Math.abs(nx - (t.x + t.w)) < SNAP_DIST) nx = t.x + t.w;
-          // Snap borde derecho con borde izquierdo
-          if (Math.abs((nx + dt.w) - t.x) < SNAP_DIST) nx = t.x - dt.w;
-          // Snap top con bottom
-          if (Math.abs(ny - (t.y + t.h)) < SNAP_DIST) ny = t.y + t.h;
-          // Snap bottom con top
-          if (Math.abs((ny + dt.h) - t.y) < SNAP_DIST) ny = t.y - dt.h;
-          // Snap centros X
-          if (Math.abs((nx + dt.w/2) - (t.x + t.w/2)) < SNAP_DIST) nx = t.x + (t.w - dt.w)/2;
-          // Snap centros Y
-          if (Math.abs((ny + dt.h/2) - (t.y + t.h/2)) < SNAP_DIST) ny = t.y + (t.h - dt.h)/2;
-        }
-      }
-      this.draggedTable.x = nx;
-      this.draggedTable.y = ny;
+      this.draggedTable.x = worldX - this.dragOffsetX;
+      this.draggedTable.y = worldY - this.dragOffsetY;
+      if (this.snapTables) this.snapDraggedTable();
       this.render();
     } else if (this.isDraggingElement && this.draggedElement) {
-      this.draggedElement.x = Math.round(worldX - this.dragOffsetX);
-      this.draggedElement.y = Math.round(worldY - this.dragOffsetY);
+      this.draggedElement.x = worldX - this.dragOffsetX;
+      this.draggedElement.y = worldY - this.dragOffsetY;
       this.render();
     } else if (this.isDraggingZone && this.draggedZone) {
       const deltaX = worldX - this.dragOffsetX;
@@ -454,9 +473,13 @@ class BazaarCanvasManager {
   }
 
   handleMouseUp(e) {
-    if (this.imgResizing || this.imgDragging) {
+    if (this.imgResizing || this.imgDragging || this.imgRotating) {
       saveState();
-      this.imgResizing = false; this.imgDragging = false; this.imgResizeStart = null;
+      this.imgResizing = false;
+      this.imgDragging = false;
+      this.imgRotating = false;
+      this.imgResizeStart = null;
+      this.imgRotationStart = null;
       this.canvas.style.cursor = "default";
       return;
     }
@@ -532,6 +555,42 @@ class BazaarCanvasManager {
     return localX >= table.x && localX <= table.x + table.w && localY >= table.y && localY <= table.y + table.h;
   }
 
+  snapDraggedTable() {
+    const table = this.draggedTable;
+    const others = getActiveTables(this.getCurrentBazaar()).filter((item) => item.id !== table.id);
+    const threshold = 10;
+    const originalX = table.x;
+    const originalY = table.y;
+    let bestX = { value: originalX, distance: threshold + 1 };
+    let bestY = { value: originalY, distance: threshold + 1 };
+    others.forEach((other) => {
+      const xCandidates = [
+        other.x - table.w,
+        other.x + other.w,
+        other.x,
+        other.x + other.w - table.w,
+        other.x + (other.w - table.w) / 2
+      ];
+      const yCandidates = [
+        other.y - table.h,
+        other.y + other.h,
+        other.y,
+        other.y + other.h - table.h,
+        other.y + (other.h - table.h) / 2
+      ];
+      xCandidates.forEach((value) => {
+        const distance = Math.abs(value - originalX);
+        if (distance < bestX.distance) bestX = { value, distance };
+      });
+      yCandidates.forEach((value) => {
+        const distance = Math.abs(value - originalY);
+        if (distance < bestY.distance) bestY = { value, distance };
+      });
+    });
+    if (bestX.distance <= threshold) table.x = bestX.value;
+    if (bestY.distance <= threshold) table.y = bestY.value;
+  }
+
   isPointInsideElement(element, x, y) {
     const width = Math.max(5, Number(element.width) || 30);
     const height = Math.max(5, Number(element.height) || 30);
@@ -599,17 +658,50 @@ class BazaarCanvasManager {
     return null;
   }
 
+  _getOppositeImgHandle(handleId) {
+    const opposites = { tl: "br", tc: "bc", tr: "bl", ml: "mr", mr: "ml", bl: "tr", bc: "tc", br: "tl" };
+    return opposites[handleId] || "br";
+  }
+
+  _getImgRotationHandle(floor) {
+    const r = this._getImgRect(floor);
+    if (!r) return null;
+    const angle = Number(floor.bgRotation || 0) * Math.PI / 180;
+    const centerX = r.x + r.w / 2;
+    const centerY = r.y + r.h / 2;
+    const localX = centerX;
+    const localY = r.y - 34 / this.scale;
+    const dx = localX - centerX;
+    const dy = localY - centerY;
+    return {
+      cx: centerX + dx * Math.cos(angle) - dy * Math.sin(angle),
+      cy: centerY + dx * Math.sin(angle) + dy * Math.cos(angle)
+    };
+  }
+
+  _hitTestImgRotationHandle(wx, wy, floor) {
+    const handle = this._getImgRotationHandle(floor);
+    return handle && Math.hypot(wx - handle.cx, wy - handle.cy) < 13 / this.scale;
+  }
+
   _hitTestImg(wx, wy, floor) {
     const r = this._getImgRect(floor);
     if (!r) return false;
-    const angle = -Number(floor.bgRotation || 0) * Math.PI / 180;
     const centerX = r.x + r.w / 2;
     const centerY = r.y + r.h / 2;
+    const rotation = Number(floor.bgRotation || 0) * Math.PI / 180;
+    const local = this._worldToImageLocal(wx, wy, centerX, centerY, rotation);
+    return local.x >= r.x && local.x <= r.x + r.w && local.y >= r.y && local.y <= r.y + r.h;
+  }
+
+  _worldToImageLocal(wx, wy, centerX, centerY, rotation) {
+    const inverseRotation = -rotation;
     const dx = wx - centerX;
     const dy = wy - centerY;
-    const localX = centerX + dx * Math.cos(angle) - dy * Math.sin(angle);
-    const localY = centerY + dx * Math.sin(angle) + dy * Math.cos(angle);
-    return localX >= r.x && localX <= r.x + r.w && localY >= r.y && localY <= r.y + r.h;
+    return {
+      x: centerX + dx * Math.cos(inverseRotation) - dy * Math.sin(inverseRotation),
+      y: centerY + dx * Math.sin(inverseRotation) + dy * Math.cos(inverseRotation)
+    };
   }
 
   _syncImgSliders(floor) {
@@ -647,6 +739,25 @@ class BazaarCanvasManager {
       this.ctx.strokeStyle = "#0d9488";
       this.ctx.lineWidth   = 2 / this.scale;
       this.ctx.stroke();
+    }
+    const topCenter = this._getImgHandles(floor).find((handle) => handle.id === "tc");
+    const rotationHandle = this._getImgRotationHandle(floor);
+    if (topCenter && rotationHandle) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(topCenter.cx, topCenter.cy);
+      this.ctx.lineTo(rotationHandle.cx, rotationHandle.cy);
+      this.ctx.strokeStyle = "#0d9488";
+      this.ctx.lineWidth = 2 / this.scale;
+      this.ctx.stroke();
+      this.ctx.beginPath();
+      this.ctx.arc(rotationHandle.cx, rotationHandle.cy, 10 / this.scale, 0, Math.PI * 2);
+      this.ctx.fillStyle = "#0d9488";
+      this.ctx.fill();
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.font = `bold ${13 / this.scale}px sans-serif`;
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillText("↻", rotationHandle.cx, rotationHandle.cy);
     }
     // Label de tamaño
     const scaleX = Math.round(Number(floor.bgScaleX || floor.bgScale || 1) * 100);
@@ -838,25 +949,17 @@ class BazaarCanvasManager {
       this.ctx.globalAlpha = 1;
     }
 
-    // Elementos y mesas (debajo de zonas)
+    // Coordenadas del cursor para la línea guía de zonas.
     let mWX, mWY;
     if (mouseRawX !== undefined) {
       const rect = this.canvas.getBoundingClientRect();
       mWX = ((mouseRawX - rect.left) * (this.canvas.width / rect.width) - this.panX) / this.scale;
       mWY = ((mouseRawY - rect.top) * (this.canvas.height / rect.height) - this.panY) / this.scale;
     }
+    // Elementos y mesas se dibujan primero para que las zonas queden encima.
     this.drawMapElements(floor?.elements || []);
-    if (this.showTables !== false) {
-      getActiveTables(bz).forEach((t) => this.drawTable(t));
-    }
-
-    // Zonas ENCIMA de mesas
-    if (this.showZones !== false) {
-      this.drawZones(mWX, mWY);
-    }
-
-    // Leyenda de categorías (esquina inferior izquierda, encima de todo)
-    if (this.showLegend) this.drawLegend(w, h);
+    if (this.showTables) getActiveTables(bz).forEach((t) => this.drawTable(t));
+    if (this.showZones) this.drawZones(mWX, mWY);
 
     // Handles de imagen (sólo en modo imgEdit)
     if (this.mode === "imgEdit" && this.bgImageObj && floor) {
@@ -917,39 +1020,16 @@ class BazaarCanvasManager {
   drawTable(t) {
     const bz = this.getCurrentBazaar();
     const exhibitor = bz.expositores.find((e) => e.id === t.exhibitorId);
-
-    // ── TRES ESTADOS ─────────────────────────────────────────────
-    // Libre        → blanco, borde gris
-    // Pendiente    → poca opacidad (semitransparente)
-    // Asistió      → relleno sólido completo
-    // No asistió   → rojo distintivo
-    let fillColor   = "#ffffff";
-    let borderColor = "#94a3b8";
-    let nameColor   = "#64748b";
-    let bizColor    = "#94a3b8";
-
-    if (exhibitor) {
-      const cat       = AppState.categorias.find((c) => c.id === exhibitor.categoria);
-      const baseColor = (t.color && t.color !== "#ffffff") ? t.color : (cat ? cat.color : "#0284c7");
-
-      if (t.absent) {
-        fillColor   = "#fee2e2";
-        borderColor = "#ef4444";
-        nameColor   = "#991b1b";
-        bizColor    = "#dc2626";
-      } else if (t.attended) {
-        // Asistió / Confirmado → Relleno sólido y texto blanco
-        fillColor   = baseColor;
-        borderColor = baseColor;
-        nameColor   = "#ffffff";
-        bizColor    = "rgba(255,255,255,0.85)";
-      } else {
-        // Pendiente → Poca opacidad (~25%) y texto oscuro para legibilidad
-        fillColor   = baseColor + "40";
-        borderColor = baseColor + "99";
-        nameColor   = "#1e293b";
-        bizColor    = "#475569";
-      }
+    let fillColor = "#ffffff", borderColor = "#94a3b8";
+    if (exhibitor && t.color && t.color.toLowerCase() !== "#ffffff") {
+      fillColor = t.color;
+      borderColor = fillColor;
+    } else if (t.absent)         { fillColor = "#fee2e2"; borderColor = "#ef4444"; }
+    else if (t.attended)       { fillColor = "#dcfce7"; borderColor = "#22c55e"; }
+    else if (exhibitor) {
+      const cat = AppState.categorias.find((c) => c.id === exhibitor.categoria);
+      if (cat) { fillColor = cat.color + "25"; borderColor = cat.color; }
+      else     { fillColor = "#e0f2fe"; borderColor = "#0284c7"; }
     }
     this.ctx.save();
     this.ctx.translate(t.x + t.w / 2, t.y + t.h / 2);
@@ -961,72 +1041,54 @@ class BazaarCanvasManager {
     this.ctx.beginPath(); this.ctx.roundRect(t.x, t.y, t.w, t.h, 6);
     this.ctx.fill(); this.ctx.stroke();
     this.ctx.shadowColor = "transparent";
-    this.ctx.fillStyle = nameColor; this.ctx.font = "bold 11px sans-serif";
+    this.ctx.fillStyle = "#1e293b"; this.ctx.font = "bold 11px sans-serif";
     this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle";
     this.ctx.fillText(t.name || "Mesa", t.x + t.w / 2, t.y + (exhibitor ? t.h / 3 : t.h / 2));
     if (exhibitor) {
-      this.ctx.fillStyle = bizColor; this.ctx.font = "9px sans-serif";
+      this.ctx.fillStyle = "#475569"; this.ctx.font = "9px sans-serif";
       const txt = exhibitor.negocio.length > 11 ? exhibitor.negocio.slice(0, 9) + ".." : exhibitor.negocio;
       this.ctx.fillText(txt, t.x + t.w / 2, t.y + (t.h * 2) / 3);
     }
     this.ctx.restore();
   }
 
-  // ── LEYENDA DE CATEGORÍAS ────────────────────────────────────
-  // Dibuja un recuadro en la esquina inf-izq del canvas con colores por categoría
-  drawLegend(canvasW, canvasH) {
-    const cats = AppState.categorias.filter((cat) => {
-      return getActiveTables(this.getCurrentBazaar())
-        .some((t) => {
-          const exp = this.getCurrentBazaar().expositores.find((e) => e.id === t.exhibitorId);
-          return exp && exp.categoria === cat.id;
-        });
+  drawLegend(bz) {
+    const categories = [];
+    getActiveTables(bz).forEach((table) => {
+      const exhibitor = bz.expositores.find((item) => item.id === table.exhibitorId);
+      const category = exhibitor && AppState.categorias.find((item) => item.id === exhibitor.categoria);
+      if (category && !categories.some((item) => item.id === category.id)) categories.push(category);
     });
-    if (cats.length === 0) return;
-
-    const ctx      = this.ctx;
-    const PAD      = 10;
-    const ROW_H    = 18;
-    const SW       = 12;  // color swatch width
-    const boxW     = 160;
-    const boxH     = PAD * 2 + cats.length * ROW_H + 16;
-    const bx       = PAD;
-    const by       = canvasH - boxH - PAD;
-
-    // Fondo semitransparente (espacio pantalla, no mundo)
-    ctx.save();
-    ctx.setTransform(1,0,0,1,0,0); // reset transform → coordenadas de pantalla
-    ctx.fillStyle   = "rgba(15,23,42,0.75)";
-    ctx.strokeStyle = "rgba(13,148,136,0.6)";
-    ctx.lineWidth   = 1;
-    ctx.beginPath();
-    ctx.roundRect(bx, by, boxW, boxH, 8);
-    ctx.fill(); ctx.stroke();
-
-    // Título
-    ctx.fillStyle = "#94a3b8";
-    ctx.font      = "bold 9px sans-serif";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText("CATEGORÍAS", bx + PAD, by + PAD);
-
-    // Filas
-    cats.forEach((cat, i) => {
-      const ry = by + PAD + 14 + i * ROW_H;
-      // Swatch
-      ctx.fillStyle = cat.color;
-      ctx.beginPath();
-      ctx.roundRect(bx + PAD, ry + 2, SW, SW, 3);
-      ctx.fill();
-      // Label
-      ctx.fillStyle = "#e2e8f0";
-      ctx.font      = "11px sans-serif";
-      ctx.fillText(`${cat.emoji} ${cat.nombre}`, bx + PAD + SW + 6, ry);
+    if (!categories.length) return;
+    const padding = 10;
+    const rowHeight = 18;
+    const width = 170;
+    const height = padding * 2 + 18 + categories.length * rowHeight;
+    const x = padding;
+    const y = this.canvas.height - height - padding;
+    this.ctx.save();
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.fillStyle = "rgba(255,255,255,0.92)";
+    this.ctx.strokeStyle = "#cbd5e1";
+    this.ctx.lineWidth = 1;
+    this.ctx.fillRect(x, y, width, height);
+    this.ctx.strokeRect(x, y, width, height);
+    this.ctx.fillStyle = "#1e293b";
+    this.ctx.font = "bold 11px sans-serif";
+    this.ctx.textAlign = "left";
+    this.ctx.textBaseline = "middle";
+    this.ctx.fillText("Categorías", x + padding, y + padding + 5);
+    categories.forEach((category, index) => {
+      const rowY = y + padding + 23 + index * rowHeight;
+      this.ctx.fillStyle = category.color;
+      this.ctx.fillRect(x + padding, rowY - 5, 10, 10);
+      this.ctx.fillStyle = "#334155";
+      this.ctx.font = "10px sans-serif";
+      this.ctx.fillText(category.nombre, x + padding + 16, rowY);
     });
-    ctx.restore();
+    this.ctx.restore();
   }
-
-} // end class BazaarCanvasManager
+}
 
 const bazaarCanvas = new BazaarCanvasManager();
 

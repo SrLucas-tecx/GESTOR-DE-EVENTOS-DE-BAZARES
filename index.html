@@ -13,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="Styles.css">
+  <!-- Layout y estilos en Styles.css -->
 </head>
 <body class="dark">
 
@@ -47,6 +48,12 @@
 
       <div class="nav-group-label">Configuración</div>
       <button class="nav-item"         onclick="switchTab('bazares')">🏪 Mis Bazares</button>
+      <button class="nav-item"         onclick="switchTab('alertas')" style="position:relative;">
+        ⚠️ Alertas
+        <span id="alert-badge-nav" style="display:none;margin-left:auto;background:var(--color-danger);color:#fff;border-radius:999px;font-size:9px;font-weight:800;padding:1px 5px;">0</span>
+      </button>
+      <button class="nav-item" onclick="switchTab('dia-evento')">🎪 Día del Evento</button>
+      <button class="nav-item" onclick="switchTab('comparar')">📊 Comparar Bazares</button>
     </nav>
 
     <!-- # SIDEBAR / Footer: modo oscuro + menú de respaldo -->
@@ -75,6 +82,7 @@
       </div>
     </div>
   </aside>
+  <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
   <!-- / #SIDEBAR -->
 
 
@@ -130,6 +138,19 @@
             <option value="paid">✅ Pagados</option>
             <option value="unpaid">⏳ Pendientes</option>
           </select>
+          <div style="display:flex;gap:4px;">
+            <button class="view-toggle-btn canvas-mode-btn active" data-view="cards"
+                    onclick="setExpositorView('cards')" title="Vista tarjetas">⊞ Tarjetas</button>
+            <button class="view-toggle-btn canvas-mode-btn" data-view="table"
+                    onclick="setExpositorView('table')" title="Vista tabla">☰ Tabla</button>
+          </div>
+          <button class="btn-secondary btn-sm" onclick="switchTab('alertas')"
+                  style="position:relative;" title="Alertas de pago próximo o vencido">
+            ⚠️ Alertas
+            <span id="alert-badge" style="display:none;position:absolute;top:-6px;right:-6px;
+              background:var(--color-danger);color:#fff;border-radius:999px;
+              font-size:9px;font-weight:800;padding:1px 5px;min-width:16px;text-align:center;">0</span>
+          </button>
         </div>
 
         <!-- Grid de tarjetas — inyectado por Core.js → renderExpositores() -->
@@ -203,6 +224,19 @@
             <div class="stat-value" id="stat-paid-percentage">0%</div>
             <div class="stat-label">Cumplimiento</div>
           </div>
+          <div class="stat-card accent-teal">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-value" id="stat-ticket-promedio">$0</div>
+            <div class="stat-label">Ticket Promedio</div>
+          </div>
+        </div>
+
+        <!-- Sprint 1: Resumen por categoría -->
+        <div class="payments-table-wrap" style="margin-bottom:var(--space-5);">
+          <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);">
+            <strong style="font-family:var(--font-display);font-size:var(--fs-md);">Ingresos por Categoría</strong>
+          </div>
+          <div id="resumen-categorias" style="padding:var(--space-2);overflow-x:auto;"></div>
         </div>
 
         <!-- Tabla de pagos — columnas: negocio, mesa, total, adelanto, saldo, estado, acciones -->
@@ -433,6 +467,21 @@
             </div>
           </div>
 
+          <!-- Grupo: Sprint 2 — capas y productividad -->
+          <div class="canvas-toolbar-group">
+            <span class="canvas-toolbar-label">Capas</span>
+            <button class="canvas-mode-btn active" id="layer-btn-tables"
+                    onclick="toggleLayer('tables')" title="Mostrar/ocultar mesas">🪑 Mesas</button>
+            <button class="canvas-mode-btn active" id="layer-btn-zones"
+                    onclick="toggleLayer('zones')" title="Mostrar/ocultar zonas">🕸️ Zonas</button>
+          </div>
+          <div class="canvas-toolbar-group">
+            <span class="canvas-toolbar-label">Plano</span>
+            <button class="canvas-mode-btn active" id="btn-snap-tables"
+                    onclick="toggleSnapTables()" title="Snap entre mesas">🧲 Snap</button>
+            <button class="btn-secondary btn-sm" onclick="autoNumberTables()"
+                    title="Renombrar mesas por posición A-01, B-02...">🔢 Numerar</button>
+          </div>
           <!-- Grupo: Peligro -->
           <div class="canvas-toolbar-group">
             <span class="canvas-toolbar-label">Limpiar</span>
@@ -599,6 +648,97 @@
 
 
       <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: DÍA DEL EVENTO (Sprint 4)
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-dia-evento" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">🎪 Día del Evento</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Panel en tiempo real de asistencia y pagos.</p>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-secondary btn-sm" onclick="renderPanelDiaEvento()">🔄 Actualizar</button>
+            <button class="btn-primary btn-sm" onclick="enterPresentationMode()">📺 Modo Presentación</button>
+          </div>
+        </div>
+        <!-- Stats rápidos -->
+        <div class="stats-row" style="margin-bottom:var(--space-4);">
+          <div class="stat-card accent-teal">
+            <div class="stat-icon">🪑</div>
+            <div class="stat-value" id="dia-stat-total">0</div>
+            <div class="stat-label">Total Mesas</div>
+          </div>
+          <div class="stat-card accent-green">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value" id="dia-stat-asistio">0</div>
+            <div class="stat-label">Asistieron</div>
+          </div>
+          <div class="stat-card accent-gold">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-value" id="dia-stat-pendiente">0</div>
+            <div class="stat-label">Pendientes</div>
+          </div>
+          <div class="stat-card accent-red">
+            <div class="stat-icon">❌</div>
+            <div class="stat-value" id="dia-stat-no-asistio">0</div>
+            <div class="stat-label">No asistieron</div>
+          </div>
+          <div class="stat-card accent-teal">
+            <div class="stat-icon">📈</div>
+            <div class="stat-value" id="dia-stat-pct">0%</div>
+            <div class="stat-label">Asistencia</div>
+          </div>
+          <div class="stat-card accent-green">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value" id="dia-stat-pagados">0/0</div>
+            <div class="stat-label">Pagados</div>
+          </div>
+        </div>
+        <!-- Barra de progreso -->
+        <div style="background:var(--color-border);border-radius:999px;height:12px;margin-bottom:var(--space-5);overflow:hidden;">
+          <div id="dia-progress-bar" style="height:100%;width:0%;border-radius:999px;transition:width .5s;background:var(--color-accent);"></div>
+        </div>
+        <!-- Lista de pendientes -->
+        <div class="chart-card">
+          <h3>⏳ Expositores Pendientes de Confirmar</h3>
+          <div id="dia-pendientes-list" style="margin-top:12px;"></div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: COMPARAR BAZARES (Sprint 5)
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-comparar" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">📊 Comparar Bazares</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Compara el bazar activo con otro.</p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label class="form-label" style="margin:0;">Comparar con:</label>
+            <select id="compara-select-bazar" class="filter-select" onchange="renderComparaBazares()"></select>
+          </div>
+        </div>
+        <div id="compara-bazares-content"></div>
+      </section>
+
+      <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: ALERTAS DE PAGO (Sprint 1)
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-alertas" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">⚠️ Alertas de Pago</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
+              Expositores con fecha límite próxima (≤3 días) o ya vencida.
+            </p>
+          </div>
+        </div>
+        <div id="alertas-list"></div>
+      </section>
+      <!-- / #SECCIÓN ALERTAS -->
+
+      <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: MÉTRICAS Y GRÁFICAS
            [EDITABLE: agrega más canvas + regístralos en updateCharts()]
       ───────────────────────────────────────────────────────── -->
@@ -642,6 +782,7 @@
             </p>
           </div>
           <button class="btn-primary" onclick="createBazaar()">+ Nuevo Bazar</button>
+          <button class="btn-secondary" onclick="duplicarBazaar()" title="Duplicar bazar activo">📋 Duplicar Bazar Activo</button>
         </div>
 
         <div class="payments-table-wrap">
@@ -814,6 +955,19 @@
             <label class="form-label">Fecha Límite de Pago</label>
             <input type="date" id="exp-fecha-limite" class="form-input">
             <p class="form-hint">Opcional. Aparece en la tarjeta y en el comprobante PDF.</p>
+          </div>
+        </div>
+
+        <!-- Descuento y notas de crédito (Sprint 5) -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Descuento Aplicado (MXN)</label>
+            <input type="number" id="exp-descuento" class="form-input" min="0" step="10" value="0">
+            <p class="form-hint">Se resta del costo total al calcular el saldo.</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nota de Crédito / Motivo</label>
+            <input type="text" id="exp-notas-credito" class="form-input" placeholder="Ej. Descuento por pronto pago">
           </div>
         </div>
 
@@ -1116,6 +1270,7 @@
     </div>
     <form id="form-invitado" onsubmit="saveInvitadoHandler(event)">
       <div class="modal-body">
+        <input type="hidden" id="inv-id">
         <div class="form-group">
           <label class="form-label">Nombre Completo *</label>
           <input type="text" id="inv-nombre" class="form-input" required placeholder="Ej. Roberto Sánchez">
@@ -1240,12 +1395,43 @@
 <!-- # TOAST — Notificaciones (gestionado por Core.js → showToast()) -->
 <div id="toast"></div>
 
+<!-- Modal historial de expositor (Sprint 3) -->
+<div id="modal-historial" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="historial-modal-title">Historial</h2>
+      <button class="modal-close" onclick="closeModal('modal-historial')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="historial-exp-id">
+      <div id="historial-list" style="max-height:420px;overflow-y:auto;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-danger btn-sm" onclick="clearHistorial(document.getElementById('historial-exp-id').value)">🗑️ Limpiar historial</button>
+      <button class="btn-secondary" onclick="closeModal('modal-historial')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modo presentación (Sprint 4) -->
+<div id="presentation-overlay" style="display:none;position:fixed;inset:0;z-index:9999;
+    background:#0f172a;flex-direction:column;align-items:center;justify-content:center;">
+  <div style="display:flex;justify-content:space-between;align-items:center;width:100%;
+      padding:12px 24px;background:rgba(255,255,255,0.05);">
+    <span style="color:#94a3b8;font-size:14px;font-weight:700;" id="presentation-bazar-name">BAZARIX</span>
+    <button onclick="exitPresentationMode()"
+            style="background:rgba(255,255,255,0.1);color:#fff;border:none;padding:8px 16px;
+                   border-radius:8px;cursor:pointer;font-weight:700;">✕ Salir</button>
+  </div>
+  <canvas id="presentation-canvas" style="max-width:100%;max-height:calc(100vh - 80px);"></canvas>
+</div>
+
 
 <!-- ═══════════════════════════════════════════════════════════════════
      # SCRIPTS — Core.js debe ir al final del <body>
      [EDITABLE: carga módulos adicionales ANTES de Core.js]
 ═══════════════════════════════════════════════════════════════════ -->
-<!-- ── MÓDULOS (orden de dependencias) ── -->
+<!-- ── MÓDULOS — orden de dependencias ── -->
 <script src="js/state.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/bazaars.js"></script>
@@ -1259,11 +1445,15 @@
 <script src="js/plantillas.js"></script>
 <script src="js/invitados.js"></script>
 <script src="js/asistencia.js"></script>
+<script src="js/alertas.js"></script>
+<script src="js/metricas.js"></script>
 <script src="js/pdf.js"></script>
 <script src="js/canvas.js"></script>
 <script src="js/canvas_helpers.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/historial.js"></script>
+<script src="js/evento_dia.js"></script>
 <script src="js/init.js"></script>
 
 </body>

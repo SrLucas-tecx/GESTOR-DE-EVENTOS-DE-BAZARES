@@ -21,6 +21,7 @@ function cyclePublicationStatus(id) {
   if (!exp) return;
   const currentIndex = PUBLICATION_STATUSES.indexOf(exp.publicationStatus || "pendiente");
   exp.publicationStatus = PUBLICATION_STATUSES[(currentIndex + 1) % PUBLICATION_STATUSES.length];
+  registrarHistorial(exp.id, `Publicación: ${publicationStatusLabel(exp.publicationStatus)}`);
   saveState();
   renderExpositores();
   showToast(`📣 ${exp.negocio}: ${publicationStatusLabel(exp.publicationStatus)}`);
@@ -32,6 +33,7 @@ function toggleExpositorBan(id) {
   const action = exp.banned ? "quitar el baneo a" : "banear a";
   if (!confirm(`¿Deseas ${action} "${exp.negocio}"?`)) return;
   exp.banned = !exp.banned;
+  registrarHistorial(exp.id, exp.banned ? "Expositor baneado" : "Baneo retirado");
   saveState();
   renderExpositores();
   showToast(exp.banned ? "🚫 Expositor baneado" : "✅ Baneo retirado");

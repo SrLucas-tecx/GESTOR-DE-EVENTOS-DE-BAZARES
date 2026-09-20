@@ -97,6 +97,7 @@ function saveExpositorHandler(e) {
   const existing = id ? bz.expositores.find((x) => x.id === id) : null;
 
   const expData = {
+    ...(existing || {}),   // conserva campos que el formulario no maneja (historial, etc.)
     id:             id || "exp-" + Date.now(),
     nombre:         document.getElementById("exp-nombre").value.trim(),
     negocio:        document.getElementById("exp-negocio").value.trim(),
@@ -116,13 +117,19 @@ function saveExpositorHandler(e) {
     publicationStatus: existing?.publicationStatus || "pendiente",
     banned:         existing?.banned || false,
     checklist:      existing ? existing.checklist : defaultChecklistItems(),
+    historial:      existing?.historial || [],
   };
 
   if (id) {
     const idx = bz.expositores.findIndex((e) => e.id === id);
-    if (idx !== -1) bz.expositores[idx] = expData;
+    if (idx !== -1) {
+      const changes = describeExpositorChanges(bz.expositores[idx], expData);
+      bz.expositores[idx] = expData;
+      if (changes.length) registrarHistorial(expData.id, `Editado — ${changes.join("; ")}`, bz);
+    }
   } else {
     bz.expositores.push(expData);
+    registrarHistorial(expData.id, "Expositor registrado", bz);
   }
 
   saveState();
@@ -135,6 +142,7 @@ function togglePaymentStatus(id) {
   const exp = getActiveBazaar().expositores.find((e) => e.id === id);
   if (exp) {
     exp.pagado = !exp.pagado;
+    registrarHistorial(exp.id, exp.pagado ? "Marcado como pagado" : "Marcado como pendiente de pago");
     saveState();
     renderAll();
     showToast(`${exp.negocio}: marcado como ${exp.pagado ? "pagado ✅" : "pendiente ⏳"}`);

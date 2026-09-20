@@ -55,6 +55,7 @@ function renderInvitados() {
         </span>
       </td>
       <td>
+        <button class="btn-secondary btn-sm" onclick="openModalInvitado('${inv.id}')" title="Editar expositor">✏️ Editar</button>
         <button class="btn-danger btn-sm" onclick="deleteInvitado('${inv.id}')">🗑️</button>
       </td>
     </tr>`;
@@ -81,12 +82,23 @@ function deleteInvitado(id) {
   showToast("🗑️ Invitado eliminado");
 }
 
-function openModalInvitado() {
+function openModalInvitado(id = null) {
   document.getElementById("form-invitado").reset();
+  document.getElementById("inv-id").value = id || "";
+  document.querySelector("#modal-invitado .modal-title").textContent = id ? "Editar Expositor" : "Agregar Expositor";
+  document.querySelector("#modal-invitado button[type=submit]").textContent = id ? "Guardar Cambios" : "Guardar Expositor";
   const select = document.getElementById("inv-expositor");
   if (select) {
     select.innerHTML = `<option value="">-- Sin vincular --</option>` +
       getActiveBazaar().expositores.map((exp) => `<option value="${exp.id}">${escapeHTML(exp.negocio)} (${escapeHTML(exp.nombre)})</option>`).join("");
+  }
+  if (id) {
+    const invitado = (getActiveBazaar().invitados || []).find((item) => item.id === id);
+    if (!invitado) return;
+    document.getElementById("inv-nombre").value = invitado.nombre || "";
+    document.getElementById("inv-notas").value = invitado.notas || "";
+    document.getElementById("inv-expositor").value = invitado.expositorId || "";
+    document.getElementById("inv-confirmado").checked = Boolean(invitado.confirmado);
   }
   openModal("modal-invitado");
 }
@@ -95,18 +107,23 @@ function saveInvitadoHandler(e) {
   e.preventDefault();
   const bz = getActiveBazaar();
   if (!bz.invitados) bz.invitados = [];
-  bz.invitados.push({
-    id:          "inv-" + Date.now(),
-    nombre:      document.getElementById("inv-nombre").value.trim(),
+  const id = document.getElementById("inv-id").value;
+  const data = {
+    nombre: document.getElementById("inv-nombre").value.trim(),
     expositorId: document.getElementById("inv-expositor").value,
-    notas:       document.getElementById("inv-notas").value.trim(),
-    confirmado:  document.getElementById("inv-confirmado").checked,
-    asistio:     false
-  });
+    notas: document.getElementById("inv-notas").value.trim(),
+    confirmado: document.getElementById("inv-confirmado").checked
+  };
+  const invitado = bz.invitados.find((item) => item.id === id);
+  if (invitado) {
+    Object.assign(invitado, data);
+  } else {
+    bz.invitados.push({ id: "inv-" + Date.now(), ...data, asistio: false });
+  }
   saveState();
   renderInvitados();
   closeModal("modal-invitado");
-  showToast("✅ Invitado agregado");
+  showToast(invitado ? "✅ Expositor actualizado" : "✅ Expositor agregado");
 }
 
 // ==========================================

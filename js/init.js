@@ -46,6 +46,7 @@ window.deleteBazaarById              = deleteBazaarById;
 window.switchBazaarAndGo             = switchBazaarAndGo;
 window.renameBazaar                  = renameBazaar;
 window.renderBazaresTabla            = renderBazaresTabla;
+window.renderComparaBazares          = renderComparaBazares;
 window.openLogoUploadModal           = openLogoUploadModal;
 window.handleLogoUpload              = handleLogoUpload;
 window.saveLogoHandler               = saveLogoHandler;
@@ -54,6 +55,10 @@ window.zoomBazaar                    = zoomBazaar;
 window.resetBazaarZoom               = resetBazaarZoom;
 window.resetBazaarCanvas             = resetBazaarCanvas;
 window.setCanvasMode                 = setCanvasMode;
+window.toggleLayer                   = toggleLayer;
+window.toggleSnapTables              = toggleSnapTables;
+window.toggleLegend                  = toggleLegend;
+window.autoNumberTables              = autoNumberTables;
 window.openModalZoneEdit              = openModalZoneEdit;
 window.saveZoneEdit                   = saveZoneEdit;
 window.deleteZoneFromModal            = deleteZoneFromModal;
@@ -80,6 +85,7 @@ window.saveMapElementEdit              = saveMapElementEdit;
 window.deleteMapElementFromModal       = deleteMapElementFromModal;
 window.toggleOtherTableCount           = toggleOtherTableCount;
 window.toggleAttendance              = toggleAttendance;
+window.setTableAttendance            = setTableAttendance;
 window.openExpositorChecklist        = openExpositorChecklist;
 window.toggleExpositorChecklistItem  = toggleExpositorChecklistItem;
 window.editChecklistItemLabel        = editChecklistItemLabel;
@@ -102,6 +108,17 @@ window.deleteMinuteRow                 = deleteMinuteRow;
 window.exportarMinutoAMinutoCSV        = exportarMinutoAMinutoCSV;
 window.exportarMinutoAMinutoPDF        = exportarMinutoAMinutoPDF;
 window.updateCharts                   = updateCharts;
+window.duplicarBazaar                  = duplicarBazaar;
+window.updateMapOrientation            = updateMapOrientation;
+window.setExpositorView                = setExpositorView;
+window.openHistorial                   = openHistorial;
+window.clearHistorial                  = clearHistorial;
+window.renderPanelDiaEvento            = renderPanelDiaEvento;
+window.enterPresentationMode           = enterPresentationMode;
+window.exitPresentationMode            = exitPresentationMode;
+window.renderAlertas                   = renderAlertas;
+window.updateAlertBadge                = updateAlertBadge;
+window.renderMetricasFinancieras       = renderMetricasFinancieras;
 
 document.addEventListener("DOMContentLoaded", () => {
   renderAll();
@@ -144,7 +161,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Hamburguesa en móvil
-  document.querySelector("#btn-toggle-sidebar")?.addEventListener("click", () => {
-    document.querySelector(".sidebar")?.classList.toggle("open");
-  });
+  document.querySelector("#btn-toggle-sidebar")?.addEventListener("click", toggleMobileSidebar);
+  document.querySelector("#sidebar-overlay")?.addEventListener("click", closeMobileSidebar);
+  window.toggleMobileSidebar = toggleMobileSidebar;
+  window.closeMobileSidebar = closeMobileSidebar;
 });

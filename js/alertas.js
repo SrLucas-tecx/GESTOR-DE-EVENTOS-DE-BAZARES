@@ -12,6 +12,15 @@
 // Días de anticipación para mostrar alerta
 const ALERT_DAYS_AHEAD = 3;
 
+function parseAlertDate(dateValue) {
+  if (!dateValue) return null;
+  const parts = String(dateValue).split("-").map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return null;
+  const date = new Date(parts[0], parts[1] - 1, parts[2]);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
 /**
  * Devuelve los expositores con fecha límite en los próximos N días
  * o ya vencida, que no han pagado.
@@ -24,11 +33,12 @@ function getExpositorAlerts(bz = getActiveBazaar()) {
   return bz.expositores
     .filter((exp) => {
       if (exp.pagado || !exp.fechaLimitePago) return false;
-      const limit = new Date(exp.fechaLimitePago); limit.setHours(0,0,0,0);
+      const limit = parseAlertDate(exp.fechaLimitePago);
+      if (!limit) return false;
       return limit <= ahead; // vencida o dentro de N días
     })
     .map((exp) => {
-      const limit    = new Date(exp.fechaLimitePago); limit.setHours(0,0,0,0);
+      const limit    = parseAlertDate(exp.fechaLimitePago);
       const diffMs   = limit - now;
       const diffDays = Math.ceil(diffMs / 86400000);
       return {
@@ -48,14 +58,12 @@ function getExpositorAlerts(bz = getActiveBazaar()) {
 /** Actualiza el badge de alertas en el sidebar */
 function updateAlertBadge() {
   const alerts = getExpositorAlerts();
-  const badge  = document.getElementById("alert-badge");
-  if (!badge) return;
-  if (alerts.length === 0) {
-    badge.style.display = "none";
-  } else {
-    badge.style.display = "inline-flex";
-    badge.textContent   = alerts.length;
-  }
+  ["alert-badge", "alert-badge-nav"].forEach((id) => {
+    const badge = document.getElementById(id);
+    if (!badge) return;
+    badge.style.display = alerts.length === 0 ? "none" : "inline-flex";
+    badge.textContent = alerts.length;
+  });
 }
 
 /** Renderiza el panel de alertas (sec-alertas o modal) */
@@ -87,13 +95,13 @@ function renderAlertas() {
           border-left:4px solid ${color};padding:10px 14px;border-radius:var(--radius-md);
           background:${bg};margin-bottom:8px;">
         <div style="min-width:0;">
-          <div style="font-weight:800;font-size:var(--fs-sm);">
+          <div style="font-weight:900;font-size:var(--fs-sm);color:#b91c1c;letter-spacing:.01em;">
             ${icon} ${escapeHTML(exp.negocio)}
           </div>
-          <div style="font-size:var(--fs-xs);color:var(--color-text-muted);">
+          <div style="font-size:var(--fs-xs);font-weight:800;color:#dc2626;letter-spacing:.01em;">
             ${escapeHTML(exp.nombre)} · ${escapeHTML(exp.ubicacion)}
           </div>
-          <div style="font-size:var(--fs-xs);font-weight:700;color:${color};margin-top:2px;">
+          <div style="font-size:var(--fs-xs);font-weight:900;color:#b91c1c;letter-spacing:.01em;margin-top:2px;">
             ${label} · Saldo: ${formatCurrency(saldo)}
           </div>
         </div>

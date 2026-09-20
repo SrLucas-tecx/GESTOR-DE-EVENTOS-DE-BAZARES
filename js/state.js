@@ -195,6 +195,8 @@ function loadState() {
 // migrateState: asegura que bazares viejos tengan los campos nuevos.
 function migrateState(parsed) {
   if (!parsed.expositorPlantillas) parsed.expositorPlantillas = [];
+  if (!Array.isArray(parsed.categorias)) parsed.categorias = JSON.parse(JSON.stringify(DEFAULT_STATE.categorias));
+  if (!["cards", "table"].includes(parsed.expositorView)) parsed.expositorView = "cards";
 
   Object.values(parsed.bazaars || {}).forEach((bz) => {
     if (!bz.invitados)   bz.invitados   = [];
@@ -264,6 +266,7 @@ function migrateState(parsed) {
       if (exp.mesasCantidad === undefined) exp.mesasCantidad = 1;
       if (exp.mesasCantidadOtro === undefined) exp.mesasCantidadOtro = "";
       if (exp.areaEncargada === undefined) exp.areaEncargada = "";
+      if (!Array.isArray(exp.historial)) exp.historial = [];
     });
     (bz.minuteByMinute || []).forEach((row) => {
       if (row.area === undefined) row.area = "";
@@ -276,6 +279,9 @@ function migrateState(parsed) {
       if (inv.asistio === undefined) inv.asistio = false;
     });
   });
+  // Si el bazar activo no existe (respaldo importado, bazar borrado...), usa el primero disponible.
+  const bazaarIds = Object.keys(parsed.bazaars || {});
+  if (!parsed.bazaars?.[parsed.currentBazaarId]) parsed.currentBazaarId = bazaarIds[0] || null;
   return parsed;
 }
 

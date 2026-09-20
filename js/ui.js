@@ -5,6 +5,7 @@
  */
 
 function switchTab(tabId) {
+  closeMobileSidebar();
   document.querySelectorAll(".page-section").forEach((s) => s.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
 
@@ -24,23 +25,89 @@ function switchTab(tabId) {
     invitados:    "Lista de Expositores",
     "minuto-a-minuto": "Minuto a Minuto",
     bazares:      "Mis Bazares",
-    alertas:      "⚠️ Alertas de Pago",
-    plantillas:   "Expositores Guardados"
+    plantillas:   "Expositores Guardados",
+    "dia-evento": "Día del Evento",
+    comparar:     "Comparar Bazares",
+    alertas:      "Alertas de Pago"
   };
   const titleEl = document.getElementById("page-title");
   if (titleEl) titleEl.textContent = titles[tabId] || tabId;
 
   if (tabId === "estadisticas") updateCharts();
   if (tabId === "mapa")         { bazaarCanvas.render(); renderChecklist(); }
-  if (tabId === "finanzas")     { renderFinanzasTable(); renderFinanzasStats(); }
+  if (tabId === "finanzas")     { renderFinanzasTable(); renderFinanzasStats(); renderMetricasFinancieras(); }
   if (tabId === "costos")       renderCostosUI();
   if (tabId === "invitados")    renderInvitados();
   if (tabId === "minuto-a-minuto") renderMinuteByMinute();
   if (tabId === "bazares")      renderBazaresTabla();
   if (tabId === "plantillas")   renderPlantillas();
-  if (tabId === "alertas")      { if (typeof renderAlertas === "function") renderAlertas(); }
-  if (tabId === "estadisticas") { updateCharts(); if (typeof renderMetricasFinancieras === "function") renderMetricasFinancieras(); }
+  if (tabId === "comparar")     renderComparaBazares();
+  if (tabId === "alertas")      renderAlertas();
+  if (tabId === "dia-evento")   renderPanelDiaEvento();
   renderFabMenu(tabId);
+}
+
+function closeMobileSidebar() {
+  document.querySelector(".sidebar")?.classList.remove("open");
+  document.getElementById("sidebar-overlay")?.classList.remove("open");
+  document.body.classList.remove("sidebar-open");
+}
+
+function toggleMobileSidebar() {
+  const sidebar = document.querySelector(".sidebar");
+  const overlay = document.getElementById("sidebar-overlay");
+  if (!sidebar || !overlay) return;
+  const isOpen = sidebar.classList.toggle("open");
+  overlay.classList.toggle("open", isOpen);
+  overlay.setAttribute("aria-hidden", String(!isOpen));
+  document.body.classList.toggle("sidebar-open", isOpen);
+}
+
+function renderComparaBazares() {
+  const activeBazaar = getActiveBazaar();
+  const selector = document.getElementById("compara-select-bazar");
+  const content = document.getElementById("compara-bazares-content");
+  if (!activeBazaar || !selector || !content) return;
+
+  const otherBazaars = Object.values(AppState.bazaars).filter((bazaar) => bazaar.id !== activeBazaar.id);
+  const previousSelection = selector.value;
+  selector.innerHTML = otherBazaars.length
+    ? otherBazaars.map((bazaar) => `<option value="${bazaar.id}">${escapeHTML(bazaar.name)}</option>`).join("")
+    : `<option value="">No hay otro bazar</option>`;
+  if (otherBazaars.some((bazaar) => bazaar.id === previousSelection)) selector.value = previousSelection;
+
+  const comparedBazaar = otherBazaars.find((bazaar) => bazaar.id === selector.value);
+  if (!comparedBazaar) {
+    content.innerHTML = `<div class="chart-card compare-empty"><p>Crea otro bazar para poder compararlo con el bazar activo.</p></div>`;
+    return;
+  }
+
+  const metrics = [
+    ["Expositores", activeBazaar.expositores.length, comparedBazaar.expositores.length],
+    ["Pagos completados", activeBazaar.expositores.filter((item) => item.pagado).length, comparedBazaar.expositores.filter((item) => item.pagado).length],
+    ["Invitados", (activeBazaar.invitados || []).length, (comparedBazaar.invitados || []).length],
+    ["Mesas", getActiveTables(activeBazaar).length, getActiveTables(comparedBazaar).length]
+  ];
+  content.innerHTML = `
+    <div class="compare-grid">
+      <div class="compare-column compare-column-active">
+        <span class="compare-label">Bazar activo</span>
+        <h3>${escapeHTML(activeBazaar.name)}</h3>
+      </div>
+      <div class="compare-column">
+        <span class="compare-label">Bazar comparado</span>
+        <h3>${escapeHTML(comparedBazaar.name)}</h3>
+      </div>
+    </div>
+    <div class="compare-metrics">
+      ${metrics.map(([label, activeValue, comparedValue]) => `
+        <div class="compare-metric">
+          <span>${label}</span>
+          <strong>${activeValue}</strong>
+          <span class="compare-divider">vs</span>
+          <strong>${comparedValue}</strong>
+        </div>`).join("")}
+    </div>`;
 }
 
 // [FIX] Antes faltaban "finanzas" y "plantillas": al no existir su llave,
@@ -58,9 +125,10 @@ const fabActions = {
     { label: "📍 Nuevo Elemento", action: addMapElement },
     { label: "🏢 Nuevo Piso", action: addFloor }
   ],
-  invitados: [{ label: "🎟️ Agregar Invitado", action: openModalInvitado }],
+  invitados: [{ label: "👤 Agregar Expositor", action: openModalInvitado }],
   "minuto-a-minuto": [{ label: "🕒 Agregar actividad", action: addMinuteRow }],
   estadisticas: [],
+  "dia-evento": [],
   bazares: [{ label: "🏪 Nuevo Bazar", action: createBazaar }]
 };
 
@@ -198,6 +266,7 @@ function handleImportJSON(e) {
       AppState = migrateState(importedState);
       saveState();
       renderAll();
+      syncCanvasWithState();
       showToast("✅ Datos importados correctamente");
     } catch {
       showToast("❌ Archivo JSON inválido", "error");

@@ -11,7 +11,7 @@ function renderBazaarSelector() {
   const sel = document.getElementById("bazaar-select-global");
   if (!sel) return;
   sel.innerHTML = Object.values(AppState.bazaars)
-    .map((bz) => `<option value="${bz.id}" ${bz.id === AppState.currentBazaarId ? "selected" : ""}>${bz.name}</option>`)
+    .map((bz) => `<option value="${bz.id}" ${bz.id === AppState.currentBazaarId ? "selected" : ""}>${escapeHTML(bz.name)}</option>`)
     .join("");
 }
 
@@ -21,6 +21,7 @@ function updateMapaBazaarLabel() {
   const scaleInput = document.getElementById("map-pixels-per-meter");
   if (scaleInput) scaleInput.value = getPixelsPerMeter();
   renderFloorSelector();
+  applyFloorOrientation();
   const opacity = Number(getActiveFloor()?.backgroundOpacity ?? 1);
   const opacityInput = document.getElementById("floor-plan-opacity");
   const opacityValue = document.getElementById("floor-plan-opacity-value");
@@ -222,8 +223,7 @@ function addFloor() {
   bz.activeFloorId = floor.id;
   saveState();
   renderAll();
-  bazaarCanvas.loadBgImage();
-  bazaarCanvas.render();
+  syncCanvasWithState();
   showToast(`✅ ${floor.name} creado`);
 }
 
@@ -240,8 +240,7 @@ function deleteCurrentFloor() {
   bazaarCanvas.selectedTableId = null;
   saveState();
   renderAll();
-  bazaarCanvas.loadBgImage();
-  bazaarCanvas.render();
+  syncCanvasWithState();
   showToast("🗑️ Piso eliminado");
 }
 
@@ -272,6 +271,7 @@ function createBazaar() {
   AppState.currentBazaarId = id;
   saveState();
   renderAll();
+  syncCanvasWithState();
   showToast(`✅ Bazar "${name.trim()}" creado`);
 }
 
@@ -281,9 +281,11 @@ function deleteBazaarById(bazaarId) {
   const bz = AppState.bazaars[bazaarId];
   if (!bz) return;
   if (!confirm(`¿Eliminar permanentemente el bazar "${bz.name}"? Esta acción no se puede deshacer.`)) return;
+  const wasActive = bazaarId === AppState.currentBazaarId;
   delete AppState.bazaars[bazaarId];
   const remaining = Object.keys(AppState.bazaars);
-  AppState.currentBazaarId = remaining[0] || null;
+  // Solo cambia el bazar activo si el eliminado ERA el activo.
+  if (wasActive) AppState.currentBazaarId = remaining[0] || null;
   if (remaining.length === 0) {
     // Si no quedan bazares, crea uno vacío para no romper la app
     const newId = "bazaar-" + Date.now();
@@ -294,6 +296,7 @@ function deleteBazaarById(bazaarId) {
   }
   saveState();
   renderAll();
+  syncCanvasWithState();
   renderBazaresTabla();
   showToast(`🗑️ Bazar eliminado`);
 }
@@ -317,7 +320,7 @@ function renderBazaresTabla() {
       ? `<img src="${bz.logoImage}" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:2px solid var(--color-border);">`
       : `<span style="font-size:1.4rem;">🎪</span>`;
     return `
-      <tr style="${isActive ? "background:var(--color-accent-soft);" : ""}">
+      <tr class="${isActive ? "active-bazaar-row" : ""}">
         <td style="display:flex;align-items:center;gap:10px;">
           <div class="bazar-logo-mini">${logoHtml}</div>
           <div>
@@ -413,6 +416,89 @@ function removeLogoHandler() {
 }
 
 // ==========================================
+// SINCRONIZACIÓN DEL CANVAS + ORIENTACIÓN + DUPLICAR BAZAR
+// ==========================================
+
+// Recarga fondo, zonas y tamaño del canvas desde el estado activo.
+// Debe llamarse SIEMPRE que cambie el bazar o el piso activo; si no, el canvas
+// conserva las zonas del piso anterior y saveZones() las copia al piso nuevo.
+function syncCanvasWithState() {
+  bazaarCanvas.selectedTableId = null;
+  bazaarCanvas.selectedElementId = null;
+  bazaarCanvas.selectedZoneId = null;
+  bazaarCanvas.isDraggingTable = false;
+  bazaarCanvas.isDraggingElement = false;
+  bazaarCanvas.isDraggingZone = false;
+  bazaarCanvas.draggedTable = null;
+  bazaarCanvas.draggedElement = null;
+  bazaarCanvas.draggedZone = null;
+  bazaarCanvas.loadBgImage();
+  bazaarCanvas.loadZones();
+  applyFloorOrientation();
+  bazaarCanvas.render();
+  bazaarCanvas.updateZoneUI();
+}
+
+// Ajusta el tamaño del canvas según la orientación del piso activo.
+function applyFloorOrientation() {
+  const floor = getActiveFloor();
+  const orientation = floor?.orientation === "portrait" ? "portrait" : "landscape";
+  const select = document.getElementById("map-orientation");
+  if (select) select.value = orientation;
+  const canvas = document.getElementById("bazaar-canvas");
+  if (!canvas) return;
+  const [width, height] = orientation === "portrait" ? [560, 900] : [900, 560];
+  if (canvas.width === width && canvas.height === height) return;
+  canvas.width = width;
+  canvas.height = height;
+  if (typeof bazaarCanvas !== "undefined" && bazaarCanvas.ctx) bazaarCanvas.render();
+}
+
+function updateMapOrientation(value) {
+  const floor = getActiveFloor();
+  if (!floor) return;
+  floor.orientation = value === "portrait" ? "portrait" : "landscape";
+  saveState();
+  applyFloorOrientation();
+  bazaarCanvas.render();
+  showToast(floor.orientation === "portrait" ? "↕️ Plano en vertical" : "↔️ Plano en horizontal");
+}
+
+// Duplica el bazar activo (expositores, pisos, mesas, zonas, costos, agenda...).
+// La asistencia (mesas e invitados) y el historial se reinician en la copia.
+function duplicarBazaar() {
+  const source = getActiveBazaar();
+  if (!source) return;
+  const name = prompt("Nombre del bazar duplicado:", `${source.name} (copia)`);
+  if (!name?.trim()) return;
+
+  const copy = JSON.parse(JSON.stringify(source));
+  const newId = "bazaar-" + Date.now();
+  const floorIdMap = {};
+
+  copy.id = newId;
+  copy.name = name.trim();
+  copy.tables = [];
+  (copy.floors || []).forEach((floor, index) => {
+    const newFloorId = `${newId}-floor-${index + 1}`;
+    floorIdMap[floor.id] = newFloorId;
+    floor.id = newFloorId;
+    (floor.tables || []).forEach((table) => { table.attended = false; table.absent = false; });
+  });
+  copy.activeFloorId = floorIdMap[source.activeFloorId] || copy.floors?.[0]?.id;
+  (copy.invitados || []).forEach((inv) => { inv.asistio = false; });
+  (copy.expositores || []).forEach((exp) => { exp.historial = []; });
+
+  AppState.bazaars[newId] = copy;
+  AppState.currentBazaarId = newId;
+  saveState();
+  renderAll();
+  syncCanvasWithState();
+  renderBazaresTabla();
+  showToast(`✅ Bazar "${copy.name}" duplicado`);
+}
+
+// ==========================================
 // 8. RENDERIZADO PRINCIPAL
 // ==========================================
 function renderAll() {
@@ -428,6 +514,9 @@ function renderAll() {
   renderInvitados();
   renderPlantillas();
   renderMinuteByMinute();
+  renderMetricasFinancieras();
+  renderPanelDiaEvento();
+  updateAlertBadge();
 }
 
 function handleSearch(val) {

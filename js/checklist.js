@@ -52,6 +52,7 @@ function toggleExpositorChecklistItem(expId, itemId) {
   const item = exp?.checklist.find((i) => i.id === itemId);
   if (!item) return;
   item.done = !item.done;
+  registrarHistorial(expId, `Checklist: "${item.label}" ${item.done ? "completado" : "reabierto"}`);
   saveState();
   renderExpositorChecklist();
   renderExpositores();

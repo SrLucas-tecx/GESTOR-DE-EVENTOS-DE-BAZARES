@@ -16,6 +16,49 @@ function setCanvasMode(mode) {
   bazaarCanvas.setMode(mode);
 }
 
+function toggleLayer(layer) {
+  if (layer === "tables") bazaarCanvas.showTables = !bazaarCanvas.showTables;
+  if (layer === "zones") bazaarCanvas.showZones = !bazaarCanvas.showZones;
+  const button = document.getElementById(`layer-btn-${layer}`);
+  const visible = layer === "tables" ? bazaarCanvas.showTables : bazaarCanvas.showZones;
+  if (button) button.classList.toggle("active", visible);
+  bazaarCanvas.render();
+}
+
+function toggleSnapTables() {
+  bazaarCanvas.snapTables = !bazaarCanvas.snapTables;
+  const button = document.getElementById("btn-snap-tables");
+  if (button) button.classList.toggle("active", bazaarCanvas.snapTables);
+  showToast(bazaarCanvas.snapTables ? "🧲 Snap activado" : "Snap desactivado");
+}
+
+function toggleLegend() {
+  bazaarCanvas.showLegend = !bazaarCanvas.showLegend;
+  const button = document.getElementById("btn-toggle-legend");
+  if (button) button.classList.toggle("active", bazaarCanvas.showLegend);
+  bazaarCanvas.render();
+}
+
+function autoNumberTables() {
+  const tables = getActiveTables(getActiveBazaar()).slice().sort((a, b) => a.y - b.y || a.x - b.x);
+  let row = 0;
+  let rowY = null;
+  let rowNumber = 0;
+  tables.forEach((table) => {
+    if (rowY === null || Math.abs(table.y - rowY) > Math.max(12, table.h * 0.45)) {
+      row += 1;
+      rowY = table.y;
+      rowNumber = 0;
+    }
+    rowNumber += 1;
+    table.name = `${String.fromCodePoint(64 + Math.min(row, 26))}-${String(rowNumber).padStart(2, "0")}`;
+  });
+  saveState();
+  bazaarCanvas.render();
+  renderChecklist();
+  showToast(tables.length ? "✅ Mesas numeradas" : "No hay mesas para numerar");
+}
+
 // Exporta zonas del piso actual como JSON
 function exportZonesJSON() {
   const floor = getActiveFloor(getActiveBazaar());
@@ -284,135 +327,6 @@ function rotateSelectedTable(delta) {
   saveState();
   bazaarCanvas.render();
   showToast(`Mesa girada a ${table.rotation}°`);
-}
-
-// ==========================================
-
-// ==========================================
-// SPRINT 2 — PRODUCTIVIDAD DEL PLANO
-// ==========================================
-
-/** Duplica la mesa seleccionada o la indicada por ID */
-function duplicateTable(tableId) {
-  const id  = tableId || bazaarCanvas.selectedTableId;
-  if (!id) { showToast("Selecciona una mesa primero", "error"); return; }
-  const bz    = getActiveBazaar();
-  const floor = getActiveFloor(bz);
-  const orig  = getActiveTables(bz).find((t) => t.id === id);
-  if (!orig || !floor) return;
-
-  const copy = {
-    ...JSON.parse(JSON.stringify(orig)),
-    id:   "t-" + Date.now(),
-    name: orig.name + " (copia)",
-    x:    orig.x + 20,
-    y:    orig.y + 20,
-    // La copia no hereda expositor ni asistencia
-    exhibitorId: "",
-    attended:    false,
-    absent:      false,
-  };
-  floor.tables.push(copy);
-  bazaarCanvas.selectedTableId = copy.id;
-  saveState();
-  bazaarCanvas.render();
-  renderChecklist();
-  showToast(`✅ Mesa duplicada: ${copy.name}`);
-  hideCanvasContextMenu();
-}
-
-/**
- * Numera automáticamente todas las mesas según su posición en el plano.
- * Divide el canvas en filas (cada BAND_H px), y dentro de cada fila
- * ordena de izquierda a derecha. Genera nombres: A-01, A-02, B-01...
- */
-function autoNumberTables() {
-  const bz    = getActiveBazaar();
-  const floor = getActiveFloor(bz);
-  const tables = getActiveTables(bz);
-  if (!tables.length) { showToast("Sin mesas para numerar", "error"); return; }
-  if (!confirm(`¿Renombrar automáticamente las ${tables.length} mesas por posición?\nFormato: A-01, A-02, B-01...`)) return;
-
-  // Determina el alto de banda usando el promedio de alturas de mesas
-  const avgH    = tables.reduce((s, t) => s + t.h, 0) / tables.length;
-  const BAND_H  = avgH * 2.2;
-
-  const sorted = [...tables].sort((a, b) => {
-    const rowA = Math.floor(a.y / BAND_H);
-    const rowB = Math.floor(b.y / BAND_H);
-    return rowA !== rowB ? rowA - rowB : a.x - b.x;
-  });
-
-  let currentRow = -1, rowLetter = -1, colIdx = 0;
-  sorted.forEach((t) => {
-    const row = Math.floor(t.y / BAND_H);
-    if (row !== currentRow) { currentRow = row; rowLetter++; colIdx = 0; }
-    colIdx++;
-    const letter = String.fromCharCode(65 + (rowLetter % 26));
-    t.name = `${letter}-${String(colIdx).padStart(2, "0")}`;
-  });
-
-  saveState();
-  bazaarCanvas.render();
-  renderChecklist();
-  showToast(`✅ ${tables.length} mesas renombradas automáticamente`);
-}
-
-/** Alterna snap entre mesas */
-function toggleSnapTables() {
-  bazaarCanvas.snapEnabled = !bazaarCanvas.snapEnabled;
-  const btn = document.getElementById("btn-snap-tables");
-  if (btn) btn.classList.toggle("active", bazaarCanvas.snapEnabled);
-  showToast(bazaarCanvas.snapEnabled ? "🧲 Snap activado" : "🧲 Snap desactivado");
-}
-
-/** Alterna visibilidad de la leyenda */
-function toggleLegend() {
-  bazaarCanvas.showLegend = !bazaarCanvas.showLegend;
-  const btn = document.getElementById("btn-toggle-legend");
-  if (btn) btn.classList.toggle("active", bazaarCanvas.showLegend);
-  bazaarCanvas.render();
-  showToast(bazaarCanvas.showLegend ? "📋 Leyenda visible" : "📋 Leyenda oculta");
-}
-
-// ── MENÚ CONTEXTUAL DEL CANVAS ──────────────────────────────────
-function showCanvasContextMenu(clientX, clientY, tableId) {
-  let menu = document.getElementById("canvas-ctx-menu");
-  if (!menu) {
-    menu = document.createElement("div");
-    menu.id = "canvas-ctx-menu";
-    menu.style.cssText = `
-      position:fixed;z-index:9999;
-      background:var(--color-surface);border:1.5px solid var(--color-border);
-      border-radius:var(--radius-md);box-shadow:var(--shadow-lg);
-      min-width:180px;overflow:hidden;animation:slideUp .15s ease;`;
-    document.body.appendChild(menu);
-    // Cierra al hacer clic fuera
-    document.addEventListener("click", () => hideCanvasContextMenu(), { once: false });
-  }
-
-  const itemStyle = `display:flex;align-items:center;gap:8px;padding:8px 14px;
-    font-size:var(--fs-sm);font-weight:600;cursor:pointer;color:var(--color-text);
-    background:none;border:none;width:100%;text-align:left;transition:background .15s;`;
-  const divStyle  = `height:1px;background:var(--color-border);margin:2px 0;`;
-
-  menu.innerHTML = `
-    <button style="${itemStyle}" onmouseenter="this.style.background='var(--color-accent-soft)'" onmouseleave="this.style.background='none'" onclick="openModalTableEdit('${tableId}');hideCanvasContextMenu()">✏️ Editar mesa</button>
-    <button style="${itemStyle}" onmouseenter="this.style.background='var(--color-accent-soft)'" onmouseleave="this.style.background='none'" onclick="duplicateTable('${tableId}')">📋 Duplicar mesa</button>
-    <div style="${divStyle}"></div>
-    <button style="${itemStyle}" onmouseenter="this.style.background='var(--color-accent-soft)'" onmouseleave="this.style.background='none'" onclick="bazaarCanvas.selectedTableId='${tableId}';rotateSelectedTable(-90);hideCanvasContextMenu()">↶ Girar 90° izq</button>
-    <button style="${itemStyle}" onmouseenter="this.style.background='var(--color-accent-soft)'" onmouseleave="this.style.background='none'" onclick="bazaarCanvas.selectedTableId='${tableId}';rotateSelectedTable(90);hideCanvasContextMenu()">↷ Girar 90° der</button>
-    <div style="${divStyle}"></div>
-    <button style="${itemStyle};color:var(--color-danger);" onmouseenter="this.style.background='var(--color-danger-soft)'" onmouseleave="this.style.background='none'" onclick="bazaarCanvas.selectedTableId='${tableId}';deleteSelectedMapObject();hideCanvasContextMenu()">🗑️ Eliminar mesa</button>`;
-
-  menu.style.left    = `${Math.min(clientX, window.innerWidth  - 200)}px`;
-  menu.style.top     = `${Math.min(clientY, window.innerHeight - 220)}px`;
-  menu.style.display = "block";
-}
-
-function hideCanvasContextMenu() {
-  const menu = document.getElementById("canvas-ctx-menu");
-  if (menu) menu.style.display = "none";
 }
 
 // ==========================================
