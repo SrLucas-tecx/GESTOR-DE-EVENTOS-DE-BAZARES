@@ -27,8 +27,12 @@ function switchTab(tabId) {
     bazares:      "Mis Bazares",
     plantillas:   "Expositores Guardados",
     "dia-evento": "Día del Evento",
+    ficha:        "Ficha del Evento",
+    staff:        "Staff del Evento",
+    tareas:       "Tareas del Evento",
+    compras:      "Lista de Compras",
     comparar:     "Comparar Bazares",
-    alertas:      "Alertas de Pago"
+    alertas:      "Alertas"
   };
   const titleEl = document.getElementById("page-title");
   if (titleEl) titleEl.textContent = titles[tabId] || tabId;
@@ -44,6 +48,10 @@ function switchTab(tabId) {
   if (tabId === "comparar")     renderComparaBazares();
   if (tabId === "alertas")      renderAlertas();
   if (tabId === "dia-evento")   renderPanelDiaEvento();
+  if (tabId === "ficha")        renderFicha();
+  if (tabId === "tareas")       renderTareas();
+  if (tabId === "compras")      renderCompras();
+  if (tabId === "staff")        renderResponsables();
   renderFabMenu(tabId);
 }
 
@@ -129,6 +137,10 @@ const fabActions = {
   "minuto-a-minuto": [{ label: "🕒 Agregar actividad", action: addMinuteRow }],
   estadisticas: [],
   "dia-evento": [],
+  ficha: [],
+  staff: [{ label: "🙋 Agregar Responsable", action: () => openModalResponsable() }],
+  tareas: [{ label: "✅ Nueva tarea", action: () => addTarea() }],
+  compras: [{ label: "🛒 Nuevo artículo", action: () => addCompra() }],
   bazares: [{ label: "🏪 Nuevo Bazar", action: createBazaar }]
 };
 
@@ -251,25 +263,19 @@ function exportarCSV() {
   showToast("✅ CSV descargado correctamente");
 }
 
+// La lectura y aplicación de datos vive en backup.js (secciones + Combinar/Reemplazar).
 function handleImportJSON(e) {
-  const file = e.target.files[0];
+  const input = e.target;
+  const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (evt) => {
     try {
-      const parsed = JSON.parse(evt.target.result);
-      const importedState = parsed.data && ["BAZARIX", "BAZARICXS", "BARARIX-EXPOSITORES", "EXPOSITORES.COM"].includes(parsed.app) ? parsed.data : parsed;
-      if (!importedState || typeof importedState !== "object" || !importedState.bazaars) {
-        throw new Error("Estructura de respaldo inválida");
-      }
-      if (!confirm("La importación reemplazará los datos actuales. ¿Deseas continuar?")) return;
-      AppState = migrateState(importedState);
-      saveState();
-      renderAll();
-      syncCanvasWithState();
-      showToast("✅ Datos importados correctamente");
+      backupPrepararImportacion(JSON.parse(evt.target.result));
     } catch {
       showToast("❌ Archivo JSON inválido", "error");
+    } finally {
+      input.value = ""; // permite volver a elegir el mismo archivo
     }
   };
   reader.readAsText(file);

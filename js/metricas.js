@@ -30,6 +30,37 @@ function calcResumenPorCategoria(bz = getActiveBazaar()) {
 function renderMetricasFinancieras() {
   renderResumenCategorias();
   renderTicketPromedio();
+  renderMetricasResumenGeneral();
+}
+
+/**
+ * Panel "Métricas y Gráficas": las cifras clave del evento juntas en un
+ * solo lugar (dinero, pagos, asistencia y confirmación), para no tener
+ * que ir a Finanzas, Costos, Día del Evento e Invitados por separado.
+ */
+function renderMetricasResumenGeneral(bz = getActiveBazaar()) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  if (!bz) return;
+
+  const ingresos = bz.expositores.reduce((s, e) => s + Number(e.costo || 0), 0);
+  const presupuesto = typeof calcPresupuesto === "function" ? calcPresupuesto(bz) : { total: 0 };
+  set("metrica-ingresos", formatCurrency(ingresos));
+  set("metrica-egresos",  formatCurrency(presupuesto.total));
+  set("metrica-balance",  formatCurrency(ingresos - presupuesto.total));
+
+  const paidCount = bz.expositores.filter((e) => e.pagado).length;
+  const pagadoPct = bz.expositores.length ? Math.round((paidCount / bz.expositores.length) * 100) : 0;
+  set("metrica-pagado-pct", `${pagadoPct}%`);
+
+  if (typeof getDiaEventoTables === "function") {
+    const entries = getDiaEventoTables(bz);
+    const attended = entries.filter((e) => e.state === "attended").length;
+    set("metrica-asistencia-pct", `${entries.length ? Math.round((attended / entries.length) * 100) : 0}%`);
+  }
+
+  const invitados = bz.invitados || [];
+  const confirmados = invitados.filter((i) => i.confirmado).length;
+  set("metrica-confirmacion-pct", `${invitados.length ? Math.round((confirmados / invitados.length) * 100) : 0}%`);
 }
 
 function renderResumenCategorias() {

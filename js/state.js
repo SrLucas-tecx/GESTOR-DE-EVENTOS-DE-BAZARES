@@ -48,7 +48,9 @@ function emptyCostsConfig() {
     chairsEnabled: false,
     chairsQty: 0,
     chairsTotal: 0,   // <- NUEVO: costo TOTAL
-    extraCosts: []
+    ivaEnabled: false, // IVA opcional sobre todos los egresos
+    ivaRate: 16,
+    extraCosts: []    // [{ id, name, comment, unit, qty, cost }]  cost = unit × qty (sin IVA)
   };
 }
 
@@ -58,6 +60,87 @@ function emptyCustomMetrics() {
 
 function emptyMinuteByMinute() {
   return [];
+}
+
+// Ficha descriptiva del evento (el nombre del evento es bz.name).
+function emptyEvento() {
+  return { fecha: "", objetivo: "", lideres: "", publico: "", asistentes: "", lugar: "", staff: "" };
+}
+
+// Roles sugeridos para un bazar nuevo (el usuario puede editarlos o borrarlos).
+const ROLE_COLORS = ["#0d9488", "#8b5cf6", "#f59e0b", "#ef4444", "#10b981", "#3b82f6", "#ec4899"];
+function defaultRoles() {
+  const base = Date.now();
+  return ["Coordinación", "Logística", "Difusión", "Finanzas"].map((nombre, i) => ({
+    id: `rol-${base}-${i}`, nombre, color: ROLE_COLORS[i % ROLE_COLORS.length]
+  }));
+}
+
+// Asegura los campos de logística de un bazar (ficha, tareas, compras, IVA/presupuesto, Durante).
+// Se llama al migrar y antes de renderizar, así también funciona con bazares recién creados.
+function ensureEventoFields(bz) {
+  if (!bz) return;
+  const base = emptyEvento();
+  if (!bz.evento || typeof bz.evento !== "object" || Array.isArray(bz.evento)) bz.evento = base;
+  else Object.keys(base).forEach((k) => { if (bz.evento[k] === undefined) bz.evento[k] = base[k]; });
+
+  if (!Array.isArray(bz.roles)) bz.roles = defaultRoles();
+  if (!Array.isArray(bz.responsables)) bz.responsables = [];
+  bz.responsables.forEach((r) => {
+    if (!r.id) r.id = `resp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    if (r.nombre === undefined) r.nombre = "";
+    if (r.rolId === undefined) r.rolId = "";
+    if (r.tel === undefined) r.tel = "";
+    if (r.email === undefined) r.email = "";
+  });
+
+  // Convierte un nombre suelto (texto libre viejo) en un responsable real,
+  // reutilizando uno existente con el mismo nombre en vez de duplicar.
+  const responsableIdFromTexto = (nombre) => {
+    const clean = String(nombre || "").trim();
+    if (!clean) return "";
+    const existing = bz.responsables.find((r) => r.nombre.toLowerCase() === clean.toLowerCase());
+    if (existing) return existing.id;
+    const nuevo = { id: `resp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, nombre: clean, rolId: "", tel: "", email: "" };
+    bz.responsables.push(nuevo);
+    return nuevo.id;
+  };
+
+  if (!Array.isArray(bz.tareas)) bz.tareas = [];
+  bz.tareas.forEach((t) => {
+    if (!t.id) t.id = `tarea-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    if (t.fase !== "previo" && t.fase !== "post") t.fase = "previo";
+    ["actividad", "descripcion", "fecha", "avance"].forEach((k) => { if (t[k] === undefined) t[k] = ""; });
+    if (t.responsableId === undefined) t.responsableId = t.responsable ? responsableIdFromTexto(t.responsable) : "";
+    t.hecho = Boolean(t.hecho);
+  });
+
+  if (!Array.isArray(bz.compras)) bz.compras = [];
+  bz.compras.forEach((c) => {
+    if (!c.id) c.id = `compra-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    ["articulo", "descripcion", "fecha", "presupuestoId"].forEach((k) => { if (c[k] === undefined) c[k] = ""; });
+    if (c.responsableId === undefined) c.responsableId = c.responsable ? responsableIdFromTexto(c.responsable) : "";
+    if (!Number.isFinite(Number(c.cantidad))) c.cantidad = 1;
+    if (!Number.isFinite(Number(c.costoUnit))) c.costoUnit = 0;
+    c.comprado = Boolean(c.comprado);
+  });
+
+  const cfg = bz.costsConfig || (bz.costsConfig = emptyCostsConfig());
+  if (cfg.ivaEnabled === undefined) cfg.ivaEnabled = false;
+  if (!Number.isFinite(Number(cfg.ivaRate))) cfg.ivaRate = 16;
+  if (!Array.isArray(cfg.extraCosts)) cfg.extraCosts = [];
+  cfg.extraCosts.forEach((c) => {
+    if (c.qty === undefined) c.qty = 1;
+    if (c.unit === undefined) c.unit = Number(c.cost || 0) / (Number(c.qty) || 1);
+    if (c.comment === undefined) c.comment = "";
+    if (c.ivaIncluido === undefined) c.ivaIncluido = false;
+  });
+
+  (bz.minuteByMinute || []).forEach((row) => {
+    if (row.lugar === undefined) row.lugar = "";
+    if (row.horaFin === undefined) row.horaFin = "";
+    if (row.responsableId === undefined) row.responsableId = row.responsible ? responsableIdFromTexto(row.responsible) : "";
+  });
 }
 
 function defaultMapConfig() {
@@ -197,11 +280,14 @@ function migrateState(parsed) {
   if (!parsed.expositorPlantillas) parsed.expositorPlantillas = [];
   if (!Array.isArray(parsed.categorias)) parsed.categorias = JSON.parse(JSON.stringify(DEFAULT_STATE.categorias));
   if (!["cards", "table"].includes(parsed.expositorView)) parsed.expositorView = "cards";
+  if (!["previo", "post"].includes(parsed.tareasFase)) parsed.tareasFase = "previo";
+  if (!["mobiliario", "gastos"].includes(parsed.costosSubTab)) parsed.costosSubTab = "mobiliario";
 
   Object.values(parsed.bazaars || {}).forEach((bz) => {
     if (!bz.invitados)   bz.invitados   = [];
     if (!bz.minuteByMinute) bz.minuteByMinute = emptyMinuteByMinute();
     if (!bz.customMetrics) bz.customMetrics = emptyCustomMetrics();
+    ensureEventoFields(bz);
     if (!bz.mapConfig) bz.mapConfig = defaultMapConfig();
     if (!Number.isFinite(Number(bz.mapConfig.pixelsPerMeter)) || bz.mapConfig.pixelsPerMeter <= 0) {
       bz.mapConfig.pixelsPerMeter = 100;
@@ -288,6 +374,7 @@ function migrateState(parsed) {
 function saveState() {
   try {
     localStorage.setItem("EXPOSITORES_APP_STATE", JSON.stringify(AppState));
+    if (typeof showSaveIndicator === "function") showSaveIndicator();
   } catch (err) {
     showToast("⚠️ Error al guardar datos", "error");
   }

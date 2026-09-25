@@ -90,11 +90,18 @@ function exportarMapaPDF() {
     return;
   }
 
+  // El PDF sigue la orientación del plano: un plano vertical ya no se
+  // fuerza dentro de una hoja horizontal (quedaba con márgenes enormes).
+  const isPortrait = floor.orientation === "portrait";
+  const wrapW = isPortrait ? 650 : 1000;
+  const wrapH = isPortrait ? 1000 : 650;
+  const imgH  = isPortrait ? 830 : 515;
+
   bazaarCanvas.render();
   const wrapper = document.createElement("div");
   const issuedAt = new Date().toLocaleDateString("es-MX");
   const safeName = `${bz.name}_${floor.name}`.replace(/[^a-z0-9]+/gi, "_");
-  wrapper.style.cssText = "display:none;box-sizing:border-box;width:1000px;height:650px;overflow:hidden;padding:18px;font-family:Arial,sans-serif;background:#fff;color:#1e293b;page-break-inside:avoid;";
+  wrapper.style.cssText = `display:none;box-sizing:border-box;width:${wrapW}px;height:${wrapH}px;overflow:hidden;padding:18px;font-family:Arial,sans-serif;background:#fff;color:#1e293b;page-break-inside:avoid;`;
   wrapper.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0d9488;padding-bottom:8px;margin-bottom:10px;">
       <div>
@@ -106,7 +113,7 @@ function exportarMapaPDF() {
         <span>${escapeHTML(floor.name)} · ${issuedAt}</span>
       </div>
     </div>
-    <img src="${bazaarCanvas.canvas.toDataURL("image/png")}" alt="Plano de ${escapeHTML(bz.name)}" style="display:block;width:100%;height:515px;object-fit:contain;border:1px solid #cbd5e1;border-radius:6px;">
+    <img src="${bazaarCanvas.canvas.toDataURL("image/png")}" alt="Plano de ${escapeHTML(bz.name)}" style="display:block;width:100%;height:${imgH}px;object-fit:contain;border:1px solid #cbd5e1;border-radius:6px;">
     <p style="margin:6px 0 0;text-align:center;color:#64748b;font-size:10px;">Documento generado por BAZARIX</p>`;
 
   document.body.appendChild(wrapper);
@@ -116,7 +123,7 @@ function exportarMapaPDF() {
     filename: `mapa_${safeName}.pdf`,
     image: { type: "png" },
     html2canvas: { scale: 3, backgroundColor: "#ffffff" },
-    jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+    jsPDF: { unit: "mm", format: "a4", orientation: isPortrait ? "portrait" : "landscape" },
     pagebreak: { mode: ["avoid-all"] }
   }).from(wrapper).save().then(() => {
     wrapper.remove();

@@ -1024,12 +1024,15 @@ class BazaarCanvasManager {
     if (exhibitor && t.color && t.color.toLowerCase() !== "#ffffff") {
       fillColor = t.color;
       borderColor = fillColor;
-    } else if (t.absent)         { fillColor = "#fee2e2"; borderColor = "#ef4444"; }
-    else if (t.attended)       { fillColor = "#dcfce7"; borderColor = "#22c55e"; }
+    } else if (t.attended) { fillColor = "#dcfce7"; borderColor = "#22c55e"; }
     else if (exhibitor) {
       const cat = AppState.categorias.find((c) => c.id === exhibitor.categoria);
       if (cat) { fillColor = cat.color + "25"; borderColor = cat.color; }
       else     { fillColor = "#e0f2fe"; borderColor = "#0284c7"; }
+    } else if (t.absent) {
+      // Mesa libre (sin expositor ni color propio) marcada como "no asistió":
+      // no hay un color que atenuar, así que se muestra en rojo como antes.
+      fillColor = "#fee2e2"; borderColor = "#ef4444";
     }
     this.ctx.save();
     this.ctx.translate(t.x + t.w / 2, t.y + t.h / 2);
@@ -1037,6 +1040,10 @@ class BazaarCanvasManager {
     this.ctx.translate(-(t.x + t.w / 2), -(t.y + t.h / 2));
     this.ctx.shadowColor = "rgba(0,0,0,0.08)"; this.ctx.shadowBlur = 6;
     this.ctx.shadowOffsetX = 2; this.ctx.shadowOffsetY = 2;
+    // "No asistió" conserva el color asignado (categoría/personalizado) pero
+    // se atenúa, en vez de taparlo con rojo: así se sigue viendo de quién
+    // era la mesa, y no solo que faltó.
+    if (t.absent) this.ctx.globalAlpha = 0.42;
     this.ctx.fillStyle = fillColor; this.ctx.strokeStyle = borderColor; this.ctx.lineWidth = 2;
     this.ctx.beginPath(); this.ctx.roundRect(t.x, t.y, t.w, t.h, 6);
     this.ctx.fill(); this.ctx.stroke();

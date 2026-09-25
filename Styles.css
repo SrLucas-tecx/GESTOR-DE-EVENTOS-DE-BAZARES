@@ -165,7 +165,7 @@ a{color:inherit;text-decoration:none}
   border-radius:var(--radius-full);padding:var(--space-2) var(--space-4);
 }
 .search-bar input{border:none;outline:none;background:none;font-size:var(--fs-sm);width:100%;color:var(--color-text)}
-.page-content{flex:1;padding:var(--space-6);max-width:1400px;width:100%}
+.page-content{flex:1;padding:var(--space-6);padding-bottom:calc(var(--space-8) * 2 + 56px);max-width:1400px;width:100%}
 .page-section{display:none}
 .page-section.active{display:block}
 
@@ -777,7 +777,7 @@ input:checked+.slider::before{transform:translateX(20px)}
   body.sidebar-open{overflow:hidden}
   .main-area{width:100%}
   .header{padding:var(--space-3) var(--space-4);flex-wrap:wrap}
-  .page-content{padding:var(--space-4)}
+  .page-content{padding:var(--space-4);padding-bottom:calc(var(--space-5) * 2 + 56px)}
   .charts-grid{grid-template-columns:1fr}
   .form-row{grid-template-columns:1fr}
   .custom-metric-row{grid-template-columns:1fr}
@@ -925,4 +925,215 @@ input:checked+.slider::before{transform:translateX(20px)}
   .canvas-toolbar-group { padding-right: var(--space-2); gap: var(--space-1); }
   .map-main-area { flex-direction: column; }
   .map-side-panel { width: 100%; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   # CANVAS TOOLBAR — alineación y tamaños uniformes (fix)
+   Filas: 1 Modo · 2 Imagen de fondo · 3 Añadir/Girar · 4 Capas | Plano | Limpiar | Exportar
+═══════════════════════════════════════════════════════════════ */
+
+/* Los 3 primeros grupos ocupan una fila completa; el resto comparte la fila 4 */
+.canvas-toolbar { row-gap: var(--space-3); }
+.canvas-toolbar > .canvas-toolbar-group:nth-child(-n+3) {
+  flex: 1 1 100%;
+  padding-right: 0;
+  border-right: none;
+}
+/* Etiqueta con ancho fijo → todos los controles arrancan alineados a la izquierda */
+.canvas-toolbar > .canvas-toolbar-group:nth-child(-n+3) > .canvas-toolbar-label:first-child {
+  min-width: 118px;
+}
+
+/* Todos los botones de la barra: misma altura, tamaño de letra y radio */
+.canvas-toolbar :is(.canvas-mode-btn, .btn-sm, .btn-primary, .btn-secondary, .btn-danger) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 var(--space-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+/* Flechas de mover imagen: cuadradas y compactas */
+.canvas-toolbar .btn-sm[onclick^="moveFloorPlan"] { width: 34px; padding: 0; }
+.rotation-button.rotation-button-sm { width: 34px; height: 34px; border-radius: var(--radius-md); }
+
+/* Sub-grupo "Girar" dentro de "Añadir": separado con una línea */
+.canvas-toolbar .canvas-toolbar-group .canvas-toolbar-group {
+  border: none !important;
+  border-left: 1.5px solid var(--color-border) !important;
+  padding: 0 0 0 var(--space-3) !important;
+  margin-left: var(--space-2);
+}
+
+/* Etiquetas "Opac:" / "Tam:" y valores */
+.canvas-toolbar .form-label {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+.canvas-toolbar output {
+  min-width: 44px;
+  text-align: left;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sliders con estilo propio (antes salían con el gris nativo, ilegibles en modo oscuro) */
+.canvas-toolbar input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px !important;
+  height: 6px;
+  margin: 0 var(--space-1);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, .35);
+  accent-color: var(--color-accent);
+  outline: none;
+  cursor: pointer;
+}
+.canvas-toolbar input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+}
+.canvas-toolbar input[type="range"]::-moz-range-track {
+  height: 6px; border-radius: 999px; background: rgba(148, 163, 184, .35);
+}
+.canvas-toolbar input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--color-accent); border: 2px solid var(--color-surface);
+}
+
+@media (max-width: 768px) {
+  /* En móvil la etiqueta va arriba y los controles debajo */
+  .canvas-toolbar > .canvas-toolbar-group:nth-child(-n+3) > .canvas-toolbar-label:first-child { min-width: 100%; }
+  .canvas-toolbar .canvas-toolbar-group .canvas-toolbar-group { margin-left: 0; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   # UX — Sidebar agrupado, indicador de guardado, enlaces de contexto
+═══════════════════════════════════════════════════════════════ */
+
+/* --- Sidebar: grupos con acento de color + ítems anidados --- */
+.nav-group{
+  margin-bottom:var(--space-2);
+  padding-left:var(--space-2);
+  border-left:3px solid transparent;
+}
+.nav-group[data-group-color="teal"]  {border-left-color:var(--color-accent)}
+.nav-group[data-group-color="purple"]{border-left-color:#8b5cf6}
+.nav-group[data-group-color="gold"]  {border-left-color:var(--color-accent2)}
+.nav-group[data-group-color="red"]   {border-left-color:var(--color-danger)}
+.nav-group[data-group-color="green"] {border-left-color:var(--color-success)}
+.nav-group .nav-group-label{padding-left:var(--space-1)}
+
+/* Categorías / Guardados cuelgan de Expositores: más chicos, sangrados
+   y con un conector visual, para que se note que son parte de lo mismo. */
+.nav-item-nested{
+  margin-left:var(--space-4);
+  width:calc(100% - var(--space-4));
+  font-size:var(--fs-xs);
+  font-weight:600;
+  padding-top:6px;padding-bottom:6px;
+  position:relative;
+}
+.nav-item-nested::before{
+  content:"";
+  position:absolute;left:-10px;top:50%;
+  width:7px;height:1.5px;
+  background:var(--color-border);
+}
+
+/* Enlace "← Volver" al inicio de una página hija (Categorías, Guardados) */
+.nav-back-link{
+  display:inline-flex;align-items:center;gap:4px;
+  background:none;border:none;color:var(--color-text-muted);
+  font-size:var(--fs-xs);font-weight:700;
+  padding:0;margin-bottom:var(--space-3);cursor:pointer;
+}
+.nav-back-link:hover{color:var(--color-accent)}
+
+/* Enlace de texto dentro de un párrafo (p.ej. "ver Métricas y Gráficas") */
+.link-inline{
+  background:none;border:none;padding:0;
+  color:var(--color-accent);font-weight:700;font-size:inherit;
+  text-decoration:underline;cursor:pointer;
+}
+.link-inline:hover{color:var(--color-accent-dark)}
+
+/* --- Indicador "✓ Guardado" en el header ---
+   Visibility of system status: confirma que el cambio ya se guardó,
+   para que nadie sienta que necesita recargar la página para estar
+   seguro. Aparece con cada saveState() y se desvanece solo. */
+.save-indicator{
+  font-size:var(--fs-xs);font-weight:700;color:var(--color-accent);
+  opacity:0;transform:translateY(-2px);
+  transition:opacity .25s ease,transform .25s ease;
+  white-space:nowrap;pointer-events:none;
+}
+.save-indicator.show{opacity:1;transform:translateY(0)}
+
+@media (max-width: 768px){
+  .save-indicator{display:none} /* el header ya va apretado en móvil */
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   # STAFF — chips de rol (sec-staff)
+═══════════════════════════════════════════════════════════════ */
+.role-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 10px;border-radius:999px;
+  border:1.5px solid var(--color-border);
+  font-size:var(--fs-xs);font-weight:700;
+  background:var(--color-surface);
+}
+.role-chip button{
+  background:none;border:none;cursor:pointer;
+  color:inherit;opacity:.6;font-size:11px;line-height:1;padding:2px;
+}
+.role-chip button:hover{opacity:1}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   # PLANO DEL EVENTO — zoom flotante sobre el canvas
+   Antes ocupaba una fila completa de la barra de controles; ahora vive
+   sobre el propio canvas (mismo patrón que Google Maps/Figma), así
+   sobra una fila de altura y el zoom queda junto a lo que controla.
+═══════════════════════════════════════════════════════════════ */
+.map-zoom-float{
+  position:absolute;bottom:12px;right:12px;
+  display:flex;flex-direction:column;gap:2px;
+  background:rgba(15,23,25,.72);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:var(--radius-lg);
+  padding:4px;backdrop-filter:blur(3px);
+  box-shadow:0 2px 10px rgba(0,0,0,.25);
+}
+.map-zoom-float button{
+  width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;border-radius:var(--radius-md);
+  color:#fff;font-size:14px;cursor:pointer;
+  transition:background var(--transition);
+}
+.map-zoom-float button:hover{background:rgba(255,255,255,.15)}
+.map-zoom-float button:nth-child(2){border-top:1px solid rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.15);font-size:12px}
+
+@media (max-width: 768px){
+  .map-zoom-float{bottom:8px;right:8px}
+  .map-zoom-float button{width:28px;height:28px}
 }

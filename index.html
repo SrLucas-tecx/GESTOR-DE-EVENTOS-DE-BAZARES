@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
   <link rel="stylesheet" href="Styles.css">
   <!-- Layout y estilos en Styles.css -->
 </head>
@@ -30,30 +31,57 @@
       <span>BAZARIX</span>
     </div>
 
-    <!-- # SIDEBAR / Navegación principal -->
-    <!-- [EDITABLE: agrega más botones .nav-item aquí para nuevas secciones] -->
+    <!-- # SIDEBAR / Navegación principal
+         Agrupada por tema (no alfabética ni de alta), para que las opciones
+         relacionadas se escaneen juntas. Categorías y Expositores Guardados
+         se muestran sangradas bajo Expositores porque son parte de ese
+         mismo flujo (gestionan datos que usan los expositores).
+         [EDITABLE: agrega más botones .nav-item aquí para nuevas secciones] -->
     <nav class="sidebar-nav">
-      <div class="nav-group-label">Gestión</div>
-      <button class="nav-item active"  onclick="switchTab('expositores')">👥 Expositores</button>
-      <button class="nav-item"         onclick="switchTab('categorias')">🏷️ Categorías</button>
-      <button class="nav-item"         onclick="switchTab('plantillas')">💾 Expositores Guardados</button>
+      <button class="nav-item active"  onclick="switchTab('ficha')">📝 Ficha del Evento</button>
 
-      <div class="nav-group-label">Evento</div>
-      <button class="nav-item"         onclick="switchTab('finanzas')">💰 Control de Pagos</button>
-      <button class="nav-item"         onclick="switchTab('costos')">📊 Costos del Evento</button>
-      <button class="nav-item"         onclick="switchTab('mapa')">🗺️ Plano del Evento</button>
-      <button class="nav-item"         onclick="switchTab('invitados')">🎟️ Lista de Expositores</button>
-          <button class="nav-item"         onclick="switchTab('minuto-a-minuto')">🕒 Minuto a Minuto</button>
-      <button class="nav-item"         onclick="switchTab('estadisticas')">📈 Métricas y Gráficas</button>
+      <div class="nav-group" data-group-color="teal">
+        <div class="nav-group-label">Expositores</div>
+        <button class="nav-item"        onclick="switchTab('expositores')">👥 Expositores</button>
+        <button class="nav-item nav-item-nested" onclick="switchTab('categorias')">🏷️ Categorías</button>
+        <button class="nav-item nav-item-nested" onclick="switchTab('plantillas')">💾 Guardados</button>
+      </div>
 
-      <div class="nav-group-label">Configuración</div>
-      <button class="nav-item"         onclick="switchTab('bazares')">🏪 Mis Bazares</button>
-      <button class="nav-item"         onclick="switchTab('alertas')" style="position:relative;">
-        ⚠️ Alertas
-        <span id="alert-badge-nav" style="display:none;margin-left:auto;background:var(--color-danger);color:#fff;border-radius:999px;font-size:9px;font-weight:800;padding:1px 5px;">0</span>
-      </button>
-      <button class="nav-item" onclick="switchTab('dia-evento')">🎪 Día del Evento</button>
-      <button class="nav-item" onclick="switchTab('comparar')">📊 Comparar Bazares</button>
+      <div class="nav-group" data-group-color="purple">
+        <div class="nav-group-label">Planeación</div>
+        <button class="nav-item" onclick="switchTab('staff')">🙋 Staff</button>
+        <button class="nav-item" onclick="switchTab('tareas')">✅ Tareas (Previo / Post)</button>
+        <button class="nav-item" onclick="switchTab('compras')">🛒 Lista de Compras</button>
+        <button class="nav-item" onclick="switchTab('minuto-a-minuto')">🕒 Minuto a Minuto</button>
+        <button class="nav-item" onclick="switchTab('invitados')">🎟️ Lista de Expositores</button>
+      </div>
+
+      <div class="nav-group" data-group-color="gold">
+        <div class="nav-group-label">Finanzas</div>
+        <button class="nav-item" onclick="switchTab('finanzas')">💰 Control de Pagos</button>
+        <button class="nav-item" onclick="switchTab('costos')">📊 Costos del Evento</button>
+      </div>
+
+      <div class="nav-group" data-group-color="red">
+        <div class="nav-group-label">Evento en vivo</div>
+        <button class="nav-item" onclick="switchTab('mapa')">🗺️ Plano del Evento</button>
+        <button class="nav-item" onclick="switchTab('dia-evento')">🎪 Día del Evento</button>
+      </div>
+
+      <div class="nav-group" data-group-color="green">
+        <div class="nav-group-label">Monitoreo</div>
+        <button class="nav-item" onclick="switchTab('estadisticas')">📈 Métricas y Gráficas</button>
+        <button class="nav-item" onclick="switchTab('alertas')" style="position:relative;">
+          ⚠️ Alertas
+          <span id="alert-badge-nav" style="display:none;margin-left:auto;background:var(--color-danger);color:#fff;border-radius:999px;font-size:9px;font-weight:800;padding:1px 5px;">0</span>
+        </button>
+      </div>
+
+      <div class="nav-group" data-group-color="teal">
+        <div class="nav-group-label">Bazares</div>
+        <button class="nav-item" onclick="switchTab('bazares')">🏪 Mis Bazares</button>
+        <button class="nav-item" onclick="switchTab('comparar')">📊 Comparar Bazares</button>
+      </div>
     </nav>
 
     <!-- # SIDEBAR / Footer: modo oscuro + menú de respaldo -->
@@ -70,11 +98,13 @@
           <div class="backup-menu-label">Exportar / Importar</div>
           <button class="backup-menu-item" onclick="exportarJSON()">📄 Guardar Datos (JSON)</button>
           <button class="backup-menu-item" onclick="exportarJSONCompleto()">🛡️ Crear Respaldo Completo</button>
+          <button class="backup-menu-item" onclick="openBackupExport()">📦 Exportar Bazar (completo o por partes)</button>
+          <button class="backup-menu-item" onclick="exportarPlanEventoXLSX()">📗 Exportar Plan del Evento (Excel .xlsx)</button>
           <button class="backup-menu-item" onclick="exportarCSV()">📊 Excel (.CSV en Columnas)</button>
           <button class="backup-menu-item" onclick="exportarMinutoAMinutoCSV()">🕒 Excel Minuto a Minuto</button>
           <div class="backup-menu-divider"></div>
           <label class="backup-menu-item" style="cursor:pointer;">
-            📥 Cargar Archivo JSON
+            📥 Importar (respaldo o bazar)
             <input type="file" id="import-json-input" accept=".json" style="display:none"
                    onchange="handleImportJSON(event)">
           </label>
@@ -94,7 +124,8 @@
     <!-- # HEADER — Barra superior sticky -->
     <header class="header">
       <button class="btn-icon" id="btn-toggle-sidebar" title="Menú" style="flex-shrink:0;">☰</button>
-      <h1 class="header-title" id="page-title">Directorio de Expositores</h1>
+      <h1 class="header-title" id="page-title">Ficha del Evento</h1>
+      <span id="save-indicator" class="save-indicator" aria-live="polite"></span>
 
       <!-- Selector de Bazar Activo -->
       <div class="control-group-inline">
@@ -125,7 +156,7 @@
       <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: EXPOSITORES (tab activo por defecto)
       ───────────────────────────────────────────────────────── -->
-      <section id="sec-expositores" class="page-section active">
+      <section id="sec-expositores" class="page-section">
 
         <!-- Barra de filtros -->
         <div class="filter-bar">
@@ -164,6 +195,7 @@
            # SECCIÓN: CATEGORÍAS
       ───────────────────────────────────────────────────────── -->
       <section id="sec-categorias" class="page-section">
+        <button class="nav-back-link" onclick="switchTab('expositores')">← Expositores</button>
         <div class="section-header" style="justify-content:space-between;">
           <div>
             <h2 class="section-title">Gestión de Categorías</h2>
@@ -184,6 +216,7 @@
            [EDITABLE: usarPlantilla() en Core.js prepopula el modal de expositor]
       ───────────────────────────────────────────────────────── -->
       <section id="sec-plantillas" class="page-section">
+        <button class="nav-back-link" onclick="switchTab('expositores')">← Expositores</button>
         <div class="section-header" style="justify-content:space-between;">
           <div>
             <h2 class="section-title">Expositores Guardados</h2>
@@ -224,20 +257,11 @@
             <div class="stat-value" id="stat-paid-percentage">0%</div>
             <div class="stat-label">Cumplimiento</div>
           </div>
-          <div class="stat-card accent-teal">
-            <div class="stat-icon">🎯</div>
-            <div class="stat-value" id="stat-ticket-promedio">$0</div>
-            <div class="stat-label">Ticket Promedio</div>
-          </div>
         </div>
-
-        <!-- Sprint 1: Resumen por categoría -->
-        <div class="payments-table-wrap" style="margin-bottom:var(--space-5);">
-          <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);">
-            <strong style="font-family:var(--font-display);font-size:var(--fs-md);">Ingresos por Categoría</strong>
-          </div>
-          <div id="resumen-categorias" style="padding:var(--space-2);overflow-x:auto;"></div>
-        </div>
+        <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin:-8px 0 var(--space-4);">
+          El desglose por categoría y el ticket promedio están en
+          <button class="link-inline" onclick="switchTab('estadisticas')">Métricas y Gráficas</button>, junto con el resto de las métricas del evento.
+        </p>
 
         <!-- Tabla de pagos — columnas: negocio, mesa, total, adelanto, saldo, estado, acciones -->
         <div class="payments-table-wrap">
@@ -287,10 +311,15 @@
           </div>
         </div>
 
+        <div class="control-group-inline" style="margin-bottom:var(--space-4);">
+          <button class="filter-chip" id="costos-tab-mobiliario" onclick="setCostosSubTab('mobiliario')">🪑 Mobiliario</button>
+          <button class="filter-chip" id="costos-tab-gastos" onclick="setCostosSubTab('gastos')">🏛️ Otros Gastos</button>
+        </div>
+
         <div class="charts-grid">
 
           <!-- # COSTOS / Panel: Mobiliario e Insumos -->
-          <div class="chart-card">
+          <div class="chart-card" id="costos-panel-mobiliario" style="grid-column:1/-1;max-width:640px;">
             <h3>🪑 Mobiliario e Insumos Opcionales</h3>
             <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin-bottom:14px;">
               Introduce el costo total del proveedor. El costo unitario se calcula solo.
@@ -355,15 +384,29 @@
           <!-- / Panel Mobiliario -->
 
           <!-- # COSTOS / Panel: Otros Gastos libres -->
-          <div class="chart-card">
+          <div class="chart-card" id="costos-panel-gastos" style="grid-column:1/-1;max-width:640px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <h3 style="margin-bottom:0;">🏛️ Otros Gastos del Evento</h3>
               <button class="btn-primary btn-sm" onclick="addExtraCostRow()">+ Agregar</button>
             </div>
             <p style="font-size:var(--fs-xs);color:var(--color-text-muted);margin:6px 0 14px;">
-              Renta de lugar, permisos, sonido, personal, publicidad, etc.
+              Renta de lugar, permisos, sonido, personal, publicidad, etc. Cada gasto = costo unitario × cantidad.
             </p>
+            <div class="card-meta-item" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div class="form-switch" style="background:none;padding:0;">
+                <span class="switch-label"><strong>Aplicar IVA a todos los egresos</strong></span>
+                <label class="switch">
+                  <input type="checkbox" id="cost-toggle-iva" onchange="updateEventCostsUI()">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <label class="form-label" for="cost-iva-rate" style="margin:0;">Tasa %</label>
+                <input type="number" id="cost-iva-rate" class="form-input" style="width:80px;" value="16" min="0" max="100" step="0.5" onchange="updateEventCostsUI()">
+              </div>
+            </div>
             <div id="extra-costs-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+            <div id="cost-summary"></div>
           </div>
           <!-- / Panel Otros Gastos -->
 
@@ -402,11 +445,6 @@
               <option value="landscape">↔️ Horizontal</option>
               <option value="portrait">↕️ Vertical</option>
             </select>
-          </div>
-          <div class="control-group-inline">
-            <button class="btn-secondary btn-sm" onclick="zoomBazaar(0.15)">🔍+</button>
-            <button class="btn-secondary btn-sm" onclick="zoomBazaar(-0.15)">🔍−</button>
-            <button class="btn-secondary btn-sm" onclick="resetBazaarZoom()">🔄 Reset</button>
           </div>
         </div>
 
@@ -509,6 +547,13 @@
                 font-size:var(--fs-xs);font-weight:700;padding:4px 10px;
                 border-radius:var(--radius-full);pointer-events:none;opacity:.85;">
               🖱️ Seleccionar
+            </div>
+
+            <!-- Zoom flotante: antes ocupaba una fila entera de la barra superior -->
+            <div class="map-zoom-float">
+              <button onclick="zoomBazaar(0.15)" title="Acercar">➕</button>
+              <button onclick="resetBazaarZoom()" title="Restablecer zoom">🔄</button>
+              <button onclick="zoomBazaar(-0.15)" title="Alejar">➖</button>
             </div>
           </div>
 
@@ -621,12 +666,159 @@
       <!-- ─────────────────────────────────────────────────────────
            # SECCIÓN: MINUTO A MINUTO
       ───────────────────────────────────────────────────────── -->
+      <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: FICHA DEL EVENTO (plantilla de logística)
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-ficha" class="page-section active">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">Ficha descriptiva del evento</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Datos generales del evento. Cada campo se guarda al salir de él.</p>
+          </div>
+          <div class="control-group-inline">
+            <button class="btn-primary" onclick="exportarPlanEventoXLSX()">📗 Exportar plan (Excel)</button>
+          </div>
+        </div>
+        <div id="ficha-resumen" class="stats-row"></div>
+        <div class="chart-card">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="ficha-nombre">Nombre del evento</label>
+              <input id="ficha-nombre" class="form-input" type="text" onchange="updateFichaField('nombre', this.value)">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ficha-fecha">Fecha del evento</label>
+              <input id="ficha-fecha" class="form-input" type="date" onchange="updateFichaField('fecha', this.value)">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ficha-objetivo">Objetivo del evento</label>
+            <textarea id="ficha-objetivo" class="form-textarea" oninput="debouncedUpdateFichaField('objetivo', this.value)"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="ficha-lideres">Líder o líderes del evento</label>
+              <input id="ficha-lideres" class="form-input" type="text" oninput="debouncedUpdateFichaField('lideres', this.value)">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ficha-publico">Público al que va dirigido</label>
+              <input id="ficha-publico" class="form-input" type="text" oninput="debouncedUpdateFichaField('publico', this.value)">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="ficha-asistentes">Número de personas asistentes</label>
+              <input id="ficha-asistentes" class="form-input" type="number" min="0" onchange="updateFichaField('asistentes', this.value)">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ficha-staff">Personas consideradas para staff</label>
+              <input id="ficha-staff" class="form-input" type="number" min="0" onchange="updateFichaField('staff', this.value)">
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="ficha-lugar">Lugar o lugares del evento</label>
+            <input id="ficha-lugar" class="form-input" type="text" oninput="debouncedUpdateFichaField('lugar', this.value)">
+          </div>
+        </div>
+      </section>
+      <!-- / #SECCIÓN FICHA -->
+
+
+      <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: STAFF (Roles + Responsables del evento)
+           Directorio del comité organizador. Los campos "Responsable" de
+           Tareas, Compras y Minuto a Minuto se eligen de esta lista.
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-staff" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">Staff del Evento</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
+              El comité organizador. Se usa para asignar responsables en Tareas, Compras y Minuto a Minuto.
+            </p>
+          </div>
+          <button class="btn-primary" onclick="openModalResponsable()">+ Agregar Responsable</button>
+        </div>
+
+        <div class="chart-card" style="margin-bottom:var(--space-5);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h3 style="margin-bottom:0;">🏷️ Roles</h3>
+            <button class="btn-secondary btn-sm" onclick="openModalRol()">+ Agregar Rol</button>
+          </div>
+          <div id="roles-chips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        </div>
+
+        <div id="responsables-grid" class="cards-grid"></div>
+      </section>
+      <!-- / #SECCIÓN STAFF -->
+
+
+      <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: TAREAS PREVIO / POST
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-tareas" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">Tareas del evento</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Lo que hay que hacer antes y después del evento. Lo que ocurre durante el evento va en Minuto a Minuto.</p>
+          </div>
+          <div class="control-group-inline">
+            <button class="filter-chip" id="tareas-tab-previo" onclick="setTareasFase('previo')">Previo</button>
+            <button class="filter-chip" id="tareas-tab-post" onclick="setTareasFase('post')">Post</button>
+            <button class="btn-secondary" onclick="switchTab('minuto-a-minuto')">🕒 Durante</button>
+            <button class="btn-primary" onclick="addTarea()">+ Agregar tarea</button>
+          </div>
+        </div>
+        <div id="tareas-progreso" style="margin-bottom:14px;"></div>
+        <div class="payments-table-wrap">
+          <table class="payments-table minute-table" style="min-width:1000px;">
+            <thead>
+              <tr><th style="width:1%;"></th><th>#</th><th>Actividad</th><th>Descripción</th><th>Responsable</th><th>Fecha de entrega</th><th id="tareas-avance-th">Avances</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="tareas-list"></tbody>
+          </table>
+        </div>
+      </section>
+      <!-- / #SECCIÓN TAREAS -->
+
+
+      <!-- ─────────────────────────────────────────────────────────
+           # SECCIÓN: LISTA DE COMPRAS
+      ───────────────────────────────────────────────────────── -->
+      <section id="sec-compras" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">Lista de compras</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Artículos por comprar, con responsable y costo. Puedes enviarlos al presupuesto de Costos del Evento.</p>
+          </div>
+          <div class="control-group-inline">
+            <button class="btn-secondary" onclick="enviarComprasAPresupuesto()">💰 Enviar todo al presupuesto</button>
+            <button class="btn-primary" onclick="addCompra()">+ Agregar artículo</button>
+          </div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card accent-teal"><div class="stat-icon">🛒</div><div class="stat-value" id="compras-stat-total">$0</div><div class="stat-label">Total de la lista</div></div>
+          <div class="stat-card accent-green"><div class="stat-icon">✅</div><div class="stat-value" id="compras-stat-comprado">$0</div><div class="stat-label">Ya comprado</div></div>
+          <div class="stat-card accent-gold"><div class="stat-icon">⏳</div><div class="stat-value" id="compras-stat-pendiente">$0</div><div class="stat-label">Por comprar</div></div>
+        </div>
+        <div class="payments-table-wrap">
+          <table class="payments-table minute-table" style="min-width:1250px;">
+            <thead>
+              <tr><th style="width:1%;"></th><th>#</th><th>Artículo</th><th>Descripción</th><th>Responsable</th><th>Fecha de entrega</th><th>Cant.</th><th>Costo unit.</th><th>Total</th><th>Presupuesto</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="compras-list"></tbody>
+          </table>
+        </div>
+      </section>
+      <!-- / #SECCIÓN COMPRAS -->
+
+
       <section id="sec-minuto-a-minuto" class="page-section">
         <div class="section-header" style="justify-content:space-between;">
           <div>
             <h2 class="section-title">Minuto a Minuto</h2>
             <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
-              Organiza las actividades del evento por horario y descarga el programa.
+              Fase «Durante»: organiza las actividades del evento por horario, lugar y responsable, y descarga el programa.
             </p>
           </div>
           <div class="control-group-inline">
@@ -636,9 +828,9 @@
           </div>
         </div>
         <div class="payments-table-wrap">
-          <table class="payments-table minute-table">
+          <table class="payments-table minute-table" style="min-width:1100px;">
             <thead>
-              <tr><th>Hora</th><th>Actividad</th><th>Área encargada</th><th>Responsable</th><th>Notas</th><th>Acciones</th></tr>
+              <tr><th>Hora inicio</th><th>Hora fin</th><th>Duración</th><th>Actividad</th><th>Lugar</th><th>Área encargada</th><th>Responsable</th><th>Notas / descripción</th><th>Acciones</th></tr>
             </thead>
             <tbody id="minute-by-minute-list"></tbody>
           </table>
@@ -728,10 +920,27 @@
       <section id="sec-alertas" class="page-section">
         <div class="section-header" style="justify-content:space-between;">
           <div>
-            <h2 class="section-title">⚠️ Alertas de Pago</h2>
+            <h2 class="section-title">⚠️ Alertas</h2>
             <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
-              Expositores con fecha límite próxima (≤3 días) o ya vencida.
+              Pagos, tareas y artículos de compra con fecha próxima (≤3 días) o ya vencida.
             </p>
+          </div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card accent-red">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value" id="alertas-count-pago">0</div>
+            <div class="stat-label">Pagos vencidos / próximos</div>
+          </div>
+          <div class="stat-card accent-gold">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value" id="alertas-count-tarea">0</div>
+            <div class="stat-label">Tareas vencidas / próximas</div>
+          </div>
+          <div class="stat-card accent-teal">
+            <div class="stat-icon">🛒</div>
+            <div class="stat-value" id="alertas-count-compra">0</div>
+            <div class="stat-label">Compras vencidas / próximas</div>
           </div>
         </div>
         <div id="alertas-list"></div>
@@ -743,6 +952,63 @@
            [EDITABLE: agrega más canvas + regístralos en updateCharts()]
       ───────────────────────────────────────────────────────── -->
       <section id="sec-estadisticas" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">Métricas del evento</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
+              Todo el panorama del bazar en un solo lugar: dinero, pagos, asistencia y confirmación.
+            </p>
+          </div>
+        </div>
+
+        <!-- Todas las métricas del evento juntas, para no tener que saltar
+             entre Finanzas, Costos, Día del Evento e Invitados. -->
+        <div class="stats-row">
+          <div class="stat-card accent-teal">
+            <div class="stat-icon">📥</div>
+            <div class="stat-value" id="metrica-ingresos">$0</div>
+            <div class="stat-label">Ingresos</div>
+          </div>
+          <div class="stat-card accent-red">
+            <div class="stat-icon">📤</div>
+            <div class="stat-value" id="metrica-egresos">$0</div>
+            <div class="stat-label">Egresos (Costos)</div>
+          </div>
+          <div class="stat-card accent-green">
+            <div class="stat-icon">💎</div>
+            <div class="stat-value" id="metrica-balance">$0</div>
+            <div class="stat-label">Balance</div>
+          </div>
+          <div class="stat-card accent-teal">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-value" id="stat-ticket-promedio">$0</div>
+            <div class="stat-label">Ticket Promedio</div>
+          </div>
+          <div class="stat-card accent-gold">
+            <div class="stat-icon">📈</div>
+            <div class="stat-value" id="metrica-pagado-pct">0%</div>
+            <div class="stat-label">Expositores al corriente</div>
+          </div>
+          <div class="stat-card accent-teal">
+            <div class="stat-icon">🎪</div>
+            <div class="stat-value" id="metrica-asistencia-pct">0%</div>
+            <div class="stat-label">Asistencia (mesas)</div>
+          </div>
+          <div class="stat-card accent-gold">
+            <div class="stat-icon">🎟️</div>
+            <div class="stat-value" id="metrica-confirmacion-pct">0%</div>
+            <div class="stat-label">Confirmación de invitados</div>
+          </div>
+        </div>
+
+        <!-- Sprint 1: Resumen por categoría (antes vivía en Control de Pagos) -->
+        <div class="payments-table-wrap" style="margin-bottom:var(--space-5);">
+          <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);">
+            <strong style="font-family:var(--font-display);font-size:var(--fs-md);">Ingresos por Categoría</strong>
+          </div>
+          <div id="resumen-categorias" style="padding:var(--space-2);overflow-x:auto;"></div>
+        </div>
+
         <div class="charts-grid">
           <div class="chart-card">
             <h3>Distribución por Categorías</h3>
@@ -1395,6 +1661,151 @@
 <!-- # TOAST — Notificaciones (gestionado por Core.js → showToast()) -->
 <div id="toast"></div>
 
+<!-- Modal exportar bazar (completo o por secciones) -->
+<div id="modal-backup-export" class="modal-overlay">
+  <div class="modal-box" style="max-width:580px;">
+    <div class="modal-header">
+      <h2 class="modal-title">📦 Exportar bazar</h2>
+      <button class="modal-close" onclick="closeModal('modal-backup-export')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="be-bazar">Bazar a exportar</label>
+        <select id="be-bazar" class="form-select" onchange="renderBackupExportSections()"></select>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button type="button" class="btn-secondary btn-sm" onclick="backupExportSeleccionar('completo')">📦 Bazar completo</button>
+        <button type="button" class="btn-secondary btn-sm" onclick="backupExportSeleccionar('ninguno')">Ninguno</button>
+      </div>
+      <div id="be-sections" style="max-height:340px;overflow-y:auto;"></div>
+      <p id="be-resumen" style="margin-top:10px;font-size:var(--fs-xs);color:var(--color-text-muted);"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-backup-export')">Cancelar</button>
+      <button class="btn-primary" onclick="ejecutarExportacionBazar()">⬇️ Descargar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal importar (secciones + Combinar / Reemplazar) -->
+<div id="modal-backup-import" class="modal-overlay">
+  <div class="modal-box" style="max-width:620px;">
+    <div class="modal-header">
+      <h2 class="modal-title">📥 Importar datos</h2>
+      <button class="modal-close" onclick="closeModal('modal-backup-import')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="bi-file-info" style="font-size:var(--fs-xs);color:var(--color-text-muted);margin-bottom:12px;"></p>
+      <div id="bi-source-wrap" class="form-group" style="display:none;">
+        <label class="form-label" for="bi-source">Bazar del archivo</label>
+        <select id="bi-source" class="form-select" onchange="backupImportSourceChanged()"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">¿Qué quieres importar?</label>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <button type="button" class="btn-secondary btn-sm" onclick="backupImportSeleccionar('todo')">Todo</button>
+          <button type="button" class="btn-secondary btn-sm" onclick="backupImportSeleccionar('nada')">Nada</button>
+        </div>
+        <div id="bi-sections" style="max-height:230px;overflow-y:auto;"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bi-dest">Destino</label>
+        <select id="bi-dest" class="form-select" onchange="backupImportRefresh()"></select>
+      </div>
+      <div id="bi-new-name-wrap" class="form-group" style="display:none;">
+        <label class="form-label" for="bi-new-name">Nombre del bazar nuevo</label>
+        <input id="bi-new-name" class="form-input" type="text">
+      </div>
+      <div id="bi-modo-wrap" class="form-group">
+        <label class="form-label">Modo</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;cursor:pointer;">
+          <input type="radio" name="bi-modo" value="combinar" checked onchange="backupImportRefresh()" style="margin-top:3px;accent-color:var(--color-accent);">
+          <span><strong>Combinar</strong><br><small style="color:var(--color-text-muted);">Agrega lo nuevo y actualiza lo que ya existe (por id). No borra nada.</small></span>
+        </label>
+        <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;">
+          <input type="radio" name="bi-modo" value="reemplazar" onchange="backupImportRefresh()" style="margin-top:3px;accent-color:var(--color-accent);">
+          <span><strong>Reemplazar</strong><br><small style="color:var(--color-text-muted);">Sustituye por completo las secciones marcadas. Lo actual en ellas se pierde.</small></span>
+        </label>
+      </div>
+      <div id="bi-warnings"></div>
+    </div>
+    <div class="modal-footer">
+      <button id="bi-full-btn" class="btn-danger btn-sm" style="display:none;" onclick="reemplazarTodaLaApp()">⚠️ Reemplazar toda la app</button>
+      <button class="btn-secondary" onclick="closeModal('modal-backup-import')">Cancelar</button>
+      <button class="btn-primary" onclick="ejecutarImportacion()">📥 Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Rol de staff -->
+<div id="modal-rol" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-rol-title">Nuevo Rol</h2>
+      <button class="modal-close" onclick="closeModal('modal-rol')">✕</button>
+    </div>
+    <form id="form-rol" onsubmit="saveRolHandler(event)">
+      <input type="hidden" id="rol-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Nombre del rol *</label>
+          <input type="text" id="rol-nombre" class="form-input" required placeholder="Ej. Logística">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Color</label>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <input type="color" id="rol-color" class="form-input" style="width:60px;height:42px;padding:2px;cursor:pointer;" value="#0d9488">
+            <span style="font-size:var(--fs-xs);color:var(--color-text-muted);">Para distinguirlo en la lista de responsables</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('modal-rol')">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar Rol</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!-- / #MODAL ROL -->
+
+<!-- Modal: Responsable (persona del staff) -->
+<div id="modal-responsable" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-resp-title">Nuevo Responsable</h2>
+      <button class="modal-close" onclick="closeModal('modal-responsable')">✕</button>
+    </div>
+    <form id="form-responsable" onsubmit="saveResponsableHandler(event)">
+      <input type="hidden" id="resp-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Nombre completo *</label>
+          <input type="text" id="resp-nombre" class="form-input" required placeholder="Ej. Ana García">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rol</label>
+          <select id="resp-rol" class="form-select"></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Teléfono</label>
+            <input type="text" id="resp-tel" class="form-input" placeholder="55-1234-5678">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="resp-email" class="form-input" placeholder="nombre@ejemplo.com">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('modal-responsable')">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar Responsable</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!-- / #MODAL RESPONSABLE -->
+
 <!-- Modal historial de expositor (Sprint 3) -->
 <div id="modal-historial" class="modal-overlay">
   <div class="modal-box">
@@ -1435,6 +1846,7 @@
 <script src="js/state.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/bazaars.js"></script>
+<script src="js/responsables.js"></script>
 <script src="js/eventos.js"></script>
 <script src="js/expositores.js"></script>
 <script src="js/categorias.js"></script>
@@ -1454,6 +1866,11 @@
 <script src="js/ui.js"></script>
 <script src="js/historial.js"></script>
 <script src="js/evento_dia.js"></script>
+<script src="js/evento_ficha.js"></script>
+<script src="js/tareas.js"></script>
+<script src="js/compras.js"></script>
+<script src="js/export_excel.js"></script>
+<script src="js/backup.js"></script>
 <script src="js/init.js"></script>
 
 </body>

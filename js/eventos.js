@@ -39,31 +39,54 @@ function toggleExpositorBan(id) {
   showToast(exp.banned ? "🚫 Expositor baneado" : "✅ Baneo retirado");
 }
 
+// "HH:MM" → minutos desde medianoche (null si no es válido)
+function _minutesOf(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ""));
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/** Duración legible entre hora inicio y hora fin: "3 min", "1 h 30 min". "" si falta alguna, "—" si es inválida. */
+function minuteDuration(start, end) {
+  const a = _minutesOf(start), b = _minutesOf(end);
+  if (a === null || b === null) return "";
+  const diff = b - a;
+  if (diff < 0) return "—";
+  if (diff < 60) return `${diff} min`;
+  const h = Math.floor(diff / 60), m = diff % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
 function renderMinuteByMinute() {
   const container = document.getElementById("minute-by-minute-list");
   const bz = getActiveBazaar();
   if (!container || !bz) return;
   const rows = bz.minuteByMinute || (bz.minuteByMinute = []);
   if (!rows.length) {
-    container.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin actividades programadas.</td></tr>`;
+    container.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin actividades programadas.</td></tr>`;
     return;
   }
-  container.innerHTML = rows.map((row) => `
+  container.innerHTML = rows.map((row) => {
+    const duration = minuteDuration(row.time, row.horaFin);
+    return `
     <tr>
       <td><input class="form-input" type="time" value="${escapeHTML(row.time)}" onchange="updateMinuteRow('${row.id}','time',this.value)"></td>
+      <td><input class="form-input" type="time" value="${escapeHTML(row.horaFin || "")}" onchange="updateMinuteRow('${row.id}','horaFin',this.value)"></td>
+      <td style="white-space:nowrap;font-weight:700;color:${duration === "—" ? "var(--color-danger)" : "var(--color-accent)"};" title="${duration === "—" ? "La hora fin es anterior a la de inicio" : "Calculada automáticamente"}">${escapeHTML(duration || "")}</td>
       <td><input class="form-input" value="${escapeHTML(row.activity)}" onchange="updateMinuteRow('${row.id}','activity',this.value)"></td>
+      <td><input class="form-input" value="${escapeHTML(row.lugar || "")}" placeholder="Ej. Auditorio" onchange="updateMinuteRow('${row.id}','lugar',this.value)"></td>
       <td><input class="form-input" value="${escapeHTML(row.area)}" placeholder="Ej. Montaje" onchange="updateMinuteRow('${row.id}','area',this.value)"></td>
-      <td><input class="form-input" value="${escapeHTML(row.responsible)}" onchange="updateMinuteRow('${row.id}','responsible',this.value)"></td>
+      <td><select class="form-select" onchange="updateMinuteRow('${row.id}','responsableId',this.value)">${responsableOptionsHTML(row.responsableId, bz)}</select></td>
       <td><input class="form-input" value="${escapeHTML(row.notes)}" onchange="updateMinuteRow('${row.id}','notes',this.value)"></td>
       <td><button class="btn-danger btn-sm" onclick="deleteMinuteRow('${row.id}')">🗑️</button></td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 }
 
 function addMinuteRow() {
   const bz = getActiveBazaar();
   if (!bz) return;
   if (!bz.minuteByMinute) bz.minuteByMinute = [];
-  bz.minuteByMinute.push({ id: `minute-${Date.now()}`, time: "", activity: "Nueva actividad", area: "", responsible: "", notes: "" });
+  bz.minuteByMinute.push({ id: `minute-${Date.now()}`, time: "", horaFin: "", activity: "Nueva actividad", lugar: "", area: "", responsableId: "", notes: "" });
   saveState();
   renderMinuteByMinute();
 }
@@ -73,6 +96,7 @@ function updateMinuteRow(id, field, value) {
   if (!row) return;
   row[field] = value;
   saveState();
+  if (field === "time" || field === "horaFin") renderMinuteByMinute(); // refresca la duración
 }
 
 function deleteMinuteRow(id) {
@@ -92,7 +116,7 @@ function exportarMinutoAMinutoCSV() {
   if (!bz) return;
   const rows = minuteRowsForExport();
   const quote = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
-  const csv = [["Hora", "Actividad", "Área encargada", "Responsable", "Notas"], ...rows.map((row) => [row.time, row.activity, row.area, row.responsible, row.notes])]
+  const csv = [["Hora inicio", "Hora fin", "Duración", "Actividad", "Lugar", "Área encargada", "Responsable", "Notas"], ...rows.map((row) => [row.time, row.horaFin, minuteDuration(row.time, row.horaFin), row.activity, row.lugar, row.area, getResponsableNombre(row.responsableId, bz), row.notes])]
     .map((row) => row.map(quote).join(";")).join("\n");
   const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
   const link = document.createElement("a");
@@ -137,9 +161,9 @@ function exportarMinutoAMinutoPDF() {
       <div style="color:#64748b;margin-top:4px;">Actividades programadas: ${rows.length}</div>
     </div>
     <table style="width:100%;table-layout:fixed;font-size:12px;border-collapse:collapse;">
-      <colgroup><col style="width:11%"><col style="width:28%"><col style="width:20%"><col style="width:18%"><col style="width:23%"></colgroup>
-      <thead><tr>${["Hora", "Actividad", "Área encargada", "Responsable", "Notas"].map((label) => `<th style="text-align:left;background:#ccfbf1;color:#0f766e;padding:9px;border-bottom:2px solid #0d9488;">${label}</th>`).join("")}</tr></thead>
-      <tbody>${rows.length ? rows.map((row, index) => `<tr style="${index % 2 ? "background:#f8fafc;" : ""}page-break-inside:avoid;">${[row.time, row.activity, row.area, row.responsible, row.notes].map((value) => `<td style="padding:9px;border-bottom:1px solid #e2e8f0;vertical-align:top;word-wrap:break-word;">${escapeHTML(value || "—")}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="5" style="padding:18px;text-align:center;color:#64748b;">Sin actividades programadas.</td></tr>`}</tbody>
+      <colgroup><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:19%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:15%"></colgroup>
+      <thead><tr>${["Inicio", "Fin", "Duración", "Actividad", "Lugar", "Área", "Responsable", "Notas"].map((label) => `<th style="text-align:left;background:#ccfbf1;color:#0f766e;padding:9px;border-bottom:2px solid #0d9488;">${label}</th>`).join("")}</tr></thead>
+      <tbody>${rows.length ? rows.map((row, index) => `<tr style="${index % 2 ? "background:#f8fafc;" : ""}page-break-inside:avoid;">${[row.time, row.horaFin, minuteDuration(row.time, row.horaFin), row.activity, row.lugar, row.area, getResponsableNombre(row.responsableId, bz), row.notes].map((value) => `<td style="padding:9px;border-bottom:1px solid #e2e8f0;vertical-align:top;word-wrap:break-word;">${escapeHTML(value || "—")}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="8" style="padding:18px;text-align:center;color:#64748b;">Sin actividades programadas.</td></tr>`}</tbody>
     </table>
     <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;text-align:center;">Documento generado por BAZARIX</div>`;
   document.body.appendChild(wrapper);

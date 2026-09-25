@@ -265,6 +265,7 @@ function createBazaar() {
     expositores: [], tables: [],
     costsConfig: emptyCostsConfig(),
     invitados: [], customMetrics: emptyCustomMetrics(),
+    evento: emptyEvento(), tareas: [], compras: [],
     minuteByMinute: emptyMinuteByMinute(),
     floors: [createFloor(`${id}-floor-1`, "Planta baja")], activeFloorId: `${id}-floor-1`
   };
@@ -488,6 +489,8 @@ function duplicarBazaar() {
   copy.activeFloorId = floorIdMap[source.activeFloorId] || copy.floors?.[0]?.id;
   (copy.invitados || []).forEach((inv) => { inv.asistio = false; });
   (copy.expositores || []).forEach((exp) => { exp.historial = []; });
+  (copy.tareas || []).forEach((t) => { t.hecho = false; });
+  (copy.compras || []).forEach((c) => { c.comprado = false; });
 
   AppState.bazaars[newId] = copy;
   AppState.currentBazaarId = newId;
@@ -514,6 +517,9 @@ function renderAll() {
   renderInvitados();
   renderPlantillas();
   renderMinuteByMinute();
+  renderFicha();
+  renderTareas();
+  renderCompras();
   renderMetricasFinancieras();
   renderPanelDiaEvento();
   updateAlertBadge();
