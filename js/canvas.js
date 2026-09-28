@@ -1043,16 +1043,19 @@ class BazaarCanvasManager {
     // "No asistió" conserva el color asignado (categoría/personalizado) pero
     // se atenúa, en vez de taparlo con rojo: así se sigue viendo de quién
     // era la mesa, y no solo que faltó.
-    if (t.absent) this.ctx.globalAlpha = 0.42;
+    if (t.absent) this.ctx.globalAlpha = 0.70;
     this.ctx.fillStyle = fillColor; this.ctx.strokeStyle = borderColor; this.ctx.lineWidth = 2;
     this.ctx.beginPath(); this.ctx.roundRect(t.x, t.y, t.w, t.h, 6);
     this.ctx.fill(); this.ctx.stroke();
     this.ctx.shadowColor = "transparent";
-    this.ctx.fillStyle = "#1e293b"; this.ctx.font = "bold 11px sans-serif";
+    const labelFontSize = Math.max(8, Math.min(32, Number(t.labelFontSize) || 11));
+    this.ctx.fillStyle = t.labelColor || "#1e293b";
+    this.ctx.font = `bold ${labelFontSize}px sans-serif`;
     this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle";
     this.ctx.fillText(t.name || "Mesa", t.x + t.w / 2, t.y + (exhibitor ? t.h / 3 : t.h / 2));
     if (exhibitor) {
-      this.ctx.fillStyle = "#475569"; this.ctx.font = "9px sans-serif";
+      this.ctx.fillStyle = t.labelColor || "#475569";
+      this.ctx.font = `${Math.max(7, Math.round(labelFontSize * .82))}px sans-serif`;
       const txt = exhibitor.negocio.length > 11 ? exhibitor.negocio.slice(0, 9) + ".." : exhibitor.negocio;
       this.ctx.fillText(txt, t.x + t.w / 2, t.y + (t.h * 2) / 3);
     }

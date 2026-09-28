@@ -282,6 +282,8 @@ function openModalTableEdit(tableId) {
   document.getElementById("edit-table-width-cm").value = Math.round(t.w / pixelsPerCentimeter);
   document.getElementById("edit-table-height-cm").value = Math.round(t.h / pixelsPerCentimeter);
   document.getElementById("edit-table-color").value = t.color || "#ffffff";
+  document.getElementById("edit-table-label-color").value = t.labelColor || "#1e293b";
+  document.getElementById("edit-table-label-size").value = t.labelFontSize || 11;
   document.getElementById("edit-table-rotation").value = Number(t.rotation) || 0;
   const sel = document.getElementById("edit-table-exhibitor");
   if (sel) {
@@ -304,6 +306,8 @@ function saveTableEdit() {
     t.w           = Math.max(1, Number(document.getElementById("edit-table-width-cm").value || 1) * pixelsPerCentimeter);
     t.h           = Math.max(1, Number(document.getElementById("edit-table-height-cm").value || 1) * pixelsPerCentimeter);
     t.color       = document.getElementById("edit-table-color").value || "#ffffff";
+    t.labelColor  = document.getElementById("edit-table-label-color").value || "#1e293b";
+    t.labelFontSize = Math.max(8, Math.min(32, Number(document.getElementById("edit-table-label-size").value) || 11));
     t.rotation    = ((Number(document.getElementById("edit-table-rotation").value) || 0) % 360 + 360) % 360;
     saveState(); bazaarCanvas.render(); renderChecklist();
     closeModal("modal-editar-mesa");

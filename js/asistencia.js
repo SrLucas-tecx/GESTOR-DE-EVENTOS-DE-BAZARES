@@ -31,6 +31,8 @@ function renderChecklist() {
             <option value="attended" ${attendanceState === "attended" ? "selected" : ""}>Asistió</option>
             <option value="absent" ${attendanceState === "absent" ? "selected" : ""}>No asistió</option>
           </select>
+            <button class="btn-table-edit" type="button" onclick="openModalTableEdit('${t.id}')"
+              title="Editar mesa, texto y color" aria-label="Editar ${escapeHTML(t.name)}">✎</button>
           <button class="btn-danger" style="padding:2px 8px;font-size:10px;border-radius:6px;" onclick="deleteTable('${t.id}')" title="Eliminar mesa">🗑️</button>
         </div>
       </div>`;
