@@ -479,10 +479,11 @@
 
         <!-- ── BARRA DE HERRAMIENTAS DEL CANVAS ── -->
         <!-- [EDITABLE: agrega más botones .canvas-mode-btn con data-mode para nuevos modos] -->
-        <div class="toolbar-card row-green-card">
+        <div class="toolbar-card row-green-card ribbon" data-tab="plano">
+          <div class="ribbon-tabs" role="tablist"><button type="button" class="ribbon-tab active" role="tab" data-rt="plano" onclick="setRibbonTab('plano')">Plano</button><button type="button" class="ribbon-tab" role="tab" data-rt="vista" onclick="setRibbonTab('vista')">Vista</button><button type="button" class="ribbon-tab" role="tab" data-rt="imagen" onclick="setRibbonTab('imagen')">Imagen de fondo</button><button type="button" class="ribbon-tab" role="tab" data-rt="archivo" onclick="setRibbonTab('archivo')">Exportar y limpiar</button></div>
 
           <!-- Grupo: Modos -->
-          <div class="canvas-toolbar-group">
+          <div class="canvas-toolbar-group" data-rt="plano">
             <span class="canvas-toolbar-label group-title">Modo</span>
             <div class="canvas-toolbar-group-actions group-actions">
               <button class="canvas-mode-btn active" data-mode="select"
@@ -495,8 +496,8 @@
           </div>
 
           <!-- Grupo: Imagen de fondo -->
-          <div class="canvas-toolbar-group bg-group">
-            <button type="button" class="canvas-toolbar-label group-title group-toggle" onclick="toggleBgControls(this)" aria-expanded="true">Imagen de fondo <span class="chev">▾</span></button>
+          <div class="canvas-toolbar-group" data-rt="imagen">
+            <span class="canvas-toolbar-label group-title">Imagen de fondo</span>
             <input type="file" id="floor-plan-upload" accept="image/*" style="display:none;"
                    onchange="handleFloorPlanUpload(event)">
                <div class="image-controls-row group-actions">
@@ -520,12 +521,10 @@
                </div>
           </div>
 
-              </div>
-
-          <div class="toolbar-card row-blue-card">
+              
 
           <!-- Grupo: Mesas y Elementos -->
-          <div class="canvas-toolbar-group">
+          <div class="canvas-toolbar-group" data-rt="plano">
               <span class="canvas-toolbar-label group-title">Añadir</span>
               <div class="canvas-toolbar-group-actions group-actions">
               <button class="btn-primary btn-sm" onclick="addTableToCore()" title="Agregar mesa (M)"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Mesa</button>
@@ -534,7 +533,7 @@
                   title="Eliminar únicamente la mesa, elemento o zona seleccionada"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar seleccionado</button>
             </div>
           </div>
-          <div class="canvas-toolbar-group">
+          <div class="canvas-toolbar-group" data-rt="plano">
               <span class="canvas-toolbar-label group-title">Girar:</span>
               <div class="canvas-toolbar-group-actions group-actions">
                 <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(-90)" title="Girar -90° (Shift+R)">↶</button>
@@ -543,7 +542,7 @@
             </div>
 
           <!-- Grupo: Sprint 2 — capas y productividad -->
-          <div class="canvas-toolbar-group">
+          <div class="canvas-toolbar-group" data-rt="vista">
             <span class="canvas-toolbar-label group-title">Capas</span>
               <div class="canvas-toolbar-group-actions group-actions">
                 <button class="canvas-mode-btn active" id="layer-btn-tables"
@@ -552,7 +551,7 @@
                   onclick="toggleLayer('zones')" title="Mostrar/ocultar zonas"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Zonas</button>
               </div>
           </div>
-          <div class="canvas-toolbar-group">
+          <div class="canvas-toolbar-group" data-rt="vista">
             <span class="canvas-toolbar-label group-title">Plano</span>
               <div class="canvas-toolbar-group-actions group-actions">
                 <button class="canvas-mode-btn active" id="btn-snap-tables"
@@ -562,7 +561,7 @@
               </div>
           </div>
           <!-- Grupo: Peligro -->
-          <div class="canvas-toolbar-group">
+          <div class="canvas-toolbar-group" data-rt="archivo">
             <span class="canvas-toolbar-label group-title">Limpiar</span>
             <div class="canvas-toolbar-group-actions group-actions">
               <button class="btn-danger btn-sm" onclick="resetBazaarCanvas()"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Todo el Plano</button>
@@ -570,7 +569,7 @@
           </div>
 
           <!-- Grupo: Exportación -->
-          <div class="canvas-toolbar-group">
+          <div class="canvas-toolbar-group" data-rt="archivo">
             <span class="canvas-toolbar-label group-title">Exportar</span>
             <div class="canvas-toolbar-group-actions group-actions">
               <button class="btn-primary btn-sm" onclick="exportarMapaPDF()" title="Descargar el plano actual como PDF"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg> Mapa PDF</button>

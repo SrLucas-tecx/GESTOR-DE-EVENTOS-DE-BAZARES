@@ -344,14 +344,6 @@ function rotateSelectedTable(delta) {
 // ==========================================
 
 // ── Plano: UI (plegable, pestañas del panel lateral, atajos) ──
-function toggleBgControls(btn) {
-  const group = btn.closest(".bg-group");
-  if (!group) return;
-  const collapsed = group.classList.toggle("collapsed");
-  btn.setAttribute("aria-expanded", String(!collapsed));
-  try { localStorage.setItem("BAZARIX_BG_COLLAPSED", collapsed ? "1" : "0"); } catch {}
-}
-
 function setSideTab(tab) {
   const panel = document.querySelector(".map-side-panel");
   if (!panel) return;
@@ -379,11 +371,19 @@ function handleMapShortcut(e) {
   actions[key]();
 }
 
+// Cinta de herramientas con pestañas (estilo Word): Plano · Vista · Imagen de fondo · Exportar y limpiar
+function setRibbonTab(tab) {
+  const ribbon = document.querySelector(".ribbon");
+  if (!ribbon || !ribbon.querySelector(`.ribbon-tab[data-rt="${tab}"]`)) return;
+  ribbon.dataset.tab = tab;
+  ribbon.querySelectorAll(".ribbon-tab").forEach((b) => {
+    const on = b.dataset.rt === tab;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", String(on));
+  });
+  try { localStorage.setItem("BAZARIX_RIBBON_TAB", tab); } catch {}
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  try {
-    if (localStorage.getItem("BAZARIX_BG_COLLAPSED") === "1") {
-      const btn = document.querySelector(".bg-group .group-toggle");
-      if (btn) toggleBgControls(btn);
-    }
-  } catch {}
+  try { setRibbonTab(localStorage.getItem("BAZARIX_RIBBON_TAB") || "plano"); } catch {}
 });
