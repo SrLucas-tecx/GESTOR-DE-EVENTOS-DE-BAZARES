@@ -165,89 +165,10 @@ const DEFAULT_STATE = {
   expositorPlantillas: [],
 
   // Cada bazar es independiente: expositores, mesas, costos e invitados.
-  bazaars: {
-    "bazaar-1": {
-      id: "bazaar-1",
-      name: "Bazar Primavera",
-      bgImage: null,
-      logoImage: null,       // <- NUEVO: imagen de logo/portada del bazar
-      mapConfig: defaultMapConfig(),
-      expositores: [
-        {
-          id: "exp-1",
-          nombre: "Ana García",
-          negocio: "Joyería Artesanal",
-          categoria: "cat-1",
-          ubicacion: "Mesa A-01",
-          tel: "55-1234-5678",
-          email: "ana@ejemplo.com",
-          costo: 450,
-          adelanto: 200,             // <- NUEVO: cuánto ha pagado de adelanto
-          fechaLimitePago: "",       // <- NUEVO: fecha límite para completar pago
-          pagado: true,
-          notas: "Cerca de toma de corriente",
-          foto: "",
-          publicationStatus: "pendiente",
-          banned: false,
-          checklist: defaultChecklistItems()
-        },
-        {
-          id: "exp-2",
-          nombre: "Carlos López",
-          negocio: "Café de Altura",
-          categoria: "cat-2",
-          ubicacion: "Mesa B-02",
-          tel: "55-8765-4321",
-          email: "carlos@ejemplo.com",
-          costo: 500,
-          adelanto: 0,
-          fechaLimitePago: "",
-          pagado: false,
-          notas: "Requiere espacio para hielera",
-          foto: "",
-          publicationStatus: "pendiente",
-          banned: false,
-          checklist: defaultChecklistItems()
-        }
-      ],
-      tables: [
-        { id: "t1", name: "Mesa A-01", x: 80,  y: 80, w: 90, h: 50, exhibitorId: "exp-1", attended: true  },
-        { id: "t2", name: "Mesa B-02", x: 220, y: 80, w: 90, h: 50, exhibitorId: "exp-2", attended: false },
-        { id: "t3", name: "Mesa C-03", x: 360, y: 80, w: 90, h: 50, exhibitorId: "",      attended: false }
-      ],
-      costsConfig: {
-        tablesEnabled: true,  tablesQty: 10, tablesTotal: 1000,
-        chairsEnabled: true,  chairsQty: 20, chairsTotal: 500,
-        extraCosts: [
-          { id: "c1", name: "Renta de Recinto",       cost: 2500 },
-          { id: "c2", name: "Permisos y Licencias",   cost: 800  }
-        ]
-      },
-      // [NUEVO] Lista de invitados del bazar
-      invitados: [
-        { id: "inv-1", nombre: "Roberto Sánchez", expositorId: "", confirmado: true, asistio: false, notas: "Viene con familia" },
-        { id: "inv-2", nombre: "Laura Martínez", expositorId: "", confirmado: false, asistio: false, notas: "" }
-      ],
-      minuteByMinute: [],
-      customMetrics: []
-    },
-    "bazaar-2": {
-      id: "bazaar-2",
-      name: "Bazar Nocturno",
-      bgImage: null,
-      logoImage: null,
-      mapConfig: defaultMapConfig(),
-      expositores: [],
-      tables: [
-        { id: "t201", name: "Mesa N-01", x: 100, y: 100, w: 90, h: 50, exhibitorId: "", attended: false }
-      ],
-      costsConfig: emptyCostsConfig(),
-      invitados: []
-      ,minuteByMinute: [], customMetrics: []
-    }
-  },
+  // La app arranca SIN bazares: el usuario crea el primero desde Inicio.
+  bazaars: {},
 
-  currentBazaarId: "bazaar-1",
+  currentBazaarId: null,
   searchQuery: "",
   filterCategory: "all",
   filterStatus: "all"

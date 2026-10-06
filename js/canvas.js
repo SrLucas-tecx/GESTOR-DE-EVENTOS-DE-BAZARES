@@ -29,6 +29,7 @@ class BazaarCanvasManager {
     this.showLegend = true;
     this.showTables = true;
     this.showZones = true;
+    this.showGrid = true;
 
     // ── MANIPULACIÓN DE IMAGEN (mode === "imgEdit") ──
     // Handles: 8 puntos (esquinas + bordes) + centro para mover
@@ -924,10 +925,11 @@ class BazaarCanvasManager {
     const w = this.canvas.width, h = this.canvas.height;
     this.ctx.save();
     this.ctx.clearRect(0, 0, w, h);
-    // Grid siempre se dibuja cuando no hay imagen, antes del transform
-    if (!this.bgImageObj) this.drawGrid(w, h);
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.scale, this.scale);
+    // Cuadrícula única, en coordenadas del plano (se mueve y escala con zoom/desplazamiento),
+    // debajo de la imagen de fondo. Ya no hay cuadrícula CSS duplicada.
+    if (this.showGrid) this.drawGrid(w, h);
 
     const bz    = this.getCurrentBazaar();
     const floor = getActiveFloor(bz);
@@ -970,16 +972,35 @@ class BazaarCanvasManager {
     this.ctx.restore();
   }
 
+  // Cuadrícula en coordenadas del plano: líneas finas cada gridSize y más marcadas cada 5 celdas.
   drawGrid(width, height) {
-    this.ctx.strokeStyle = "rgba(13,148,136,0.15)";
-    this.ctx.lineWidth = 1;
-    const gs = 20;
-    for (let x = 0; x <= width; x += gs) {
-      this.ctx.beginPath(); this.ctx.moveTo(x, 0); this.ctx.lineTo(x, height); this.ctx.stroke();
-    }
-    for (let y = 0; y <= height; y += gs) {
-      this.ctx.beginPath(); this.ctx.moveTo(0, y); this.ctx.lineTo(width, y); this.ctx.stroke();
-    }
+    const ctx = this.ctx;
+    const gs = this.gridSize;
+    const dark = document.body.classList.contains("dark");
+    const minor = dark ? "rgba(226,245,244,0.07)" : "rgba(13,148,136,0.12)";
+    const major = dark ? "rgba(226,245,244,0.15)" : "rgba(13,148,136,0.25)";
+    // Zona visible expresada en coordenadas del plano.
+    const x0 = -this.panX / this.scale, x1 = (width - this.panX) / this.scale;
+    const y0 = -this.panY / this.scale, y1 = (height - this.panY) / this.scale;
+    const startX = Math.floor(x0 / gs) * gs, startY = Math.floor(y0 / gs) * gs;
+    ctx.save();
+    ctx.lineWidth = 1 / this.scale;
+    const paint = (color, wantMajor) => {
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      for (let x = startX; x <= x1; x += gs) {
+        if ((Math.round(x / gs) % 5 === 0) !== wantMajor) continue;
+        ctx.moveTo(x, y0); ctx.lineTo(x, y1);
+      }
+      for (let y = startY; y <= y1; y += gs) {
+        if ((Math.round(y / gs) % 5 === 0) !== wantMajor) continue;
+        ctx.moveTo(x0, y); ctx.lineTo(x1, y);
+      }
+      ctx.stroke();
+    };
+    paint(minor, false);
+    paint(major, true);
+    ctx.restore();
   }
 
   drawMapElements(elements) {

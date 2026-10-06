@@ -12,7 +12,7 @@ function renderChecklist() {
   const bz = getActiveBazaar();
   const tables = getActiveTables(bz);
   if (tables.length === 0) {
-    container.innerHTML = `<p style="font-size:var(--fs-xs);color:var(--color-text-muted);">No hay mesas en este bazar.</p>`;
+    container.innerHTML = `<p style="font-size:var(--fs-xs);color:var(--color-text-muted);">No hay mesas en este piso. Agrega una con ➕ Mesa (M).</p>`;
     return;
   }
   container.innerHTML = tables.map((t) => {

@@ -9,7 +9,7 @@ function renderFinanzasTable() {
   if (!tbody) return;
   const bz = getActiveBazaar();
   if (bz.expositores.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin expositores en este bazar.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin expositores en este bazar. <button class="link-inline" onclick="switchTab('expositores')">Registrar expositores</button></td></tr>`;
     return;
   }
   tbody.innerHTML = bz.expositores.map((exp) => {

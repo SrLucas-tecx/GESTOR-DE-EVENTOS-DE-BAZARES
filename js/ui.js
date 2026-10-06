@@ -5,6 +5,9 @@
  */
 
 function switchTab(tabId) {
+  // Sin bazar abierto solo existen las pantallas globales.
+  if (!getActiveBazaar() && !GLOBAL_TABS.includes(tabId)) tabId = "inicio";
+  document.body.dataset.tab = tabId;
   closeMobileSidebar();
   document.querySelectorAll(".page-section").forEach((s) => s.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
@@ -28,7 +31,7 @@ function switchTab(tabId) {
     "minuto-a-minuto": "Minuto a Minuto",
     plantillas:   "Expositores Guardados",
     "dia-evento": "Día del Evento",
-    ficha:        "Ficha del Evento",
+    ficha:        "Panel del Bazar",
     staff:        "Staff del Evento",
     tareas:       "Tareas del Evento",
     compras:      "Lista de Compras",
@@ -92,6 +95,10 @@ function renderComparaBazares() {
   const activeBazaar = getActiveBazaar();
   const selector = document.getElementById("compara-select-bazar");
   const content = document.getElementById("compara-bazares-content");
+  if (content && !activeBazaar) {
+    content.innerHTML = `<div class="chart-card compare-empty"><p>Crea un bazar para poder compararlo con otro.</p></div>`;
+    return;
+  }
   if (!activeBazaar || !selector || !content) return;
 
   const otherBazaars = Object.values(AppState.bazaars).filter((bazaar) => bazaar.id !== activeBazaar.id);
@@ -212,6 +219,7 @@ function runFabAction(tabId, actionIndex) {
 // ==========================================
 function toggleDarkMode() {
   document.body.classList.toggle("dark");
+  if (typeof bazaarCanvas !== "undefined" && bazaarCanvas.ctx) bazaarCanvas.render();   // la cuadrícula cambia de color
   const icon = document.getElementById("dark-icon");
   const label = document.getElementById("dark-label");
   const isDark = document.body.classList.contains("dark");

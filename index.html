@@ -39,12 +39,17 @@
          se muestran sangradas bajo Expositores porque son parte de ese
          mismo flujo (gestionan datos que usan los expositores).
          [EDITABLE: agrega más botones .nav-item aquí para nuevas secciones] -->
-    <nav class="sidebar-nav">
+    <!-- Nivel 1: navegación general (siempre visible) -->
+    <nav class="sidebar-nav nav-global" aria-label="Navegación general">
       <button class="nav-item" onclick="switchTab('inicio')">🏠 Inicio</button>
       <button class="nav-item" onclick="switchTab('bazares')">🏪 Mis Bazares</button>
+      <button class="nav-item" onclick="switchTab('comparar')">📊 Comparar Bazares</button>
+    </nav>
 
-      <button class="nav-item active"  onclick="switchTab('ficha')">📝 Ficha del Evento</button>
-
+    <!-- Nivel 2: navegación del bazar abierto (oculta si no hay bazar) -->
+    <nav class="sidebar-nav nav-bazaar" id="bazaar-nav" aria-label="Navegación del bazar">
+      <div class="nav-bazaar-label"><label for="nav-bazaar-select">Bazar:</label> <select id="nav-bazaar-select" class="nav-bazaar-select" onchange="onNavBazaarChange(this.value)" aria-label="Cambiar de bazar"></select></div>
+      <button class="nav-item active" onclick="switchTab('ficha')">📝 Panel del bazar</button>
       <div class="nav-group" data-group-color="teal">
         <div class="nav-group-label">Expositores</div>
         <div class="nav-menu">
@@ -53,7 +58,6 @@
         <button class="nav-item nav-item-nested" onclick="switchTab('plantillas')">💾 Guardados</button>
         </div>
       </div>
-
       <div class="nav-group" data-group-color="purple">
         <div class="nav-group-label">Planeación</div>
         <div class="nav-menu">
@@ -64,7 +68,6 @@
         <button class="nav-item" onclick="switchTab('invitados')">🎟️ Lista de Expositores</button>
         </div>
       </div>
-
       <div class="nav-group" data-group-color="gold">
         <div class="nav-group-label">Finanzas</div>
         <div class="nav-menu">
@@ -72,7 +75,6 @@
         <button class="nav-item" onclick="switchTab('costos')">📊 Costos del Evento</button>
         </div>
       </div>
-
       <div class="nav-group" data-group-color="red">
         <div class="nav-group-label">Evento en vivo</div>
         <div class="nav-menu">
@@ -80,7 +82,6 @@
         <button class="nav-item" onclick="switchTab('dia-evento')">🎪 Día del Evento</button>
         </div>
       </div>
-
       <div class="nav-group" data-group-color="green">
         <div class="nav-group-label">Monitoreo</div>
         <div class="nav-menu">
@@ -89,13 +90,6 @@
           ⚠️ Alertas
           <span id="alert-badge-nav" style="display:none;margin-left:auto;background:var(--color-danger);color:#fff;border-radius:999px;font-size:9px;font-weight:800;padding:1px 5px;">0</span>
         </button>
-        </div>
-      </div>
-
-      <div class="nav-group" data-group-color="teal">
-        <div class="nav-group-label">Bazares</div>
-        <div class="nav-menu">
-        <button class="nav-item" onclick="switchTab('comparar')">📊 Comparar Bazares</button>
         </div>
       </div>
     </nav>
@@ -142,13 +136,6 @@
       <button class="btn-icon" id="btn-toggle-sidebar" title="Menú" style="flex-shrink:0;">☰</button>
       <h1 class="header-title" id="page-title">Ficha del Evento</h1>
       <span id="save-indicator" class="save-indicator" aria-live="polite"></span>
-
-      <!-- Selector de Bazar Activo -->
-      <div class="control-group-inline">
-        <select id="bazaar-select-global" class="filter-select"
-                onchange="switchBazaar(this.value)" title="Bazar activo"></select>
-        <button class="btn-icon" onclick="createBazaar()" title="Crear nuevo bazar">➕</button>
-      </div>
 
       <!-- Buscador global -->
       <div class="search-bar">
@@ -549,6 +536,8 @@
                   onclick="toggleLayer('tables')" title="Mostrar/ocultar mesas"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M12 3v18"/></svg> Mesas</button>
                 <button class="canvas-mode-btn active" id="layer-btn-zones"
                   onclick="toggleLayer('zones')" title="Mostrar/ocultar zonas"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Zonas</button>
+                <button class="canvas-mode-btn active" id="layer-btn-grid"
+                  onclick="toggleLayer('grid')" title="Mostrar/ocultar cuadrícula"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg> Cuadrícula</button>
               </div>
           </div>
           <div class="canvas-toolbar-group" data-rt="vista">
@@ -717,7 +706,7 @@
       <section id="sec-ficha" class="page-section active">
         <div class="section-header" style="justify-content:space-between;">
           <div>
-            <h2 class="section-title">Ficha descriptiva del evento</h2>
+            <h2 class="section-title">Panel del bazar</h2>
             <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Datos generales del evento. Cada campo se guarda al salir de él.</p>
           </div>
           <div class="control-group-inline">
@@ -725,6 +714,7 @@
           </div>
         </div>
         <div id="ficha-resumen" class="stats-row"></div>
+        <div id="panel-accesos" class="panel-accesos"></div>
         <div class="chart-card">
           <div class="form-row">
             <div class="form-group">
@@ -1089,7 +1079,7 @@
           <div>
             <h2 class="section-title">Mis Bazares</h2>
             <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
-              Solo desde esta sección puedes eliminar un bazar. Haz clic en "Ir al Bazar" para activarlo.
+              Solo desde esta sección puedes eliminar un bazar. Haz clic en "Abrir" para entrar al panel de un bazar.
             </p>
           </div>
           <button class="btn-primary" onclick="createBazaar()">+ Nuevo Bazar</button>

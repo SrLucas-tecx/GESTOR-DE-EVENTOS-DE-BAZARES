@@ -20,8 +20,12 @@ function setCanvasMode(mode) {
 function toggleLayer(layer) {
   if (layer === "tables") bazaarCanvas.showTables = !bazaarCanvas.showTables;
   if (layer === "zones") bazaarCanvas.showZones = !bazaarCanvas.showZones;
+  if (layer === "grid") {
+    bazaarCanvas.showGrid = !bazaarCanvas.showGrid;
+    try { localStorage.setItem("BAZARIX_GRID", bazaarCanvas.showGrid ? "1" : "0"); } catch {}
+  }
   const button = document.getElementById(`layer-btn-${layer}`);
-  const visible = layer === "tables" ? bazaarCanvas.showTables : bazaarCanvas.showZones;
+  const visible = { tables: bazaarCanvas.showTables, zones: bazaarCanvas.showZones, grid: bazaarCanvas.showGrid }[layer];
   if (button) button.classList.toggle("active", visible);
   bazaarCanvas.render();
 }
@@ -385,5 +389,11 @@ function setRibbonTab(tab) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  try {   // recuerda si la cuadrícula estaba oculta
+    if (localStorage.getItem("BAZARIX_GRID") === "0") {
+      bazaarCanvas.showGrid = false;
+      document.getElementById("layer-btn-grid")?.classList.remove("active");
+    }
+  } catch {}
   try { setRibbonTab(localStorage.getItem("BAZARIX_RIBBON_TAB") || "plano"); } catch {}
 });

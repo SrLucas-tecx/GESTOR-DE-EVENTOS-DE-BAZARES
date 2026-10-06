@@ -24,11 +24,15 @@ function renderExpositores() {
   });
 
   if (list.length === 0) {
+    const sinDatos = bz.expositores.length === 0;
     container.innerHTML = `
       <div class="catalog-empty">
         <span class="catalog-empty-icon">🗂️</span>
-        <h3>Sin expositores</h3>
-        <p>No hay expositores que coincidan con los filtros en "${escapeHTML(bz.name)}".</p>
+        <h3>${sinDatos ? "Aún no hay expositores" : "Sin resultados"}</h3>
+        <p>${sinDatos
+          ? `Registra al primer expositor de "${escapeHTML(bz.name)}".`
+          : `No hay expositores que coincidan con los filtros en "${escapeHTML(bz.name)}".`}</p>
+        ${sinDatos ? `<button class="btn-primary" style="margin-top:16px;" onclick="openModalExpositorForCurrentCategory()">+ Nuevo expositor</button>` : ""}
       </div>`;
     return;
   }

@@ -178,7 +178,7 @@ window.exportarPlanEventoXLSX          = exportarPlanEventoXLSX;
 
 document.addEventListener("DOMContentLoaded", () => {
   renderAll();
-  switchTab("bazares");
+  switchTab(getActiveBazaar() ? "bazares" : "inicio");
   bazaarCanvas.init();
 
   // Cierra modales al hacer clic en el fondo oscuro

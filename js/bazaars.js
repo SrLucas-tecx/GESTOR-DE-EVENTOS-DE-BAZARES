@@ -8,6 +8,7 @@
 // [EDITABLE: aquí vive toda la lógica de crear/cambiar/eliminar bazares]
 // ==========================================
 function renderBazaarSelector() {
+  updateNavBazaarLabel();
   const sel = document.getElementById("bazaar-select-global");
   if (!sel) return;
   sel.innerHTML = Object.values(AppState.bazaars)
@@ -275,6 +276,7 @@ async function createBazaar() {
   renderAll();
   renderBazaresTabla();
   syncCanvasWithState();
+  switchTab("ficha");   // el bazar nuevo se abre en su Panel
   showToast(`✅ Bazar "${name.trim()}" creado`);
 }
 
@@ -283,20 +285,16 @@ async function createBazaar() {
 async function deleteBazaarById(bazaarId) {
   const bz = AppState.bazaars[bazaarId];
   if (!bz) return;
-  if (!await appConfirm(`¿Eliminar permanentemente el bazar "${bz.name}"? Esta acción no se puede deshacer.`, "Eliminar bazar", "Eliminar")) return;
+  const esUltimo = Object.keys(AppState.bazaars).length === 1;
+  const aviso = esUltimo ? "\n\nEs tu último bazar: la app quedará sin bazares hasta que crees uno nuevo." : "";
+  if (!await appConfirm(`¿Eliminar permanentemente el bazar "${bz.name}"? Esta acción no se puede deshacer.${aviso}`, "Eliminar bazar", "Eliminar")) return;
   const wasActive = bazaarId === AppState.currentBazaarId;
   delete AppState.bazaars[bazaarId];
   const remaining = Object.keys(AppState.bazaars);
   // Solo cambia el bazar activo si el eliminado ERA el activo.
   if (wasActive) AppState.currentBazaarId = remaining[0] || null;
-  if (remaining.length === 0) {
-    // Si no quedan bazares, crea uno vacío para no romper la app
-    const newId = "bazaar-" + Date.now();
-    AppState.bazaars[newId] = { id: newId, name: "Mi Primer Bazar", bgImage: null, logoImage: null, mapConfig: defaultMapConfig(),
-      expositores: [], tables: [], costsConfig: emptyCostsConfig(), invitados: [], minuteByMinute: emptyMinuteByMinute(), customMetrics: emptyCustomMetrics(),
-      floors: [createFloor(`${newId}-floor-1`, "Planta baja")], activeFloorId: `${newId}-floor-1` };
-    AppState.currentBazaarId = newId;
-  }
+  // Sin bazares la app no crea uno vacío: muestra el estado "sin bazar" en Inicio.
+  if (remaining.length === 0) AppState.currentBazaarId = null;
   saveState();
   renderAll();
   syncCanvasWithState();
@@ -311,7 +309,7 @@ function renderBazaresTabla() {
   if (!tbody) return;
   const bazList = Object.values(AppState.bazaars);
   if (bazList.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin bazares registrados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin bazares registrados. Crea el primero con "+ Nuevo Bazar".</td></tr>`;
     return;
   }
   tbody.innerHTML = bazList.map((bz) => {
@@ -336,8 +334,8 @@ function renderBazaresTabla() {
         <td>${paidCount}/${expCount} pagados</td>
         <td>${invCount} invitado${invCount !== 1 ? "s" : ""}</td>
         <td style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn-secondary btn-sm" onclick="switchBazaarAndGo('${bz.id}')" title="${isActive ? "Ir a expositores" : "Activar bazar"}">
-            ${isActive ? "✏️ Editar" : "🔀 Ir al Bazar"}
+          <button class="btn-secondary btn-sm" onclick="switchBazaarAndGo('${bz.id}')" title="Abrir el panel de este bazar">
+            📂 Abrir
           </button>
           <button class="btn-secondary btn-sm" onclick="openLogoUploadModal('${bz.id}')">🖼️ Logo</button>
           <button class="btn-secondary btn-sm" onclick="renameBazaar('${bz.id}')">✏️ Renombrar</button>
@@ -352,7 +350,7 @@ function renderBazaarHome() {
   if (!container) return;
   const bazaars = Object.values(AppState.bazaars || {});
   if (!bazaars.length) {
-    container.innerHTML = `<div class="catalog-empty"><span class="catalog-empty-icon">🏪</span><h3>Aún no hay bazares</h3><p>Crea un bazar para empezar a organizar tu evento.</p></div>`;
+    container.innerHTML = `<div class="catalog-empty"><span class="catalog-empty-icon">🏪</span><h3>Aún no hay bazares</h3><p>Crea un bazar para empezar a organizar tu evento.</p><button class="btn-primary" style="margin-top:16px;" onclick="createBazaar()">+ Crear mi primer bazar</button></div>`;
     return;
   }
   container.innerHTML = bazaars.map((bz) => {
@@ -369,14 +367,14 @@ function renderBazaarHome() {
         </div>
         <h3>${escapeHTML(bz.name)}</h3>
         <p>${expositores.length} expositor${expositores.length === 1 ? "" : "es"} · ${(bz.floors || []).length} piso${(bz.floors || []).length === 1 ? "" : "s"}</p>
-        <button class="btn-primary btn-sm" onclick="switchBazaarAndGo('${bz.id}')">${active ? "Abrir bazar" : "Activar bazar"}</button>
+        <button class="btn-primary btn-sm" onclick="switchBazaarAndGo('${bz.id}')">Abrir bazar</button>
       </article>`;
   }).join("");
 }
 
 function switchBazaarAndGo(id) {
   switchBazaar(id);
-  switchTab("expositores");
+  switchTab("ficha");   // abrir un bazar lleva a su Panel
 }
 
 async function renameBazaar(id) {
@@ -502,7 +500,7 @@ function updateMapOrientation(value) {
 // La asistencia (mesas e invitados) y el historial se reinician en la copia.
 async function duplicarBazaar() {
   const source = getActiveBazaar();
-  if (!source) return;
+  if (!source) { showToast("No hay un bazar activo que duplicar", "error"); return; }
   const name = await appPrompt("Nombre del bazar duplicado:", `${source.name} (copia)`, "Duplicar bazar");
   if (!name?.trim()) return;
 
@@ -537,10 +535,57 @@ async function duplicarBazaar() {
 // ==========================================
 // 8. RENDERIZADO PRINCIPAL
 // ==========================================
+// Rutas que existen aunque no haya un bazar abierto; el resto depende del bazar activo.
+const GLOBAL_TABS = ["inicio", "bazares", "comparar"];
+
+// Selector de bazar del nivel 2 (reemplaza al selector que estaba en el header).
+function updateNavBazaarLabel() {
+  const sel = document.getElementById("nav-bazaar-select");
+  if (!sel) return;
+  sel.innerHTML = Object.values(AppState.bazaars)
+    .map((bz) => `<option value="${bz.id}" ${bz.id === AppState.currentBazaarId ? "selected" : ""}>${escapeHTML(bz.name)}</option>`)
+    .join("") + `<option value="__new__">➕ Crear bazar nuevo…</option>`;
+}
+
+async function onNavBazaarChange(value) {
+  if (value === "__new__") {
+    await createBazaar();          // si se cancela, el selector vuelve al bazar activo
+    updateNavBazaarLabel();
+    return;
+  }
+  switchBazaar(value);             // cambia de bazar sin salir de la pantalla actual
+}
+
+// Sin bazar: oculta el nivel 2 del menú (todo lo que depende de un bazar) y marca el body (.no-bazaar).
+function updateAppMode() {
+  const hasBazaar = !!getActiveBazaar();
+  document.body.classList.toggle("no-bazaar", !hasBazaar);
+  const bazaarNav = document.getElementById("bazaar-nav");
+  if (bazaarNav) bazaarNav.hidden = !hasBazaar;   // nivel 2 solo con un bazar abierto
+  updateNavBazaarLabel();
+  // Acciones que necesitan un bazar: se ocultan en vez de fallar en silencio.
+  document.querySelectorAll("#backup-menu .backup-menu-item").forEach((item) => {
+    const needsBazaar = /openBackupExport|exportarPlanEventoXLSX|exportarCSV|exportarMinutoAMinutoCSV/.test(item.getAttribute("onclick") || "");
+    item.hidden = needsBazaar && !hasBazaar;
+  });
+  document.querySelectorAll('[onclick="duplicarBazaar()"]').forEach((btn) => { btn.hidden = !hasBazaar; });
+}
+
 function renderAll() {
+  updateAppMode();
   renderBazaarSelector();
   renderBazaarHome();
+  renderBazaresTabla();
+  renderPlantillas();
   updateMapaBazaarLabel();
+  if (!getActiveBazaar()) {
+    // Estado "sin bazar": solo pantallas globales; las demás se bloquean.
+    updateAlertBadge();
+    if (bazaarCanvas?.ctx) bazaarCanvas.render();
+    const current = document.querySelector(".page-section.active")?.id.replace(/^sec-/, "");
+    if (current && !GLOBAL_TABS.includes(current)) switchTab("inicio");
+    return;
+  }
   renderExpositores();
   renderCategorias();
   renderCategoryChips();
@@ -549,7 +594,6 @@ function renderAll() {
   renderCostosUI();
   renderChecklist();
   renderInvitados();
-  renderPlantillas();
   renderMinuteByMinute();
   renderFicha();
   renderTareas();
@@ -560,6 +604,7 @@ function renderAll() {
 }
 
 function handleSearch(val) {
+  if (!getActiveBazaar()) return;
   AppState.searchQuery = val.toLowerCase();
   renderExpositores();
 }

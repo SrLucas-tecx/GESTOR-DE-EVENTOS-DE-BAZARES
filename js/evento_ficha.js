@@ -37,6 +37,7 @@ function renderFicha() {
     el.value = field === "nombre" ? bz.name : (bz.evento[field] ?? "");
   });
   renderFichaResumen(bz);
+  renderPanelAccesos(bz);
 }
 
 function updateFichaField(field, value) {
@@ -93,4 +94,34 @@ function renderFichaResumen(bz = getActiveBazaar()) {
     card("accent-gold",  "📋", `${post.hechas}/${post.total}`, "Tareas posteriores listas") +
     card("accent-gold",  "🛒", `${comprasHechas}/${bz.compras.length}`, "Artículos comprados") +
     card("accent-red",   "💰", formatCurrency(presupuesto.total), "Presupuesto total");
+}
+
+/** Accesos rápidos del Panel del bazar: de aquí se entra al resto del menú, con un dato vivo por pantalla. */
+function renderPanelAccesos(bz = getActiveBazaar()) {
+  const box = document.getElementById("panel-accesos");
+  if (!box || !bz) return;
+  ensureEventoFields(bz);
+  const pagados = bz.expositores.filter((e) => e.pagado).length;
+  const mesas = (bz.floors || []).reduce((n, fl) => n + (fl.tables || []).length, 0);
+  const previo = tareasStats(bz, "previo");
+  const comprados = bz.compras.filter((c) => c.comprado).length;
+  const alertas = getTodasLasAlertas(bz).length;
+  const items = [
+    ["expositores", "👥", "Expositores", `${bz.expositores.length} registrados`],
+    ["finanzas", "💰", "Control de pagos", `${pagados}/${bz.expositores.length} pagados`],
+    ["costos", "📊", "Costos del evento", formatCurrency(calcPresupuesto(bz).total)],
+    ["mapa", "🗺️", "Plano del evento", `${mesas} mesa(s)`],
+    ["tareas", "✅", "Tareas", `${previo.hechas}/${previo.total} previas listas`],
+    ["compras", "🛒", "Lista de compras", `${comprados}/${bz.compras.length} comprados`],
+    ["minuto-a-minuto", "🕒", "Minuto a minuto", `${(bz.minuteByMinute || []).length} actividad(es)`],
+    ["dia-evento", "🎪", "Día del evento", "Asistencia en vivo"],
+    ["estadisticas", "📈", "Métricas", "Resumen general"],
+    ["alertas", "⚠️", "Alertas", alertas ? `${alertas} por atender` : "Todo al día"],
+  ];
+  box.innerHTML = `<h3 class="panel-accesos-title">Ir a…</h3>` + items.map(([tab, icon, label, stat]) => `
+    <button type="button" class="panel-acceso" onclick="switchTab('${tab}')">
+      <span class="panel-acceso-icon" aria-hidden="true">${icon}</span>
+      <strong>${escapeHTML(label)}</strong>
+      <small>${escapeHTML(stat)}</small>
+    </button>`).join("");
 }
