@@ -103,7 +103,7 @@ function renderHistorial(expId) {
   }).join("");
 }
 
-function clearHistorial(expId) {
+async function clearHistorial(expId) {
   if (!expId) return;
   const exp = getActiveBazaar()?.expositores.find((item) => item.id === expId);
   if (!exp) return;
@@ -111,7 +111,7 @@ function clearHistorial(expId) {
     showToast("El historial ya está vacío");
     return;
   }
-  if (!confirm(`¿Limpiar el historial de "${exp.negocio}"?`)) return;
+  if (!await appConfirm(`¿Limpiar el historial de "${exp.negocio}"?`, "Limpiar historial", "Limpiar")) return;
   exp.historial = [];
   saveState();
   renderHistorial(expId);

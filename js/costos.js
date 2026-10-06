@@ -179,7 +179,14 @@ function updateEventCostsUI() {
 }
 
 function addExtraCostRow() {
-  getActiveBazaar().costsConfig.extraCosts.push({ id: "cost-" + Date.now(), name: "Nuevo Gasto", comment: "", unit: 0, qty: 1, cost: 0, ivaIncluido: false });
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  ensureEventoFields(bz);
+  bz.costsConfig.extraCosts.push({
+    id: `cost-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: "Nuevo Gasto", comment: "", unit: 0, qty: 1, cost: 0, ivaIncluido: false
+  });
+  AppState.costosSubTab = "gastos";
   saveState();
   renderCostosUI();
 }

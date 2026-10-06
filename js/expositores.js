@@ -111,10 +111,10 @@ function renderExpositores() {
           </button>
           <button class="btn-secondary btn-sm" onclick="openExpositorChecklist('${exp.id}')">☑️ (${doneCount}/${checklist.length})</button>
           <button class="btn-secondary btn-sm" onclick="generatePDFInvoice('${exp.id}')">📄 Recibo</button>
-          <button class="btn-secondary btn-sm" onclick="openHistorial('${exp.id}')" title="Ver historial de cambios">🕘</button>
-          <button class="btn-secondary btn-sm" onclick="guardarComoPlantilla('${exp.id}')" title="Guardar expositor como plantilla">💾</button>
+          <button class="btn-secondary btn-sm" onclick="openHistorial('${exp.id}')" title="Ver historial de cambios" aria-label="Ver historial de cambios">🕘</button>
+          <button class="btn-secondary btn-sm" onclick="guardarComoPlantilla('${exp.id}')" title="Guardar expositor como plantilla" aria-label="Guardar expositor como plantilla">💾</button>
           <button class="${exp.banned ? "btn-secondary" : "btn-danger"} btn-sm" onclick="toggleExpositorBan('${exp.id}')">${exp.banned ? "✅ Quitar baneo" : "🚫 Banear"}</button>
-          <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')">🗑️</button>
+          <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')" title="Eliminar expositor" aria-label="Eliminar expositor">🗑️</button>
         </div>
       </div>`;
   }).join("");
@@ -160,9 +160,10 @@ function renderExpositoresTabla(list) {
           <button class="btn-secondary btn-sm" onclick="openModalExpositor('${exp.id}')" title="Editar">✏️</button>
           <button class="btn-secondary btn-sm" onclick="openExpositorChecklist('${exp.id}')" title="Checklist">☑️ ${doneCount}/${checklist.length}</button>
           <button class="btn-secondary btn-sm" onclick="generatePDFInvoice('${exp.id}')" title="Recibo">📄</button>
-          <button class="btn-secondary btn-sm" onclick="openHistorial('${exp.id}')" title="Historial">🕘</button>
+          <button class="btn-secondary btn-sm" onclick="openHistorial('${exp.id}')" title="Ver historial de cambios" aria-label="Ver historial de cambios">🕘</button>
+          <button class="btn-secondary btn-sm" onclick="guardarComoPlantilla('${exp.id}')" title="Guardar expositor como plantilla" aria-label="Guardar expositor como plantilla">💾</button>
           <button class="${exp.banned ? "btn-secondary" : "btn-danger"} btn-sm" onclick="toggleExpositorBan('${exp.id}')" title="${exp.banned ? "Quitar baneo" : "Banear"}">${exp.banned ? "✅" : "🚫"}</button>
-          <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')" title="Eliminar">🗑️</button>
+          <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')" title="Eliminar expositor" aria-label="Eliminar expositor">🗑️</button>
         </td>
       </tr>`;
   }).join("");

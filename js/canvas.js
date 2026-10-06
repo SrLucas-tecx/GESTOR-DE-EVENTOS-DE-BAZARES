@@ -95,7 +95,7 @@ class BazaarCanvasManager {
                              : newMode === "imgEdit" ? "default" : "grab";
 
     // Botones de modo
-    document.querySelectorAll(".canvas-mode-btn").forEach(b => {
+    document.querySelectorAll(".canvas-mode-btn[data-mode]").forEach(b => {
       b.classList.toggle("active", b.dataset.mode === newMode);
     });
 
@@ -148,6 +148,7 @@ class BazaarCanvasManager {
     this.canvas.addEventListener("dblclick",    (e) => this.handleDoubleClick(e));
     this.canvas.addEventListener("contextmenu", (e) => { e.preventDefault(); this.handleRightClick(e); });
     this.canvas.addEventListener("wheel",       (e) => { e.preventDefault(); zoomBazaar(e.deltaY < 0 ? 0.08 : -0.08); }, { passive: false });
+    document.addEventListener("keydown", (e) => handleMapShortcut(e));
     document.addEventListener("keydown", (e) => {
       if (this.mode !== "select" || !["Delete", "Backspace"].includes(e.key)) return;
       if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
@@ -1126,9 +1127,9 @@ function saveZoneEdit() {
   showToast("✅ Zona actualizada");
 }
 
-function deleteZoneFromModal() {
+async function deleteZoneFromModal() {
   const zoneId = document.getElementById("edit-zone-id").value;
-  if (!zoneId || !confirm("¿Eliminar esta zona del plano?")) return;
+  if (!zoneId || !await appConfirm("¿Eliminar esta zona del plano?", "Eliminar zona")) return;
   bazaarCanvas.deleteZone(zoneId);
   bazaarCanvas.selectedZoneId = null;
   closeModal("modal-editar-zona");

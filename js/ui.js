@@ -16,6 +16,8 @@ function switchTab(tabId) {
   if (navBtn) navBtn.classList.add("active");
 
   const titles = {
+    inicio:       "Inicio",
+    bazares:      "Mis Bazares",
     expositores:  "Directorio de Expositores",
     categorias:   "Categorías de Productos",
     finanzas:     "Control de Pagos",
@@ -24,7 +26,6 @@ function switchTab(tabId) {
     estadisticas: "Métricas y Gráficas",
     invitados:    "Lista de Expositores",
     "minuto-a-minuto": "Minuto a Minuto",
-    bazares:      "Mis Bazares",
     plantillas:   "Expositores Guardados",
     "dia-evento": "Día del Evento",
     ficha:        "Ficha del Evento",
@@ -38,6 +39,7 @@ function switchTab(tabId) {
   if (titleEl) titleEl.textContent = titles[tabId] || tabId;
 
   if (tabId === "estadisticas") updateCharts();
+  if (tabId === "inicio")      renderBazaarHome();
   if (tabId === "mapa")         { bazaarCanvas.render(); renderChecklist(); }
   if (tabId === "finanzas")     { renderFinanzasTable(); renderFinanzasStats(); renderMetricasFinancieras(); }
   if (tabId === "costos")       renderCostosUI();
@@ -52,7 +54,22 @@ function switchTab(tabId) {
   if (tabId === "tareas")       renderTareas();
   if (tabId === "compras")      renderCompras();
   if (tabId === "staff")        renderResponsables();
+  syncTopNav();
   renderFabMenu(tabId);
+}
+
+// Barra superior: marca el grupo con la página activa y cierra menús abiertos.
+function syncTopNav() {
+  document.querySelectorAll(".nav-group").forEach((g) => {
+    g.classList.toggle("has-active", !!g.querySelector(".nav-item.active"));
+    g.classList.remove("open");
+  });
+}
+
+function toggleNavGroup(group) {
+  const wasOpen = group.classList.contains("open");
+  document.querySelectorAll(".nav-group.open").forEach((g) => g.classList.remove("open"));
+  if (!wasOpen) group.classList.add("open");
 }
 
 function closeMobileSidebar() {
@@ -123,6 +140,7 @@ function renderComparaBazares() {
 // siempre "Nuevo Expositor" sin importar la pantalla en la que estuvieras.
 // Ahora cada pestaña tiene su propia entrada explícita (aunque esté vacía).
 const fabActions = {
+  inicio: [],
   expositores: [{ label: "👤 Nuevo Expositor", action: openModalExpositorForCurrentCategory }],
   categorias: [{ label: "🏷️ Nueva Categoría", action: openModalCategoria }],
   plantillas: [],

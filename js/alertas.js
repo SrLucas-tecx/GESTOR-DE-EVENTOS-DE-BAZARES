@@ -108,8 +108,8 @@ function updateAlertBadge() {
 
 function _alertaRow({ tipo, exp, t, c, label, isOverdue }) {
   const color = isOverdue ? "var(--color-danger)" : "var(--color-accent2)";
-  const bg    = isOverdue ? "var(--color-danger-soft)" : "var(--color-accent2-soft)";
   const icon  = isOverdue ? "🚨" : "⚠️";
+  const alertClass = isOverdue ? "notification-card notification-card-overdue" : "notification-card notification-card-upcoming";
 
   let tipoIcon, titulo, subtitulo, detalle, acciones;
   if (tipo === "pago") {
@@ -136,22 +136,19 @@ function _alertaRow({ tipo, exp, t, c, label, isOverdue }) {
   }
 
   return `
-    <div class="card-meta-item" style="
-        display:flex;justify-content:space-between;align-items:center;gap:12px;
-        border-left:4px solid ${color};padding:10px 14px;border-radius:var(--radius-md);
-        background:${bg};margin-bottom:8px;">
+    <div class="${alertClass}" style="border-left-color:${color};">
       <div style="min-width:0;">
-        <div style="font-weight:900;font-size:var(--fs-sm);color:#b91c1c;letter-spacing:.01em;">
+        <div class="notification-card-title">
           ${icon} ${tipoIcon} ${escapeHTML(titulo)}
         </div>
-        <div style="font-size:var(--fs-xs);font-weight:800;color:#dc2626;letter-spacing:.01em;">
+        <div class="notification-card-subtitle">
           ${escapeHTML(subtitulo)}
         </div>
-        <div style="font-size:var(--fs-xs);font-weight:900;color:#b91c1c;letter-spacing:.01em;margin-top:2px;">
+        <div class="notification-card-detail">
           ${escapeHTML(detalle)}
         </div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+      <div class="notification-card-actions">
         ${acciones}
       </div>
     </div>`;

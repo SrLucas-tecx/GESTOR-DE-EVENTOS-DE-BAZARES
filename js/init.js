@@ -25,6 +25,11 @@ window.setFilterStatus               = setFilterStatus;
 window.openModalExpositor            = openModalExpositor;
 window.openModalExpositorForCurrentCategory = openModalExpositorForCurrentCategory;
 window.closeModal                    = closeModal;
+window.appAlert                      = appAlert;
+window.appConfirm                    = appConfirm;
+window.appPrompt                     = appPrompt;
+window.submitAppDialog               = submitAppDialog;
+window.cancelAppDialog               = cancelAppDialog;
 window.handleFotoUpload              = handleFotoUpload;
 window.saveExpositorHandler          = saveExpositorHandler;
 window.togglePaymentStatus           = togglePaymentStatus;
@@ -46,6 +51,7 @@ window.deleteBazaarById              = deleteBazaarById;
 window.switchBazaarAndGo             = switchBazaarAndGo;
 window.renameBazaar                  = renameBazaar;
 window.renderBazaresTabla            = renderBazaresTabla;
+window.renderBazaarHome               = renderBazaarHome;
 window.renderComparaBazares          = renderComparaBazares;
 window.openLogoUploadModal           = openLogoUploadModal;
 window.handleLogoUpload              = handleLogoUpload;
@@ -172,13 +178,15 @@ window.exportarPlanEventoXLSX          = exportarPlanEventoXLSX;
 
 document.addEventListener("DOMContentLoaded", () => {
   renderAll();
-  renderFabMenu("ficha");
+  switchTab("bazares");
   bazaarCanvas.init();
 
   // Cierra modales al hacer clic en el fondo oscuro
   document.querySelectorAll(".modal-overlay").forEach((overlay) => {
     overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.classList.remove("open");
+      if (e.target !== overlay) return;
+      if (overlay.id === "modal-app-dialog") cancelAppDialog();
+      else overlay.classList.remove("open");
     });
   });
 
@@ -209,6 +217,20 @@ document.addEventListener("DOMContentLoaded", () => {
       socialMenu.setAttribute("aria-hidden", "true");
     }
   });
+
+  // Barra superior: abrir/cerrar menús desplegables (clic/tap), clic fuera y Escape
+  document.addEventListener("click", (e) => {
+    const label = e.target.closest(".nav-group-label");
+    if (label) { toggleNavGroup(label.parentElement); return; }
+    if (!e.target.closest(".nav-group")) {
+      document.querySelectorAll(".nav-group.open").forEach((g) => g.classList.remove("open"));
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") document.querySelectorAll(".nav-group.open").forEach((g) => g.classList.remove("open"));
+  });
+  window.toggleNavGroup = toggleNavGroup;
+  window.syncTopNav = syncTopNav;
 
   // Hamburguesa en móvil
   document.querySelector("#btn-toggle-sidebar")?.addEventListener("click", toggleMobileSidebar);

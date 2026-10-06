@@ -410,7 +410,7 @@ function _bkSanear(dest) {
   return { mesas, invitados };
 }
 
-function ejecutarImportacion() {
+async function ejecutarImportacion() {
   if (!_bi) return;
   const keys = _bkChecked("bi-sections");
   if (keys.length === 0) {
@@ -424,7 +424,7 @@ function ejecutarImportacion() {
 
   if (!isNew && modo === "reemplazar") {
     const names = keys.map((k) => BACKUP_SECTIONS.find((s) => s.key === k).label).join(", ");
-    if (!confirm(`Se reemplazará por completo: ${names}.\n\nLo que tengas actualmente en esas secciones se perderá. ¿Continuar?`)) return;
+    if (!await appConfirm(`Se reemplazará por completo: ${names}.\n\nLo que tengas actualmente en esas secciones se perderá. ¿Continuar?`, "Confirmar reemplazo", "Reemplazar")) return;
   }
 
   // Todo se aplica sobre una COPIA; solo si sale bien se guarda.
@@ -481,9 +481,9 @@ function ejecutarImportacion() {
 }
 
 /** Comportamiento anterior: sustituye TODA la app con un respaldo completo. */
-function reemplazarTodaLaApp() {
+async function reemplazarTodaLaApp() {
   if (!_bi || !_bi.source.fullState) return;
-  if (!confirm("Esto reemplaza TODA la app (todos los bazares, categorías y plantillas) con el contenido del archivo. ¿Continuar?")) return;
+  if (!await appConfirm("Esto reemplaza TODA la app (todos los bazares, categorías y plantillas) con el contenido del archivo. ¿Continuar?", "Reemplazar todos los datos", "Reemplazar")) return;
   try {
     AppState = migrateState(_bkClone(_bi.source.fullState));
     saveState();

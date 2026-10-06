@@ -143,12 +143,12 @@ function saveRolHandler(e) {
   showToast(id ? "✅ Rol actualizado" : "✅ Rol agregado");
 }
 
-function deleteRol(id) {
+async function deleteRol(id) {
   const bz = getActiveBazaar();
   const enUso = bz.responsables.filter((r) => r.rolId === id).length;
-  if (!confirm(enUso
+  if (!await appConfirm(enUso
     ? `${enUso} responsable(s) tienen este rol. Se quedarán sin rol asignado. ¿Eliminar de todos modos?`
-    : "¿Eliminar este rol?")) return;
+    : "¿Eliminar este rol?", "Eliminar rol")) return;
   bz.roles = bz.roles.filter((r) => r.id !== id);
   bz.responsables.forEach((r) => { if (r.rolId === id) r.rolId = ""; });
   saveState();
@@ -215,9 +215,9 @@ function saveResponsableHandler(e) {
   showToast(id ? "✅ Responsable actualizado" : "✅ Responsable agregado");
 }
 
-function deleteResponsable(id) {
+async function deleteResponsable(id) {
   const bz = getActiveBazaar();
-  if (!confirm("¿Eliminar este responsable? Las tareas, compras y actividades que tenía asignadas quedarán sin responsable.")) return;
+  if (!await appConfirm("¿Eliminar este responsable? Las tareas, compras y actividades que tenía asignadas quedarán sin responsable.", "Eliminar responsable")) return;
   bz.responsables = bz.responsables.filter((r) => r.id !== id);
   bz.tareas.forEach((t) => { if (t.responsableId === id) t.responsableId = ""; });
   bz.compras.forEach((c) => { if (c.responsableId === id) c.responsableId = ""; });

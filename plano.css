@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════════════════════
+   # PLANO — pulido de interfaz (cargar DESPUÉS de Styles.css)
+   Si prefieres un solo CSS, pega este contenido al final de Styles.css
+   y quita el <link> de plano.css en index.html.
+═══════════════════════════════════════════════════════════════ */
+
+/* 1. Tarjetas de herramientas: usan variables (antes #15272b fijo, que en modo claro se veía roto) */
+html .row-green-card,
+html .row-blue-card {
+  background: linear-gradient(145deg, var(--color-surface), var(--color-surface-alt));
+  align-items: stretch;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+}
+
+/* 2. Grupos con ancho natural y separadores a toda la altura (se acabó el hueco bajo "Capas") */
+html .row-green-card .canvas-toolbar-group,
+html .row-blue-card .canvas-toolbar-group {
+  flex: 0 1 auto;
+  padding-right: var(--space-5);
+  border-right: 1px solid var(--color-border);
+}
+html .row-green-card .canvas-toolbar-group:last-child,
+html .row-blue-card .canvas-toolbar-group:last-child { border-right: none; padding-right: 0; }
+html .row-green-card .canvas-toolbar-group:nth-child(2) { flex: 1 1 420px; }
+html .row-blue-card .canvas-toolbar-group:last-child { margin-left: auto; }   /* Exportar a la derecha */
+
+/* 3. Etiquetas, valores y sliders de "Imagen de fondo" (no recibían estilo: salían grandes y blancos) */
+html .row-green-card .image-controls-row { gap: var(--space-2) var(--space-4); }
+html .row-green-card .form-label,
+html .row-blue-card .form-label {
+  margin: 0; font-size: var(--fs-xs); font-weight: 700;
+  color: var(--color-text-muted); white-space: nowrap;
+}
+html .row-green-card output,
+html .row-blue-card output {
+  min-width: 42px; font-size: var(--fs-xs); font-weight: 800;
+  color: var(--color-accent); font-variant-numeric: tabular-nums;
+}
+html .row-green-card input[type="range"],
+html .row-blue-card input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 110px; height: 6px; border-radius: 999px; outline: none; cursor: pointer;
+  background: color-mix(in srgb, var(--color-text-muted) 35%, transparent);
+  accent-color: var(--color-accent);
+}
+html .row-green-card input[type="range"]::-webkit-slider-thumb,
+html .row-blue-card input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--color-accent); border: 2px solid var(--color-surface);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+html .row-green-card input[type="range"]::-moz-range-thumb,
+html .row-blue-card input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--color-accent); border: 2px solid var(--color-surface);
+}
+
+/* 4. Botones de alternar (Capas / Snap): estado claro ✓ activo, tenue punteado apagado */
+html .toolbar-card :is(#layer-btn-tables, #layer-btn-zones, #btn-snap-tables).active::before {
+  content: "✓"; font-weight: 900;
+}
+html .toolbar-card :is(#layer-btn-tables, #layer-btn-zones, #btn-snap-tables):not(.active) {
+  background: transparent; border-style: dashed; opacity: .65;
+}
+
+/* 5. Botones de peligro legibles (rojo sobre rojo oscuro tenía poco contraste) */
+html .toolbar-card .btn-danger {
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+}
+body.dark .toolbar-card .btn-danger {
+  color: #fecaca;
+  background: color-mix(in srgb, var(--color-danger) 22%, transparent);
+}
+html .toolbar-card .btn-danger:hover { background: var(--color-danger); color: #fff; }
+
+/* 6. Accesibilidad: foco visible por teclado */
+html .toolbar-card :is(button, select, input):focus-visible {
+  outline: 2px solid var(--color-accent); outline-offset: 2px;
+}
+
+/* 7. Móvil: grupos apilados con separador horizontal (anula las reglas de escritorio de arriba) */
+@media (max-width: 768px) {
+  html .row-green-card .canvas-toolbar-group,
+  html .row-blue-card .canvas-toolbar-group,
+  html .row-green-card .canvas-toolbar-group:nth-child(2) {
+    flex: 1 1 100%; margin-left: 0; padding-right: 0; border-right: none;
+    padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border);
+  }
+  html .row-green-card .canvas-toolbar-group:last-child,
+  html .row-blue-card .canvas-toolbar-group:last-child { border-bottom: none; padding-bottom: 0; }
+}
+
+/* ═══ PLANO — iconos SVG, plegable, pestañas laterales ═══ */
+html .toolbar-card :is(.btn-sm, .btn-primary, .btn-secondary, .btn-danger, .canvas-mode-btn) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.ico { flex-shrink: 0; width: 16px; height: 16px; }
+
+/* Imagen de fondo plegable */
+html .toolbar-card .group-toggle {
+  background: none; border: none; padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; font-family: inherit;
+}
+.group-toggle .chev { transition: transform var(--transition); }
+.bg-group.collapsed .chev { transform: rotate(-90deg); }
+.bg-group.collapsed > :not(.group-toggle) { display: none !important; }
+
+/* Panel lateral: pestañas + fijo al hacer scroll */
+html .map-side-panel { position: sticky; top: calc(var(--topnav-h, 56px) + 76px); align-self: flex-start; }
+.side-tabs { display: flex; gap: 4px; padding: 4px; flex-shrink: 0;
+  background: var(--color-surface-alt); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+.side-tab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 10px; border-radius: var(--radius-md); background: transparent;
+  color: var(--color-text-muted); font-size: var(--fs-xs); font-weight: 700; transition: all var(--transition); }
+.side-tab:hover { color: var(--color-accent); }
+.side-tab.active { background: var(--color-accent); color: #fff; }
+.map-side-panel[data-tab="mesas"] > #zones-panel { display: none !important; }
+.map-side-panel[data-tab="zonas"] > .chart-card:not(#zones-panel) { display: none; }
+.map-side-panel[data-tab="zonas"] > #zones-panel { display: block !important; }
+@media (max-width: 900px) { html .map-side-panel { position: static; } }

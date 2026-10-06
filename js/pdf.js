@@ -6,7 +6,7 @@
 
 // 15. PDF — Comprobante con adelanto y saldo
 // ==========================================
-function generatePDFInvoice(id) {
+async function generatePDFInvoice(id) {
   const exp = getActiveBazaar().expositores.find((e) => e.id === id);
   if (!exp) return;
   const template = document.getElementById("invoice-template");
@@ -59,7 +59,7 @@ function generatePDFInvoice(id) {
   if (window.html2pdf) {
     window.html2pdf().set(opt).from(template).save().then(() => { template.style.display = "none"; });
   } else {
-    alert("Librería html2pdf no disponible.");
+    await appAlert("Librería html2pdf no disponible.", "No se pudo generar el PDF");
     template.style.display = "none";
   }
 }

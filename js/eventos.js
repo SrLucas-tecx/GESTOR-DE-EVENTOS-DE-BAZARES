@@ -27,11 +27,11 @@ function cyclePublicationStatus(id) {
   showToast(`📣 ${exp.negocio}: ${publicationStatusLabel(exp.publicationStatus)}`);
 }
 
-function toggleExpositorBan(id) {
+async function toggleExpositorBan(id) {
   const exp = getActiveBazaar()?.expositores.find((item) => item.id === id);
   if (!exp) return;
   const action = exp.banned ? "quitar el baneo a" : "banear a";
-  if (!confirm(`¿Deseas ${action} "${exp.negocio}"?`)) return;
+  if (!await appConfirm(`¿Deseas ${action} "${exp.negocio}"?`, exp.banned ? "Quitar baneo" : "Banear expositor")) return;
   exp.banned = !exp.banned;
   registrarHistorial(exp.id, exp.banned ? "Expositor baneado" : "Baneo retirado");
   saveState();
@@ -71,7 +71,12 @@ function renderMinuteByMinute() {
     <tr>
       <td><input class="form-input" type="time" value="${escapeHTML(row.time)}" onchange="updateMinuteRow('${row.id}','time',this.value)"></td>
       <td><input class="form-input" type="time" value="${escapeHTML(row.horaFin || "")}" onchange="updateMinuteRow('${row.id}','horaFin',this.value)"></td>
-      <td style="white-space:nowrap;font-weight:700;color:${duration === "—" ? "var(--color-danger)" : "var(--color-accent)"};" title="${duration === "—" ? "La hora fin es anterior a la de inicio" : "Calculada automáticamente"}">${escapeHTML(duration || "")}</td>
+      <td>
+        <input class="form-input" type="text" value="${escapeHTML(duration)}" placeholder="—"
+          readonly aria-label="Duración calculada"
+          style="font-weight:700;color:${duration === "—" ? "var(--color-danger)" : "var(--color-accent)"};cursor:default;"
+          title="${duration === "—" ? "La hora fin es anterior a la de inicio" : "Calculada automáticamente"}">
+      </td>
       <td><input class="form-input" value="${escapeHTML(row.activity)}" onchange="updateMinuteRow('${row.id}','activity',this.value)"></td>
       <td><input class="form-input" value="${escapeHTML(row.lugar || "")}" placeholder="Ej. Auditorio" onchange="updateMinuteRow('${row.id}','lugar',this.value)"></td>
       <td><input class="form-input" value="${escapeHTML(row.area)}" placeholder="Ej. Montaje" onchange="updateMinuteRow('${row.id}','area',this.value)"></td>
@@ -85,8 +90,9 @@ function renderMinuteByMinute() {
 function addMinuteRow() {
   const bz = getActiveBazaar();
   if (!bz) return;
-  if (!bz.minuteByMinute) bz.minuteByMinute = [];
-  bz.minuteByMinute.push({ id: `minute-${Date.now()}`, time: "", horaFin: "", activity: "Nueva actividad", lugar: "", area: "", responsableId: "", notes: "" });
+  if (!Array.isArray(bz.minuteByMinute)) bz.minuteByMinute = [];
+  const id = `minute-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  bz.minuteByMinute.push({ id, time: "", horaFin: "", activity: "Nueva actividad", lugar: "", area: "", responsableId: "", notes: "" });
   saveState();
   renderMinuteByMinute();
 }

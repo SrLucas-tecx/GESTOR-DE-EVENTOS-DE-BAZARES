@@ -49,9 +49,12 @@ function renderCompras() {
       <td><input class="form-input" type="number" min="0" step="0.01" value="${Number(c.costoUnit || 0)}" style="min-width:90px;" onchange="updateCompra('${c.id}','costoUnit',this.value)"></td>
       <td style="font-weight:800;white-space:nowrap;">${formatCurrency(_compraTotal(c))}</td>
       <td>
-        ${enPresupuesto
-          ? `<span class="paid-badge paid">✅ En presupuesto</span>`
-          : `<button class="btn-secondary btn-sm" onclick="enviarCompraAPresupuesto('${c.id}')" title="Agregar como gasto en Costos del Evento">➕ Presupuesto</button>`}
+        <button class="btn-secondary btn-sm" onclick="enviarCompraAPresupuesto('${c.id}')"
+          title="${enPresupuesto ? "Quitar del presupuesto" : "Agregar como gasto en Costos del Evento"}"
+          aria-label="${enPresupuesto ? "Quitar del presupuesto" : "Agregar al presupuesto"}"
+          aria-pressed="${enPresupuesto}">
+          ${enPresupuesto ? "✅ En presupuesto" : "➕ Presupuesto"}
+        </button>
       </td>
       <td><button class="btn-danger btn-sm" onclick="deleteCompra('${c.id}')" title="Eliminar">🗑️</button></td>
     </tr>`;
@@ -90,9 +93,9 @@ function toggleCompra(id) {
   renderFichaResumen(bz);
 }
 
-function deleteCompra(id) {
+async function deleteCompra(id) {
   const bz = getActiveBazaar();
-  if (!bz || !confirm("¿Eliminar este artículo de la lista?")) return;
+  if (!bz || !await appConfirm("¿Eliminar este artículo de la lista?", "Eliminar artículo")) return;
   bz.compras = bz.compras.filter((c) => c.id !== id);
   saveState();
   renderCompras();
@@ -110,7 +113,17 @@ function _compraAPresupuesto(bz, c) {
 function enviarCompraAPresupuesto(id) {
   const bz = getActiveBazaar();
   const c = bz?.compras.find((item) => item.id === id);
-  if (!c || compraEnPresupuesto(bz, c)) return;
+  if (!c) return;
+  if (compraEnPresupuesto(bz, c)) {
+    bz.costsConfig.extraCosts = bz.costsConfig.extraCosts.filter((item) => item.id !== c.presupuestoId);
+    c.presupuestoId = "";
+    saveState();
+    renderCompras();
+    renderCostosUI();
+    renderFichaResumen(bz);
+    showToast(`"${c.articulo || "Artículo"}" quitado del presupuesto`);
+    return;
+  }
   _compraAPresupuesto(bz, c);
   saveState();
   renderCompras();

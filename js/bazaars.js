@@ -177,10 +177,10 @@ function saveMapElementEdit() {
   showToast("✅ Elemento actualizado");
 }
 
-function deleteMapElementFromModal() {
+async function deleteMapElementFromModal() {
   const elementId = document.getElementById("edit-element-id").value;
   const floor = getActiveFloor();
-  if (!floor || !confirm("¿Eliminar este elemento del plano?")) return;
+  if (!floor || !await appConfirm("¿Eliminar este elemento del plano?", "Eliminar elemento")) return;
   floor.elements = (floor.elements || []).filter((item) => item.id !== elementId);
   bazaarCanvas.selectedElementId = null;
   saveState();
@@ -212,10 +212,11 @@ function switchFloor(floorId) {
   updateMapaBazaarLabel();
 }
 
-function addFloor() {
+async function addFloor() {
   const bz = getActiveBazaar();
   if (!bz) return;
-  const name = prompt("Nombre del nuevo piso:", `Piso ${(bz.floors?.length || 0) + 1}`);
+  if (!Array.isArray(bz.floors)) bz.floors = [];
+  const name = await appPrompt("Nombre del nuevo piso:", `Piso ${(bz.floors?.length || 0) + 1}`, "Agregar piso");
   if (!name?.trim()) return;
   const floor = createFloor(`${bz.id}-floor-${Date.now()}`, name.trim());
   if (!bz.floors) bz.floors = [];
@@ -227,14 +228,14 @@ function addFloor() {
   showToast(`✅ ${floor.name} creado`);
 }
 
-function deleteCurrentFloor() {
+async function deleteCurrentFloor() {
   const bz = getActiveBazaar();
   if (!bz?.floors || bz.floors.length <= 1) {
     showToast("Debe existir al menos un piso", "error");
     return;
   }
   const floor = getActiveFloor(bz);
-  if (!floor || !confirm(`¿Eliminar "${floor.name}" y sus mesas?`)) return;
+  if (!floor || !await appConfirm(`¿Eliminar "${floor.name}" y sus mesas?`, "Eliminar piso")) return;
   bz.floors = bz.floors.filter((item) => item.id !== floor.id);
   bz.activeFloorId = bz.floors[0].id;
   bazaarCanvas.selectedTableId = null;
@@ -255,8 +256,8 @@ function switchBazaar(bazaarId) {
   bazaarCanvas.render();
 }
 
-function createBazaar() {
-  const name = prompt("Nombre del nuevo bazar:", "Bazar " + (Object.keys(AppState.bazaars).length + 1));
+async function createBazaar() {
+  const name = await appPrompt("Nombre del nuevo bazar:", "Bazar " + (Object.keys(AppState.bazaars).length + 1), "Nuevo bazar");
   if (!name?.trim()) return;
   const id = "bazaar-" + Date.now();
   AppState.bazaars[id] = {
@@ -272,16 +273,17 @@ function createBazaar() {
   AppState.currentBazaarId = id;
   saveState();
   renderAll();
+  renderBazaresTabla();
   syncCanvasWithState();
   showToast(`✅ Bazar "${name.trim()}" creado`);
 }
 
 // deleteBazaar: solo disponible desde la sección "Mis Bazares" (sec-bazares)
 // [EDITABLE: cambia el mensaje de confirmación aquí]
-function deleteBazaarById(bazaarId) {
+async function deleteBazaarById(bazaarId) {
   const bz = AppState.bazaars[bazaarId];
   if (!bz) return;
-  if (!confirm(`¿Eliminar permanentemente el bazar "${bz.name}"? Esta acción no se puede deshacer.`)) return;
+  if (!await appConfirm(`¿Eliminar permanentemente el bazar "${bz.name}"? Esta acción no se puede deshacer.`, "Eliminar bazar", "Eliminar")) return;
   const wasActive = bazaarId === AppState.currentBazaarId;
   delete AppState.bazaars[bazaarId];
   const remaining = Object.keys(AppState.bazaars);
@@ -313,8 +315,9 @@ function renderBazaresTabla() {
     return;
   }
   tbody.innerHTML = bazList.map((bz) => {
-    const expCount = bz.expositores.length;
-    const paidCount = bz.expositores.filter((e) => e.pagado).length;
+    const expositores = bz.expositores || [];
+    const expCount = expositores.length;
+    const paidCount = expositores.filter((e) => e.pagado).length;
     const invCount = (bz.invitados || []).length;
     const isActive = bz.id === AppState.currentBazaarId;
     const logoHtml = bz.logoImage
@@ -333,7 +336,7 @@ function renderBazaresTabla() {
         <td>${paidCount}/${expCount} pagados</td>
         <td>${invCount} invitado${invCount !== 1 ? "s" : ""}</td>
         <td style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn-secondary btn-sm" onclick="switchBazaarAndGo('${bz.id}')">
+          <button class="btn-secondary btn-sm" onclick="switchBazaarAndGo('${bz.id}')" title="${isActive ? "Ir a expositores" : "Activar bazar"}">
             ${isActive ? "✏️ Editar" : "🔀 Ir al Bazar"}
           </button>
           <button class="btn-secondary btn-sm" onclick="openLogoUploadModal('${bz.id}')">🖼️ Logo</button>
@@ -344,20 +347,48 @@ function renderBazaresTabla() {
   }).join("");
 }
 
+function renderBazaarHome() {
+  const container = document.getElementById("bazaar-home-grid");
+  if (!container) return;
+  const bazaars = Object.values(AppState.bazaars || {});
+  if (!bazaars.length) {
+    container.innerHTML = `<div class="catalog-empty"><span class="catalog-empty-icon">🏪</span><h3>Aún no hay bazares</h3><p>Crea un bazar para empezar a organizar tu evento.</p></div>`;
+    return;
+  }
+  container.innerHTML = bazaars.map((bz) => {
+    const expositores = bz.expositores || [];
+    const logo = bz.logoImage
+      ? `<img src="${bz.logoImage}" alt="" class="bazaar-home-logo">`
+      : `<span class="bazaar-home-emoji" aria-hidden="true">🎪</span>`;
+    const active = bz.id === AppState.currentBazaarId;
+    return `
+      <article class="bazaar-home-card ${active ? "active" : ""}">
+        <div class="bazaar-home-card-top">
+          ${logo}
+          ${active ? `<span class="section-count">Activo</span>` : ""}
+        </div>
+        <h3>${escapeHTML(bz.name)}</h3>
+        <p>${expositores.length} expositor${expositores.length === 1 ? "" : "es"} · ${(bz.floors || []).length} piso${(bz.floors || []).length === 1 ? "" : "s"}</p>
+        <button class="btn-primary btn-sm" onclick="switchBazaarAndGo('${bz.id}')">${active ? "Abrir bazar" : "Activar bazar"}</button>
+      </article>`;
+  }).join("");
+}
+
 function switchBazaarAndGo(id) {
   switchBazaar(id);
   switchTab("expositores");
 }
 
-function renameBazaar(id) {
+async function renameBazaar(id) {
   const bz = AppState.bazaars[id];
   if (!bz) return;
-  const newName = prompt("Nuevo nombre del bazar:", bz.name);
+  const newName = await appPrompt("Nuevo nombre del bazar:", bz.name, "Renombrar bazar");
   if (!newName?.trim()) return;
   bz.name = newName.trim();
   saveState();
   renderBazaarSelector();
   renderBazaresTabla();
+  renderBazaarHome();
   showToast("✅ Bazar renombrado");
 }
 
@@ -399,6 +430,7 @@ function saveLogoHandler() {
   saveState();
   renderBazaresTabla();
   renderBazaarSelector();
+  renderBazaarHome();
   closeModal("modal-logo-bazar");
   showToast("✅ Logo del bazar actualizado");
 }
@@ -413,6 +445,7 @@ function removeLogoHandler() {
   if (preview) preview.innerHTML = "🎪";
   saveState();
   renderBazaresTabla();
+  renderBazaarHome();
   showToast("Imagen eliminada");
 }
 
@@ -467,10 +500,10 @@ function updateMapOrientation(value) {
 
 // Duplica el bazar activo (expositores, pisos, mesas, zonas, costos, agenda...).
 // La asistencia (mesas e invitados) y el historial se reinician en la copia.
-function duplicarBazaar() {
+async function duplicarBazaar() {
   const source = getActiveBazaar();
   if (!source) return;
-  const name = prompt("Nombre del bazar duplicado:", `${source.name} (copia)`);
+  const name = await appPrompt("Nombre del bazar duplicado:", `${source.name} (copia)`, "Duplicar bazar");
   if (!name?.trim()) return;
 
   const copy = JSON.parse(JSON.stringify(source));
@@ -506,6 +539,7 @@ function duplicarBazaar() {
 // ==========================================
 function renderAll() {
   renderBazaarSelector();
+  renderBazaarHome();
   updateMapaBazaarLabel();
   renderExpositores();
   renderCategorias();
@@ -541,4 +575,3 @@ function setFilterStatus(status) {
   AppState.filterStatus = status;
   renderExpositores();
 }
-

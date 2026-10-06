@@ -765,9 +765,10 @@ input:checked+.slider::before{transform:translateX(20px)}
 /* ─── TOAST ─── */
 #toast{
   position:fixed;bottom:var(--space-6);left:50%;transform:translateX(-50%) translateY(80px);
-  background:var(--color-text);color:#fff;
+  background:#12383c;color:#f4fffe;
   padding:var(--space-3) var(--space-6);border-radius:var(--radius-full);
   font-size:var(--fs-sm);font-weight:600;z-index:999;
+  box-shadow:0 4px 18px rgba(0,0,0,.28);
   transition:all .35s cubic-bezier(.34,1.56,.64,1);opacity:0;pointer-events:none;
   white-space:nowrap;
 }
@@ -808,6 +809,33 @@ input:checked+.slider::before{transform:translateX(20px)}
 .minute-table .form-input{min-width:110px;padding:7px 9px}
 .minute-table td:last-child{white-space:nowrap;width:1%}
 @media(max-width:768px){.payments-table-wrap{overflow-x:auto}}
+.notification-card{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:10px 14px;margin-bottom:8px;border-left:4px solid;
+  border-radius:var(--radius-md);color:#fff;
+}
+.notification-card-overdue{background:#3b171b}
+.notification-card-upcoming{background:#3b2b12}
+.notification-card-title{font-weight:900;font-size:var(--fs-sm);letter-spacing:.01em;color:#fff}
+.notification-card-subtitle{font-size:var(--fs-xs);font-weight:800;letter-spacing:.01em;color:#fce7e7}
+.notification-card-detail{font-size:var(--fs-xs);font-weight:900;letter-spacing:.01em;margin-top:2px;color:#fff}
+.notification-card-actions{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.notification-card .btn-secondary{
+  background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.28);
+}
+.notification-card .btn-secondary:hover{background:rgba(255,255,255,.2);color:#fff;border-color:#fff}
+@media(max-width:768px){
+  .notification-card{align-items:flex-start;flex-direction:column}
+  .notification-card-actions{justify-content:flex-start}
+}
+.bazaar-home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.bazaar-home-card{padding:20px;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:var(--shadow-sm)}
+.bazaar-home-card.active{border-color:var(--color-accent);box-shadow:0 0 0 1px var(--color-accent)}
+.bazaar-home-card-top{display:flex;align-items:center;justify-content:space-between;min-height:54px}
+.bazaar-home-logo,.bazaar-home-emoji{width:52px;height:52px;object-fit:cover;border-radius:12px}
+.bazaar-home-emoji{display:grid;place-items:center;background:var(--color-surface-alt);font-size:1.8rem}
+.bazaar-home-card h3{margin:14px 0 6px}
+.bazaar-home-card p{margin:0 0 16px;color:var(--color-text-muted);font-size:var(--fs-sm)}
 /* ═══════════════════════════════════════════════════════════════
    # CANVAS TOOLBAR — Barra de herramientas del mapa (v3)
    [EDITABLE: agrega grupos con .canvas-toolbar-group]
@@ -1628,4 +1656,69 @@ html .toolbar-card input[type="range"] {
   color: #fff;
   border-color: var(--color-accent);
   transform: translateY(-1px);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   # SPRINT 4 — Navegación: barra lateral → barra superior horizontal
+   Solo ≥769px. En móvil se conserva el menú tipo drawer (hamburguesa).
+═══════════════════════════════════════════════════════════════ */
+@media (min-width: 769px) {
+  :root { --topnav-h: 56px; }
+  .app-layout { flex-direction: column; }
+  .sidebar {
+    width: 100%; height: var(--topnav-h); flex-direction: row; align-items: center;
+    position: sticky; top: 0; z-index: 95; overflow: visible;
+    border-right: none; border-bottom: 1px solid var(--color-border);
+    padding: 0 var(--space-4); gap: var(--space-3);
+  }
+  .sidebar-logo { border-bottom: none; padding: 0 var(--space-3) 0 0; font-size: var(--fs-md); }
+  .logo-icon { width: 2rem; height: 2rem; }
+  .sidebar-nav { flex: 1; display: flex; align-items: center; gap: 2px; padding: 0; min-width: 0; }
+  .sidebar-nav > .nav-item { width: auto; margin: 0; white-space: nowrap; padding: var(--space-2) var(--space-3); }
+
+  .nav-group { position: relative; margin: 0; padding: 0; border-left: none; border-bottom: 3px solid transparent; }
+  .nav-group[data-group-color="teal"]   { border-bottom-color: var(--color-accent); }
+  .nav-group[data-group-color="purple"] { border-bottom-color: #8b5cf6; }
+  .nav-group[data-group-color="gold"]   { border-bottom-color: var(--color-accent2); }
+  .nav-group[data-group-color="red"]    { border-bottom-color: var(--color-danger); }
+  .nav-group[data-group-color="green"]  { border-bottom-color: var(--color-success); }
+  .nav-group .nav-group-label {
+    padding: var(--space-2) var(--space-3); cursor: pointer; white-space: nowrap;
+    border-radius: var(--radius-md); user-select: none;
+  }
+  .nav-group .nav-group-label::after { content: " ▾"; font-size: .85em; }
+  .nav-group:hover > .nav-group-label,
+  .nav-group.open > .nav-group-label,
+  .nav-group.has-active > .nav-group-label { background: var(--color-accent-soft); color: var(--color-accent); }
+
+  .nav-menu {
+    display: none; position: absolute; top: 100%; left: 0; min-width: 230px;
+    padding: var(--space-2); background: var(--color-surface);
+    border: 1.5px solid var(--color-border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg); z-index: 120;
+  }
+  .nav-group:nth-last-child(-n+2) > .nav-menu { left: auto; right: 0; }
+  .nav-group.open > .nav-menu { display: block; }
+  @media (hover: hover) { .nav-group:hover > .nav-menu { display: block; } }
+  .nav-menu .nav-item { white-space: nowrap; }
+  .nav-item-nested::before { display: none; }
+
+  .sidebar-footer {
+    flex-direction: row; align-items: center; border-top: none; padding: 0;
+    margin-left: auto; gap: var(--space-1);
+  }
+  .sidebar-footer .btn-icon { width: auto !important; white-space: nowrap; }
+  .backup-menu { top: calc(100% + 8px); bottom: auto; left: auto; right: 0; width: 300px; }
+
+  .header { top: var(--topnav-h); }
+}
+@media (min-width: 769px) and (max-width: 1100px) {
+  /* Pantallas medianas: solo iconos/etiquetas cortas en el pie de la barra */
+  #dark-label { display: none; }
+  .sidebar-nav > .nav-item, .nav-group .nav-group-label { padding-left: var(--space-2); padding-right: var(--space-2); }
+}
+/* Móvil: dentro del drawer los grupos se ven siempre desplegados */
+@media (max-width: 768px) {
+  .nav-menu { display: block; }
+  .nav-group .nav-group-label { cursor: default; }
 }

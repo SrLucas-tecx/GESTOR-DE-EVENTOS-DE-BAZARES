@@ -14,6 +14,7 @@ function _randomZoneColor() {
 // [EDITABLE: llama a setCanvasMode('zone') para activar el dibujado de zonas]
 function setCanvasMode(mode) {
   bazaarCanvas.setMode(mode);
+  setSideTab(mode === "zone" ? "zonas" : "mesas");
 }
 
 function toggleLayer(layer) {
@@ -70,8 +71,8 @@ function exportZonesJSON() {
 }
 
 // Elimina TODAS las zonas del piso activo
-function clearAllZones() {
-  if (!confirm("¿Eliminar todas las zonas del plano?")) return;
+async function clearAllZones() {
+  if (!await appConfirm("¿Eliminar todas las zonas del plano?", "Eliminar zonas")) return;
   const floor = getActiveFloor(getActiveBazaar());
   if (floor) floor.zones = [];
   bazaarCanvas.zones = [];
@@ -147,8 +148,8 @@ function resetBazaarZoom() {
 }
 
 // Reset completo: borra todos los objetos del piso y la imagen de fondo.
-function resetBazaarCanvas() {
-  if (!confirm("¿Eliminar todas las mesas, elementos, zonas e imagen de fondo? Esta acción no se puede deshacer.")) return;
+async function resetBazaarCanvas() {
+  if (!await appConfirm("¿Eliminar todas las mesas, elementos, zonas e imagen de fondo? Esta acción no se puede deshacer.", "Limpiar plano", "Limpiar plano")) return;
   const bz = getActiveBazaar();
   const floor = getActiveFloor(bz);
   if (!floor) return;
@@ -225,9 +226,9 @@ function addTableToCore() {
 }
 
 // [NUEVO] Eliminar mesa del canvas
-function deleteTable(tableId) {
+async function deleteTable(tableId) {
   const bz = getActiveBazaar();
-  if (!confirm(`¿Eliminar esta mesa del plano?`)) return;
+  if (!await appConfirm("¿Eliminar esta mesa del plano?", "Eliminar mesa")) return;
   const floor = getActiveFloor(bz);
   if (!floor) return;
   floor.tables = floor.tables.filter((t) => t.id !== tableId);
@@ -341,3 +342,48 @@ function rotateSelectedTable(delta) {
 }
 
 // ==========================================
+
+// ── Plano: UI (plegable, pestañas del panel lateral, atajos) ──
+function toggleBgControls(btn) {
+  const group = btn.closest(".bg-group");
+  if (!group) return;
+  const collapsed = group.classList.toggle("collapsed");
+  btn.setAttribute("aria-expanded", String(!collapsed));
+  try { localStorage.setItem("BAZARIX_BG_COLLAPSED", collapsed ? "1" : "0"); } catch {}
+}
+
+function setSideTab(tab) {
+  const panel = document.querySelector(".map-side-panel");
+  if (!panel) return;
+  panel.dataset.tab = tab;
+  panel.querySelectorAll(".side-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  if (tab === "zonas") bazaarCanvas.updateZoneUI();
+}
+
+function handleMapShortcut(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!document.getElementById("sec-mapa")?.classList.contains("active")) return;
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
+  if (document.querySelector(".modal-overlay.open")) return;
+  const key = e.key.toLowerCase();
+  const actions = {
+    v: () => setCanvasMode("select"),
+    i: () => setCanvasMode("imgEdit"),
+    z: () => setCanvasMode("zone"),
+    m: () => addTableToCore(),
+    r: () => rotateSelectedTable(e.shiftKey ? -90 : 90),
+    escape: () => setCanvasMode("select")
+  };
+  if (!actions[key]) return;
+  e.preventDefault();
+  actions[key]();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    if (localStorage.getItem("BAZARIX_BG_COLLAPSED") === "1") {
+      const btn = document.querySelector(".bg-group .group-toggle");
+      if (btn) toggleBgControls(btn);
+    }
+  } catch {}
+});

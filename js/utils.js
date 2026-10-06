@@ -22,7 +22,8 @@ function showToast(message, type = "success") {
   const t = document.getElementById("toast");
   if (!t) return;
   t.textContent = message;
-  t.style.background = type === "error" ? "var(--color-danger)" : "var(--color-text)";
+  t.style.background = type === "error" ? "#8f2028" : "#12383c";
+  t.style.color = "#f4fffe";
   t.classList.add("show");
   setTimeout(() => t.classList.remove("show"), 2800);
 }

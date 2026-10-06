@@ -6,7 +6,7 @@
 
 // 17. PLANTILLAS DE EXPOSITORES (guardar y reutilizar)
 // ==========================================
-function guardarComoPlantilla(expId) {
+async function guardarComoPlantilla(expId) {
   const exp = getActiveBazaar().expositores.find((e) => e.id === expId);
   if (!exp) return;
 
@@ -15,7 +15,7 @@ function guardarComoPlantilla(expId) {
     (p) => p.negocio === exp.negocio && p.nombre === exp.nombre
   );
   if (yaExiste) {
-    if (!confirm(`"${exp.negocio}" ya está guardado como plantilla. ¿Sobreescribir?`)) return;
+    if (!await appConfirm(`"${exp.negocio}" ya está guardado como plantilla. ¿Sobreescribir?`, "Sobrescribir plantilla", "Sobrescribir")) return;
     AppState.expositorPlantillas = AppState.expositorPlantillas.filter(
       (p) => !(p.negocio === exp.negocio && p.nombre === exp.nombre)
     );
@@ -102,8 +102,8 @@ function usarPlantilla(pltId) {
   openModal("modal-expositor");
 }
 
-function eliminarPlantilla(pltId) {
-  if (!confirm("¿Eliminar esta plantilla?")) return;
+async function eliminarPlantilla(pltId) {
+  if (!await appConfirm("¿Eliminar esta plantilla?", "Eliminar plantilla")) return;
   AppState.expositorPlantillas = AppState.expositorPlantillas.filter((p) => p.id !== pltId);
   saveState();
   renderPlantillas();

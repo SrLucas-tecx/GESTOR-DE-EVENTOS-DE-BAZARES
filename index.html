@@ -15,6 +15,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
   <link rel="stylesheet" href="Styles.css">
+  <link rel="stylesheet" href="plano.css">
   <!-- Layout y estilos en Styles.css -->
 </head>
 <body class="dark">
@@ -39,49 +40,63 @@
          mismo flujo (gestionan datos que usan los expositores).
          [EDITABLE: agrega más botones .nav-item aquí para nuevas secciones] -->
     <nav class="sidebar-nav">
+      <button class="nav-item" onclick="switchTab('inicio')">🏠 Inicio</button>
+      <button class="nav-item" onclick="switchTab('bazares')">🏪 Mis Bazares</button>
+
       <button class="nav-item active"  onclick="switchTab('ficha')">📝 Ficha del Evento</button>
 
       <div class="nav-group" data-group-color="teal">
         <div class="nav-group-label">Expositores</div>
+        <div class="nav-menu">
         <button class="nav-item"        onclick="switchTab('expositores')">👥 Expositores</button>
         <button class="nav-item nav-item-nested" onclick="switchTab('categorias')">🏷️ Categorías</button>
         <button class="nav-item nav-item-nested" onclick="switchTab('plantillas')">💾 Guardados</button>
+        </div>
       </div>
 
       <div class="nav-group" data-group-color="purple">
         <div class="nav-group-label">Planeación</div>
+        <div class="nav-menu">
         <button class="nav-item" onclick="switchTab('staff')">🙋 Staff</button>
         <button class="nav-item" onclick="switchTab('tareas')">✅ Tareas (Previo / Post)</button>
         <button class="nav-item" onclick="switchTab('compras')">🛒 Lista de Compras</button>
         <button class="nav-item" onclick="switchTab('minuto-a-minuto')">🕒 Minuto a Minuto</button>
         <button class="nav-item" onclick="switchTab('invitados')">🎟️ Lista de Expositores</button>
+        </div>
       </div>
 
       <div class="nav-group" data-group-color="gold">
         <div class="nav-group-label">Finanzas</div>
+        <div class="nav-menu">
         <button class="nav-item" onclick="switchTab('finanzas')">💰 Control de Pagos</button>
         <button class="nav-item" onclick="switchTab('costos')">📊 Costos del Evento</button>
+        </div>
       </div>
 
       <div class="nav-group" data-group-color="red">
         <div class="nav-group-label">Evento en vivo</div>
+        <div class="nav-menu">
         <button class="nav-item" onclick="switchTab('mapa')">🗺️ Plano del Evento</button>
         <button class="nav-item" onclick="switchTab('dia-evento')">🎪 Día del Evento</button>
+        </div>
       </div>
 
       <div class="nav-group" data-group-color="green">
         <div class="nav-group-label">Monitoreo</div>
+        <div class="nav-menu">
         <button class="nav-item" onclick="switchTab('estadisticas')">📈 Métricas y Gráficas</button>
         <button class="nav-item" onclick="switchTab('alertas')" style="position:relative;">
           ⚠️ Alertas
           <span id="alert-badge-nav" style="display:none;margin-left:auto;background:var(--color-danger);color:#fff;border-radius:999px;font-size:9px;font-weight:800;padding:1px 5px;">0</span>
         </button>
+        </div>
       </div>
 
       <div class="nav-group" data-group-color="teal">
         <div class="nav-group-label">Bazares</div>
-        <button class="nav-item" onclick="switchTab('bazares')">🏪 Mis Bazares</button>
+        <div class="nav-menu">
         <button class="nav-item" onclick="switchTab('comparar')">📊 Comparar Bazares</button>
+        </div>
       </div>
     </nav>
 
@@ -152,6 +167,17 @@
          # PAGE-CONTENT — Contenedor de todas las secciones/tabs
     ═════════════════════════════════════════════════════════════ -->
     <div class="page-content">
+
+      <section id="sec-inicio" class="page-section">
+        <div class="section-header" style="justify-content:space-between;">
+          <div>
+            <h2 class="section-title">Inicio</h2>
+            <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Abre un bazar para continuar su organización.</p>
+          </div>
+          <button class="btn-primary" onclick="createBazaar()">+ Nuevo Bazar</button>
+        </div>
+        <div id="bazaar-home-grid" class="bazaar-home-grid"></div>
+      </section>
 
 
       <!-- ─────────────────────────────────────────────────────────
@@ -432,8 +458,8 @@
           <div class="control-group-inline floor-controls">
             <label class="form-label" style="margin:0;">Piso:</label>
             <select id="floor-select" class="filter-select" onchange="switchFloor(this.value)"></select>
-            <button class="btn-secondary btn-sm" onclick="addFloor()">➕ Piso</button>
-            <button class="btn-danger btn-sm" onclick="deleteCurrentFloor()">🗑️</button>
+            <button class="btn-secondary btn-sm" onclick="addFloor()"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Piso</button>
+            <button class="btn-danger btn-sm" onclick="deleteCurrentFloor()" title="Eliminar piso actual" aria-label="Eliminar piso actual"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
           </div>
           <div class="top-bar-center control-group-inline">
@@ -460,43 +486,37 @@
             <span class="canvas-toolbar-label group-title">Modo</span>
             <div class="canvas-toolbar-group-actions group-actions">
               <button class="canvas-mode-btn active" data-mode="select"
-                      onclick="setCanvasMode('select')" title="Mover mesas y elementos">
-                🖱️ Seleccionar
-              </button>
+                      onclick="setCanvasMode('select')" title="Mover mesas y elementos (V)"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg> Seleccionar</button>
               <button class="canvas-mode-btn" data-mode="imgEdit"
-                      onclick="setCanvasMode('imgEdit')" title="Manipular imagen de fondo con handles">
-                📐 Editar Imagen
-              </button>
+                      onclick="setCanvasMode('imgEdit')" title="Manipular imagen de fondo (I)"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg> Editar Imagen</button>
               <button class="canvas-mode-btn" data-mode="zone"
-                      onclick="setCanvasMode('zone')" title="Dibujar zonas / áreas en el plano">
-                🕸️ Zonas
-              </button>
+                      onclick="setCanvasMode('zone')" title="Dibujar zonas / áreas (Z)"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Zonas</button>
             </div>
           </div>
 
           <!-- Grupo: Imagen de fondo -->
-          <div class="canvas-toolbar-group">
-            <span class="canvas-toolbar-label group-title">Imagen de Fondo</span>
+          <div class="canvas-toolbar-group bg-group">
+            <button type="button" class="canvas-toolbar-label group-title group-toggle" onclick="toggleBgControls(this)" aria-expanded="true">Imagen de fondo <span class="chev">▾</span></button>
             <input type="file" id="floor-plan-upload" accept="image/*" style="display:none;"
                    onchange="handleFloorPlanUpload(event)">
                <div class="image-controls-row group-actions">
             <button class="btn-secondary btn-sm"
-               onclick="document.getElementById('floor-plan-upload').click()">🖼️ Cargar</button>
+               onclick="document.getElementById('floor-plan-upload').click()"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></svg> Cargar</button>
             <label class="form-label" style="margin:0;white-space:nowrap;">Opac:</label>
             <input type="range" id="floor-plan-opacity" min="0" max="100" step="5" style="width:80px;"
               oninput="updateFloorPlanOpacity(this.value)">
             <output id="floor-plan-opacity-value">100%</output>
-            <label class="form-label" style="margin:0;white-space:nowrap;">Tam:</label>
-            <input type="range" id="floor-plan-scale" min="5" max="500" step="5" style="width:90px;"
-              oninput="updateFloorPlanScale(this.value)">
-            <output id="floor-plan-scale-value">100%</output>
-               </div>
-               <div class="image-transform-controls">
+            <div class="image-transform-controls">
             <button class="btn-secondary btn-sm" onclick="rotateFloorPlan(90)" title="Girar imagen 90 grados">↻ 90°</button>
             <button class="btn-secondary btn-sm" onclick="moveFloorPlan(-20, 0)">◀</button>
             <button class="btn-secondary btn-sm" onclick="moveFloorPlan(20, 0)">▶</button>
             <button class="btn-secondary btn-sm" onclick="moveFloorPlan(0, -20)">▲</button>
             <button class="btn-secondary btn-sm" onclick="moveFloorPlan(0, 20)">▼</button>
+               </div>
+            <label class="form-label" style="margin:0;white-space:nowrap;">Tam:</label>
+            <input type="range" id="floor-plan-scale" min="5" max="500" step="5" style="width:90px;"
+              oninput="updateFloorPlanScale(this.value)">
+            <output id="floor-plan-scale-value">100%</output>
                </div>
           </div>
 
@@ -508,44 +528,44 @@
           <div class="canvas-toolbar-group">
               <span class="canvas-toolbar-label group-title">Añadir</span>
               <div class="canvas-toolbar-group-actions group-actions">
-              <button class="btn-primary btn-sm" onclick="addTableToCore()">➕ Mesa</button>
-              <button class="btn-secondary btn-sm" onclick="addMapElement()">＋ Elemento</button>
+              <button class="btn-primary btn-sm" onclick="addTableToCore()" title="Agregar mesa (M)"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Mesa</button>
+              <button class="btn-secondary btn-sm" onclick="addMapElement()"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Elemento</button>
                 <button class="btn-danger btn-sm" onclick="deleteSelectedMapObject()"
-                  title="Eliminar únicamente la mesa, elemento o zona seleccionada">🗑️ Eliminar seleccionado</button>
-            </div>
-            <div class="canvas-toolbar-group" style="border:none;padding:0;">
-              <span class="canvas-toolbar-label group-title">Girar:</span>
-              <div class="canvas-toolbar-group-actions group-actions">
-                <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(-90)">↶</button>
-                <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(90)">↷</button>
-              </div>
+                  title="Eliminar únicamente la mesa, elemento o zona seleccionada"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar seleccionado</button>
             </div>
           </div>
+          <div class="canvas-toolbar-group">
+              <span class="canvas-toolbar-label group-title">Girar:</span>
+              <div class="canvas-toolbar-group-actions group-actions">
+                <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(-90)" title="Girar -90° (Shift+R)">↶</button>
+                <button class="rotation-button rotation-button-sm" onclick="rotateSelectedTable(90)" title="Girar 90° (R)">↷</button>
+              </div>
+            </div>
 
           <!-- Grupo: Sprint 2 — capas y productividad -->
           <div class="canvas-toolbar-group">
             <span class="canvas-toolbar-label group-title">Capas</span>
               <div class="canvas-toolbar-group-actions group-actions">
                 <button class="canvas-mode-btn active" id="layer-btn-tables"
-                  onclick="toggleLayer('tables')" title="Mostrar/ocultar mesas">🪑 Mesas</button>
+                  onclick="toggleLayer('tables')" title="Mostrar/ocultar mesas"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M12 3v18"/></svg> Mesas</button>
                 <button class="canvas-mode-btn active" id="layer-btn-zones"
-                  onclick="toggleLayer('zones')" title="Mostrar/ocultar zonas">🕸️ Zonas</button>
+                  onclick="toggleLayer('zones')" title="Mostrar/ocultar zonas"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Zonas</button>
               </div>
           </div>
           <div class="canvas-toolbar-group">
             <span class="canvas-toolbar-label group-title">Plano</span>
               <div class="canvas-toolbar-group-actions group-actions">
                 <button class="canvas-mode-btn active" id="btn-snap-tables"
-                  onclick="toggleSnapTables()" title="Snap entre mesas">🧲 Snap</button>
+                  onclick="toggleSnapTables()" title="Snap entre mesas"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4"/><path d="m12 15 4 4"/></svg> Snap</button>
                 <button class="btn-secondary btn-sm" onclick="autoNumberTables()"
-                  title="Renombrar mesas por posición A-01, B-02...">🔢 Numerar</button>
+                  title="Renombrar mesas por posición A-01, B-02..."><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg> Numerar</button>
               </div>
           </div>
           <!-- Grupo: Peligro -->
           <div class="canvas-toolbar-group">
             <span class="canvas-toolbar-label group-title">Limpiar</span>
             <div class="canvas-toolbar-group-actions group-actions">
-              <button class="btn-danger btn-sm" onclick="resetBazaarCanvas()">🗑️ Todo el Plano</button>
+              <button class="btn-danger btn-sm" onclick="resetBazaarCanvas()"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Todo el Plano</button>
             </div>
           </div>
 
@@ -553,7 +573,7 @@
           <div class="canvas-toolbar-group">
             <span class="canvas-toolbar-label group-title">Exportar</span>
             <div class="canvas-toolbar-group-actions group-actions">
-              <button class="btn-primary btn-sm" onclick="exportarMapaPDF()" title="Descargar el plano actual como PDF">📄 Mapa PDF</button>
+              <button class="btn-primary btn-sm" onclick="exportarMapaPDF()" title="Descargar el plano actual como PDF"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg> Mapa PDF</button>
             </div>
           </div>
         </div>
@@ -583,7 +603,8 @@
           </div>
 
           <!-- Panel derecho: Asistencia + Zonas -->
-          <div class="map-side-panel">
+          <div class="map-side-panel" data-tab="mesas">
+            <div class="side-tabs" role="tablist"><button type="button" class="side-tab active" data-tab="mesas" role="tab" onclick="setSideTab('mesas')"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Mesas</button><button type="button" class="side-tab" data-tab="zonas" role="tab" onclick="setSideTab('zonas')"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Zonas</button></div>
 
             <!-- Panel de asistencia de mesas -->
             <div class="chart-card" style="flex-shrink:0;">
@@ -619,7 +640,7 @@
           <p class="map-help-text" id="map-help-select">
             💡 <strong>Arrastrar plano:</strong> clic en espacio vacío. |
             <strong>Mover mesa:</strong> clic y arrastra. |
-            <strong>Editar mesa:</strong> doble clic.
+            <strong>Editar mesa:</strong> doble clic. | <strong>Atajos:</strong> V · I · Z · M · R · Supr · Esc.
           </p>
           <p class="map-help-text" id="map-help-imgEdit" style="display:none;color:var(--color-accent2);">
             📐 <strong>Modo Editar Imagen:</strong> arrastra la imagen para moverla.
@@ -1861,6 +1882,28 @@
   </div>
 </div>
 
+<div id="modal-app-dialog" class="modal-overlay" role="presentation" aria-hidden="true">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title" aria-describedby="app-dialog-message">
+    <div class="modal-header">
+      <h2 class="modal-title" id="app-dialog-title">BAZARIX</h2>
+      <button class="modal-close" type="button" onclick="cancelAppDialog()" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="app-dialog-form" onsubmit="submitAppDialog(event)">
+      <div class="modal-body">
+        <p id="app-dialog-message" style="white-space:pre-line;margin:0 0 12px;"></p>
+        <div id="app-dialog-input-group" class="form-group" style="display:none;margin-bottom:0;">
+          <label id="app-dialog-input-label" class="form-label" for="app-dialog-input">Nombre</label>
+          <input id="app-dialog-input" class="form-input" type="text" autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="app-dialog-cancel" class="btn-secondary" type="button" onclick="cancelAppDialog()">Cancelar</button>
+        <button id="app-dialog-confirm" class="btn-primary" type="submit">Aceptar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Modo presentación (Sprint 4) -->
 <div id="presentation-overlay" style="display:none;position:fixed;inset:0;z-index:9999;
     background:#0f172a;flex-direction:column;align-items:center;justify-content:center;">
@@ -1882,6 +1925,7 @@
 <!-- ── MÓDULOS — orden de dependencias ── -->
 <script src="js/state.js"></script>
 <script src="js/utils.js"></script>
+<script src="js/dialogs.js"></script>
 <script src="js/bazaars.js"></script>
 <script src="js/responsables.js"></script>
 <script src="js/eventos.js"></script>

@@ -149,8 +149,8 @@ function togglePaymentStatus(id) {
   }
 }
 
-function deleteExpositor(id) {
-  if (!confirm("¿Eliminar este expositor del bazar?")) return;
+async function deleteExpositor(id) {
+  if (!await appConfirm("¿Eliminar este expositor del bazar?", "Eliminar expositor")) return;
   const bz = getActiveBazaar();
   bz.expositores = bz.expositores.filter((e) => e.id !== id);
   saveState();
@@ -200,8 +200,8 @@ function saveCategoriaHandler(e) {
   showToast(id ? "✅ Categoría actualizada" : "✅ Categoría creada");
 }
 
-function deleteCategoria(id) {
-  if (!confirm("¿Eliminar esta categoría?")) return;
+async function deleteCategoria(id) {
+  if (!await appConfirm("¿Eliminar esta categoría?", "Eliminar categoría")) return;
   AppState.categorias = AppState.categorias.filter((c) => c.id !== id);
   saveState();
   renderAll();

@@ -122,9 +122,9 @@ function toggleTarea(id) {
   renderFichaResumen(bz);
 }
 
-function deleteTarea(id) {
+async function deleteTarea(id) {
   const bz = getActiveBazaar();
-  if (!bz || !confirm("¿Eliminar esta tarea?")) return;
+  if (!bz || !await appConfirm("¿Eliminar esta tarea?", "Eliminar tarea")) return;
   bz.tareas = bz.tareas.filter((t) => t.id !== id);
   saveState();
   renderTareas();
