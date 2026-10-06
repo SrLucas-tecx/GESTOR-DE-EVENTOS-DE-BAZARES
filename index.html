@@ -94,17 +94,18 @@
       </div>
     </nav>
 
-    <!-- # SIDEBAR / Footer: modo oscuro + menú de respaldo -->
+    <!-- # SIDEBAR / Herramientas: tema + menú de respaldo -->
     <div class="sidebar-footer">
-      <button class="btn-icon" onclick="toggleDarkMode()">
-        <span id="dark-icon">☀️</span> <span id="dark-label">Modo Claro</span>
-      </button>
-      <!-- Menú de respaldo: el <div> es HERMANO del <button>, no hijo -->
       <div style="position:relative;">
-        <button class="btn-icon" style="width:100%;" onclick="toggleBackupMenu()">
-          💾 Copia de Seguridad
+        <button class="btn-icon tools-menu-trigger" onclick="toggleBackupMenu()" aria-haspopup="true" aria-controls="backup-menu" aria-label="Abrir herramientas: tema y copias de seguridad">
+          ⚙️ <span>Herramientas</span>
         </button>
         <div id="backup-menu" class="backup-menu">
+          <div class="backup-menu-label">Preferencias</div>
+          <button class="backup-menu-item" onclick="toggleDarkMode()" aria-label="Cambiar modo de color">
+            <span id="dark-icon">☀️</span> <span id="dark-label">Modo Claro</span>
+          </button>
+          <div class="backup-menu-divider"></div>
           <div class="backup-menu-label">Exportar / Importar</div>
           <button class="backup-menu-item" onclick="exportarJSON()">📄 Guardar Datos (JSON)</button>
           <button class="backup-menu-item" onclick="exportarJSONCompleto()">🛡️ Crear Respaldo Completo</button>
