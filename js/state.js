@@ -48,6 +48,7 @@ function emptyCostsConfig() {
     chairsEnabled: false,
     chairsQty: 0,
     chairsTotal: 0,   // <- NUEVO: costo TOTAL
+    chairsPerTable: 2,
     ivaEnabled: false, // IVA opcional sobre todos los egresos
     ivaRate: 16,
     extraCosts: []    // [{ id, name, comment, unit, qty, cost }]  cost = unit × qty (sin IVA)
@@ -64,7 +65,7 @@ function emptyMinuteByMinute() {
 
 // Ficha descriptiva del evento (el nombre del evento es bz.name).
 function emptyEvento() {
-  return { fecha: "", objetivo: "", lideres: "", publico: "", asistentes: "", lugar: "", staff: "" };
+  return { fecha: "", objetivo: "", lideres: "", publico: "", asistentes: "", lugar: "", staff: "", presupuestoBase: "" };
 }
 
 // Roles sugeridos para un bazar nuevo (el usuario puede editarlos o borrarlos).
@@ -83,6 +84,12 @@ function ensureEventoFields(bz) {
   const base = emptyEvento();
   if (!bz.evento || typeof bz.evento !== "object" || Array.isArray(bz.evento)) bz.evento = base;
   else Object.keys(base).forEach((k) => { if (bz.evento[k] === undefined) bz.evento[k] = base[k]; });
+  if (bz.evento.presupuestoBase !== "" && bz.evento.presupuestoBase !== null) {
+    const presupuestoBase = Number(bz.evento.presupuestoBase);
+    bz.evento.presupuestoBase = Number.isFinite(presupuestoBase) ? Math.max(0, presupuestoBase) : "";
+  } else {
+    bz.evento.presupuestoBase = "";
+  }
 
   if (!Array.isArray(bz.roles)) bz.roles = defaultRoles();
   if (!Array.isArray(bz.responsables)) bz.responsables = [];
@@ -267,6 +274,7 @@ function migrateState(parsed) {
     }
     if (cfg.tablesTotal === undefined) cfg.tablesTotal = 0;
     if (cfg.chairsTotal === undefined) cfg.chairsTotal = 0;
+    if (!Number.isSafeInteger(Number(cfg.chairsPerTable)) || Number(cfg.chairsPerTable) < 0) cfg.chairsPerTable = 2;
 
     // Migrar expositores: agregar adelanto y fechaLimitePago si no existen
     (bz.expositores || []).forEach((exp) => {
@@ -277,6 +285,20 @@ function migrateState(parsed) {
       if (exp.banned === undefined) exp.banned = false;
       if (exp.mesasCantidad === undefined) exp.mesasCantidad = 1;
       if (exp.mesasCantidadOtro === undefined) exp.mesasCantidadOtro = "";
+      if (!Number.isFinite(Number(exp.sillasPorMesa))) exp.sillasPorMesa = cfg.chairsPerTable;
+      exp.sillasPorMesa = Math.max(0, Math.floor(Number(exp.sillasPorMesa)));
+      if (!Number.isFinite(Number(exp.sillasCantidad))) {
+        const mesas = exp.mesasCantidad === "otro" ? exp.mesasCantidadOtro : exp.mesasCantidad;
+        const totalSillas = Math.max(1, Math.floor(Number(mesas) || 1)) * exp.sillasPorMesa;
+        exp.sillasCantidad = Number.isSafeInteger(totalSillas) ? totalSillas : 0;
+      } else {
+        exp.sillasCantidad = Math.max(0, Math.floor(Number(exp.sillasCantidad)));
+      }
+      if (!Number.isFinite(Number(exp.sillasExtraCantidad))) exp.sillasExtraCantidad = 0;
+      exp.sillasExtraCantidad = Math.max(0, Math.floor(Number(exp.sillasExtraCantidad)));
+      if (!Number.isFinite(Number(exp.costoSillaExtra))) exp.costoSillaExtra = 0;
+      if (!Number.isFinite(Number(exp.costoExtraSillas))) exp.costoExtraSillas = 0;
+      if (!Number.isFinite(Number(exp.costoBase))) exp.costoBase = Math.max(0, Number(exp.costo || 0) - Number(exp.costoExtraSillas || 0));
       if (exp.areaEncargada === undefined) exp.areaEncargada = "";
       if (exp.encargadoId === undefined) exp.encargadoId = "";
       if (!Array.isArray(exp.historial)) exp.historial = [];

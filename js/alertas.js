@@ -113,7 +113,7 @@ function _alertaRow({ tipo, exp, t, c, label, isOverdue }) {
 
   let tipoIcon, titulo, subtitulo, detalle, acciones;
   if (tipo === "pago") {
-    const saldo = Number(exp.costo || 0) - Number(exp.adelanto || 0);
+    const saldo = getExpositorPendingBalance(exp);
     tipoIcon = "💰"; titulo = exp.negocio; subtitulo = `${exp.nombre} · ${exp.ubicacion}`;
     detalle = `${label} · Saldo: ${formatCurrency(saldo)}`;
     acciones = `

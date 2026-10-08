@@ -15,6 +15,7 @@ function renderInvitados() {
 
   const totalConf  = invitados.filter((i) => i.confirmado).length;
   const totalAsist = invitados.filter((i) => i.asistio).length;
+  renderPanelMetricas(bz);
 
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set("inv-stat-total",     invitados.length);

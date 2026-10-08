@@ -40,22 +40,118 @@ function openModalExpositor(id = null, categoryId = null) {
       toggleOtherTableCount();
       document.getElementById("exp-tel").value           = exp.tel || "";
       document.getElementById("exp-email").value         = exp.email || "";
-      document.getElementById("exp-costo").value         = exp.costo;
+      document.getElementById("exp-costo-base").value    = Math.max(0, Number(exp.costoBase ?? (Number(exp.costo || 0) - Number(exp.costoExtraSillas || 0))));
+      document.getElementById("exp-sillas-extra-enabled").checked = Number(exp.sillasExtraCantidad || 0) > 0;
+      document.getElementById("exp-sillas-extra-cantidad").value = exp.sillasExtraCantidad || 1;
+      document.getElementById("exp-costo-silla-extra").value = exp.costoSillaExtra || 0;
       document.getElementById("exp-adelanto").value      = exp.adelanto || 0;
       document.getElementById("exp-fecha-limite").value  = exp.fechaLimitePago || "";
       document.getElementById("exp-pagado").checked      = exp.pagado;
+      document.getElementById("exp-descuento").value     = exp.descuento || 0;
+      document.getElementById("exp-notas-credito").value = exp.notaCredito || "";
+      document.getElementById("exp-sillas-por-mesa").value = exp.sillasPorMesa ?? bz.costsConfig.chairsPerTable ?? 2;
       document.getElementById("exp-notas").value         = exp.notas || "";
       document.getElementById("exp-foto-base64").value   = exp.foto || "";
       if (exp.foto && box) box.innerHTML = `<img src="${exp.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     }
   } else {
     document.getElementById("modal-exp-title").textContent = "Nuevo Expositor";
+    document.getElementById("exp-sillas-por-mesa").value = bz.costsConfig.chairsPerTable ?? 2;
+    document.getElementById("exp-sillas-extra-enabled").checked = false;
+    document.getElementById("exp-sillas-extra-cantidad").value = 1;
+    document.getElementById("exp-costo-silla-extra").value = 0;
     if (categoryId && AppState.categorias.some((category) => category.id === categoryId)) {
       document.getElementById("exp-categoria").value = categoryId;
     }
   }
   populateExpositorAssignmentSelects(bz, exp);
+  updateExpositorExtraChairFields(false);
+  updateExpositorCostPreview();
+  updateExpositorPaymentFields();
   openModal("modal-expositor");
+}
+
+function setExpositorConditionalVisibility(element, visible) {
+  if (!element) return;
+  clearTimeout(element._visibilityTimer);
+  if (visible) {
+    element.hidden = false;
+    element.inert = false;
+    element.setAttribute("aria-hidden", "false");
+    requestAnimationFrame(() => element.classList.remove("is-collapsed"));
+  } else {
+    element.inert = true;
+    element.setAttribute("aria-hidden", "true");
+    element.classList.add("is-collapsed");
+    element._visibilityTimer = setTimeout(() => { element.hidden = true; }, 220);
+  }
+}
+
+function updateExpositorPaymentFields() {
+  const isPaidFull = document.getElementById("exp-pagado")?.checked || false;
+  const hasDiscount = Number(document.getElementById("exp-descuento")?.value || 0) > 0;
+  const paymentDetails = document.getElementById("exp-payment-details");
+  const creditNote = document.getElementById("exp-credit-note-wrap");
+  const balance = document.getElementById("exp-payment-balance");
+  const paidBadge = document.getElementById("exp-payment-paid-badge");
+
+  setExpositorConditionalVisibility(paymentDetails, !isPaidFull);
+  setExpositorConditionalVisibility(creditNote, hasDiscount);
+  setExpositorConditionalVisibility(balance, !isPaidFull);
+  setExpositorConditionalVisibility(paidBadge, isPaidFull);
+  updateExpositorPaymentPreview();
+}
+
+function updateExpositorPaymentPreview() {
+  const balance = document.getElementById("exp-payment-balance");
+  if (!balance || document.getElementById("exp-pagado")?.checked) return;
+  const total = Math.max(0, Number(document.getElementById("exp-costo")?.value || 0));
+  const discount = Math.max(0, Number(document.getElementById("exp-descuento")?.value || 0));
+  const advance = Math.max(0, Number(document.getElementById("exp-adelanto")?.value || 0));
+  const pending = Math.max(0, total - discount - advance);
+  balance.innerHTML = `<span>Saldo pendiente</span><strong>${formatCurrency(pending)}</strong>`;
+}
+
+function updateExpositorExtraChairFields(clearWhenDisabled = true) {
+  const enabled = document.getElementById("exp-sillas-extra-enabled")?.checked || false;
+  const details = document.getElementById("exp-sillas-extra-details");
+  document.getElementById("exp-sillas-extra-cantidad").required = enabled;
+  document.getElementById("exp-costo-silla-extra").required = enabled;
+  if (!enabled && clearWhenDisabled) {
+    document.getElementById("exp-sillas-extra-cantidad").value = 1;
+    document.getElementById("exp-costo-silla-extra").value = 0;
+  }
+  setExpositorConditionalVisibility(details, enabled);
+  updateExpositorCostPreview();
+}
+
+function updateExpositorCostPreview() {
+  const baseInput = document.getElementById("exp-costo-base");
+  const totalInput = document.getElementById("exp-costo");
+  const extraSummary = document.getElementById("exp-sillas-extra-total");
+  if (!baseInput || !totalInput || !extraSummary) return;
+  const baseCost = Math.max(0, Number(baseInput.value) || 0);
+  const hasExtraChairs = document.getElementById("exp-sillas-extra-enabled")?.checked || false;
+  const extraCount = hasExtraChairs
+    ? Math.max(0, Math.floor(Number(document.getElementById("exp-sillas-extra-cantidad")?.value) || 0))
+    : 0;
+  const unitCost = hasExtraChairs
+    ? Math.max(0, Number(document.getElementById("exp-costo-silla-extra")?.value) || 0)
+    : 0;
+  const extraCost = extraCount * unitCost;
+  const finalCost = Math.round((baseCost + extraCost) * 100) / 100;
+  totalInput.value = Number.isFinite(finalCost) ? finalCost.toFixed(2) : "";
+  extraSummary.textContent = extraCount
+    ? `${extraCount} silla(s) extra × ${formatCurrency(unitCost)} = ${formatCurrency(extraCost)}`
+    : "Sin cargo de sillas extra.";
+  updateExpositorPaymentPreview();
+}
+
+function getExpositorPendingBalance(exp) {
+  if (!exp || exp.pagado) return 0;
+  return Math.max(0,
+    Number(exp.costo || 0) - Number(exp.descuento || 0) - Number(exp.adelanto || 0)
+  );
 }
 
 function populateExpositorAssignmentSelects(bz, exp = null) {
@@ -75,10 +171,14 @@ function populateExpositorAssignmentSelects(bz, exp = null) {
       const owner = bz.expositores.find((item) => item.id === table.exhibitorId);
       const selected = selectedTableIds.includes(table.id);
       const ownedByOther = owner && owner.id !== exp?.id;
-      return `<label style="display:flex;align-items:center;gap:8px;padding:5px 0;${ownedByOther ? "opacity:.65;" : ""}">
+      const ariaLabel = `${floor.name} · ${table.name}${ownedByOther ? ` · Asignada a ${owner.negocio}` : ""}`;
+      return `<label class="exp-table-tile${ownedByOther ? " is-assigned" : ""}" title="${escapeHTML(ariaLabel)}">
         <input type="checkbox" class="exp-table-option" value="${escapeHTML(table.id)}"
-          ${selected ? "checked" : ""} onchange="updateExpositorTableSelection(this)">
-        <span>${escapeHTML(floor.name)} · ${escapeHTML(table.name)}${ownedByOther ? ` — asignada a ${escapeHTML(owner.negocio)}` : ""}</span>
+          aria-label="${escapeHTML(ariaLabel)}" ${selected ? "checked" : ""}
+          onchange="updateExpositorTableSelection(this)">
+        <span class="exp-table-tile-name">${escapeHTML(table.name)}</span>
+        <span class="exp-table-tile-floor">${escapeHTML(floor.name)}</span>
+        ${ownedByOther ? `<span class="exp-table-tile-status">Asignada</span>` : ""}
       </label>`;
     }).join("")
     : `<span class="form-hint">No hay mesas en el plano. Agrega mesas en la sección Plano del Evento.</span>`;
@@ -105,6 +205,7 @@ function populateExpositorAssignmentSelects(bz, exp = null) {
   if (responsibleSelect) responsibleSelect.dataset.selectedId = exp?.encargadoId || "";
   updateExpositorAreaStaff();
   updateExpositorTableSelection();
+  updateExpositorChairPreview();
 }
 
 function getExpositorTableIds(exp, bz = getActiveBazaar()) {
@@ -135,6 +236,18 @@ function getExpositorRequestedTableCount(exp) {
   return Math.max(1, Math.floor(Number(raw) || 1));
 }
 
+function updateExpositorChairPreview() {
+  const output = document.getElementById("exp-sillas-total");
+  if (!output) return;
+  const tables = getExpositorRequestedTableCount({
+    mesasCantidad: document.getElementById("exp-mesas-cantidad")?.value,
+    mesasCantidadOtro: document.getElementById("exp-mesas-otro")?.value
+  });
+  const chairsPerTable = Math.max(0, Math.floor(Number(document.getElementById("exp-sillas-por-mesa")?.value) || 0));
+  const totalChairs = tables * chairsPerTable;
+  output.textContent = Number.isSafeInteger(totalChairs) ? String(totalChairs) : "Revisa la cantidad";
+}
+
 function renderExpositorTableAssignmentHint(exp, requested, selectedCount, totalTables) {
   const hint = document.getElementById("exp-table-assignment-hint");
   if (!hint) return;
@@ -160,10 +273,13 @@ function updateExpositorTableSelection(changedCheckbox = null) {
   const count = checkboxes.filter((checkbox) => checkbox.checked).length;
   checkboxes.forEach((checkbox) => {
     checkbox.disabled = !checkbox.checked && count >= requested;
+    checkbox.closest(".exp-table-tile")?.classList.toggle("is-selected", checkbox.checked);
+    checkbox.closest(".exp-table-tile")?.classList.toggle("is-disabled", checkbox.disabled);
   });
   const expId = document.getElementById("exp-id")?.value;
   const exp = getActiveBazaar()?.expositores.find((item) => item.id === expId) || null;
   renderExpositorTableAssignmentHint(exp, requested, count, checkboxes.length);
+  updateExpositorChairPreview();
 }
 
 function getExpositorLocation(exp, bz = getActiveBazaar()) {
@@ -251,8 +367,32 @@ async function saveExpositorHandler(e) {
     mesasCantidad: document.getElementById("exp-mesas-cantidad").value,
     mesasCantidadOtro: document.getElementById("exp-mesas-otro").value
   });
+  if (!Number.isSafeInteger(requestedTableCount) || requestedTableCount < 1) {
+    showToast("La cantidad de mesas compradas debe ser un número entero válido.", "error");
+    return;
+  }
   if (tableIds.length > requestedTableCount) {
     showToast(`No puedes asignar más de ${requestedTableCount} mesa(s) a este expositor.`, "error");
+    return;
+  }
+  const chairsPerTable = Math.floor(Number(document.getElementById("exp-sillas-por-mesa").value));
+  const chairCount = requestedTableCount * chairsPerTable;
+  if (!Number.isSafeInteger(chairsPerTable) || chairsPerTable < 0 || !Number.isSafeInteger(chairCount)) {
+    showToast("Revisa la cantidad de sillas por mesa; debe ser un número entero válido.", "error");
+    return;
+  }
+  const baseCost = Number(document.getElementById("exp-costo-base").value);
+  const hasExtraChairs = document.getElementById("exp-sillas-extra-enabled").checked;
+  const extraChairCount = hasExtraChairs ? Number(document.getElementById("exp-sillas-extra-cantidad").value) : 0;
+  const extraChairUnitCost = hasExtraChairs ? Number(document.getElementById("exp-costo-silla-extra").value) : 0;
+  const extraChairCost = extraChairCount * extraChairUnitCost;
+  const finalCost = Math.round((baseCost + extraChairCost) * 100) / 100;
+  if (!Number.isFinite(baseCost) || baseCost < 0
+      || (hasExtraChairs && (!Number.isSafeInteger(extraChairCount) || extraChairCount < 1
+        || !Number.isFinite(extraChairUnitCost) || extraChairUnitCost <= 0))
+      || !Number.isSafeInteger(chairCount + extraChairCount)
+      || !Number.isFinite(extraChairCost) || !Number.isFinite(finalCost)) {
+    showToast("Revisa el costo base y los datos de las sillas extra.", "error");
     return;
   }
   const allTables = (bz.floors || []).flatMap((floor) => floor.tables || []);
@@ -289,13 +429,22 @@ async function saveExpositorHandler(e) {
     tableIds:       [],
     mesasCantidad:  document.getElementById("exp-mesas-cantidad").value,
     mesasCantidadOtro: document.getElementById("exp-mesas-otro").value.trim(),
+    sillasPorMesa: chairsPerTable,
+    sillasIncluidas: chairCount,
+    sillasExtraCantidad: extraChairCount,
+    sillasCantidad: chairCount + extraChairCount,
+    costoBase: baseCost,
+    costoSillaExtra: extraChairUnitCost,
+    costoExtraSillas: Math.round(extraChairCost * 100) / 100,
     areaRolId:      areaRoleId,
     areaEncargada:  areaRole?.nombre || "",
     encargadoId:   document.getElementById("exp-encargado").value,
     tel:            document.getElementById("exp-tel").value.trim(),
     email:          document.getElementById("exp-email").value.trim(),
-    costo:          Number(document.getElementById("exp-costo").value || 0),
+    costo:          finalCost,
     adelanto:       Number(document.getElementById("exp-adelanto").value || 0),
+    descuento:      Math.max(0, Number(document.getElementById("exp-descuento").value || 0)),
+    notaCredito:    document.getElementById("exp-notas-credito").value.trim(),
     fechaLimitePago: document.getElementById("exp-fecha-limite").value || "",
     pagado:         document.getElementById("exp-pagado").checked,
     notas:          document.getElementById("exp-notas").value.trim(),

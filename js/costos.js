@@ -52,6 +52,7 @@ function renderCostosUI() {
   if (get("cost-toggle-chairs")) get("cost-toggle-chairs").checked = cfg.chairsEnabled;
   if (get("cost-qty-chairs"))    get("cost-qty-chairs").value      = cfg.chairsQty;
   if (get("cost-total-chairs"))  get("cost-total-chairs").value    = cfg.chairsTotal;
+  if (get("chairs-per-table-default")) get("chairs-per-table-default").value = cfg.chairsPerTable;
 
   if (get("cost-toggle-iva")) get("cost-toggle-iva").checked = cfg.ivaEnabled;
   if (get("cost-iva-rate"))   get("cost-iva-rate").value     = cfg.ivaRate;
@@ -107,6 +108,8 @@ function updateEventCostsUI() {
   cfg.chairsEnabled = get("cost-toggle-chairs")?.checked || false;
   cfg.chairsQty     = Number(get("cost-qty-chairs")?.value  || 0);
   cfg.chairsTotal   = Number(get("cost-total-chairs")?.value || 0);
+  const chairsPerTable = Number(get("chairs-per-table-default")?.value);
+  cfg.chairsPerTable = Number.isSafeInteger(chairsPerTable) && chairsPerTable >= 0 ? chairsPerTable : 2;
 
   cfg.ivaEnabled = get("cost-toggle-iva")?.checked || false;
   const rate = Number(get("cost-iva-rate")?.value);

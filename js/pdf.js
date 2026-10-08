@@ -13,8 +13,10 @@ async function generatePDFInvoice(id) {
   if (!template) return;
 
   const adelanto   = Number(exp.adelanto || 0);
-  const saldo      = Number(exp.costo || 0) - adelanto;
+  const saldo      = getExpositorPendingBalance(exp);
   const pagoTotal  = exp.pagado && saldo <= 0;
+  const mesas      = Math.max(1, Math.floor(Number(exp.mesasCantidad === "otro" ? exp.mesasCantidadOtro : exp.mesasCantidad || 1) || 1));
+  const sillas      = Number(exp.sillasCantidad || 0);
 
   const set = (sid, html) => { const el = document.getElementById(sid); if (el) el.innerHTML = html; };
 
@@ -23,8 +25,11 @@ async function generatePDFInvoice(id) {
   set("pdf-exp-negocio",   `<strong>Marca / Negocio:</strong> ${escapeHTML(exp.negocio)}`);
   set("pdf-exp-nombre",    `<strong>Titular:</strong> ${escapeHTML(exp.nombre)}`);
   set("pdf-exp-contact",   `<strong>Contacto:</strong> ${escapeHTML(exp.tel || "")} | ${escapeHTML(exp.email || "")}`);
-  set("pdf-exp-mesa",      `<strong>Ubicación:</strong> ${escapeHTML(exp.ubicacion)}`);
-  set("pdf-exp-costo",     `<strong>Costo Total de Mesa:</strong> ${formatCurrency(exp.costo)}`);
+  set("pdf-exp-mesa",      `<strong>Ubicación y mobiliario:</strong> ${escapeHTML(exp.ubicacion || "Por asignar")} · ${mesas} mesa(s) · ${sillas} silla(s)`);
+  const costBreakdown = Number(exp.sillasExtraCantidad || 0) > 0
+    ? ` (base ${formatCurrency(exp.costoBase)} + ${Number(exp.sillasExtraCantidad)} silla(s) extra × ${formatCurrency(exp.costoSillaExtra)})`
+    : "";
+  set("pdf-exp-costo",     `<strong>Costo Total:</strong> ${formatCurrency(exp.costo)}${costBreakdown}`);
   set("pdf-exp-adelanto",  `<strong>Adelanto Entregado:</strong> ${formatCurrency(adelanto)}`);
   set("pdf-exp-saldo",     `<strong>Saldo Restante:</strong> ${formatCurrency(saldo <= 0 ? 0 : saldo)}`);
   if (exp.fechaLimitePago) {

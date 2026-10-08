@@ -77,7 +77,7 @@ function renderResumenCategorias() {
   const totalGlobal = rows.reduce((s, r) => s + r.total, 0);
 
   container.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:var(--fs-xs);">
+    <table class="category-summary-table">
       <thead>
         <tr style="background:var(--color-surface-alt);">
           <th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.05em;">Categoría</th>

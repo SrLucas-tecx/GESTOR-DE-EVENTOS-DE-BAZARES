@@ -51,7 +51,7 @@ function renderExpositores() {
     const checklist = exp.checklist || [];
     const doneCount = checklist.filter((i) => i.done).length;
     const adelanto = Number(exp.adelanto || 0);
-    const saldo = Number(exp.costo || 0) - adelanto;
+    const saldo = getExpositorPendingBalance(exp);
 
     return `
       <div class="expositor-card ${exp.banned ? "banned-card" : (exp.pagado ? "paid-card" : "unpaid-card")}">
@@ -87,12 +87,21 @@ function renderExpositores() {
             <div class="card-meta-label">Mesas solicitadas</div>
             <div class="card-meta-value">${escapeHTML(exp.mesasCantidad === "otro" ? exp.mesasCantidadOtro : exp.mesasCantidad || "1")} mesa(s)</div>
           </div>
+          <div class="card-meta-item">
+            <div class="card-meta-label">Sillas asignadas</div>
+            <div class="card-meta-value">${Number(exp.sillasCantidad ?? 0)} silla(s)</div>
+          </div>
           ${exp.areaEncargada ? `<div class="card-meta-item"><div class="card-meta-label">Área encargada</div><div class="card-meta-value">${escapeHTML(getExpositorAreaName(exp))}</div></div>` : ""}
           ${exp.encargadoId ? `<div class="card-meta-item"><div class="card-meta-label">Persona encargada</div><div class="card-meta-value">${escapeHTML(getExpositorResponsibleName(exp))}</div></div>` : ""}
           <div class="card-meta-item">
             <div class="card-meta-label">Costo Total</div>
             <div class="card-meta-value">${formatCurrency(exp.costo)}</div>
           </div>
+          ${Number(exp.sillasExtraCantidad || 0) > 0 ? `
+          <div class="card-meta-item">
+            <div class="card-meta-label">Sillas extra</div>
+            <div class="card-meta-value">${Number(exp.sillasExtraCantidad)} × ${formatCurrency(exp.costoSillaExtra)} = ${formatCurrency(exp.costoExtraSillas)}</div>
+          </div>` : ""}
           ${adelanto > 0 ? `
           <div class="card-meta-item">
             <div class="card-meta-label">Adelanto</div>
@@ -148,7 +157,7 @@ function renderExpositoresTabla(list) {
   const rows = list.map((exp) => {
     const cat = AppState.categorias.find((c) => c.id === exp.categoria);
     const catName = cat ? `${cat.emoji} ${cat.nombre}` : "Sin Categoría";
-    const saldo = Number(exp.costo || 0) - Number(exp.adelanto || 0);
+    const saldo = getExpositorPendingBalance(exp);
     const checklist = exp.checklist || [];
     const doneCount = checklist.filter((i) => i.done).length;
     const status = exp.publicationStatus || "pendiente";
@@ -179,7 +188,7 @@ function renderExpositoresTabla(list) {
 
   return `
     <div class="payments-table-wrap" style="grid-column:1/-1;">
-      <table class="payments-table">
+      <table class="payments-table expositor-directory-table">
         <thead>
           <tr>
             <th>Negocio / Titular</th><th>Categoría</th><th>Ubicación</th>

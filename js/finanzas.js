@@ -14,7 +14,7 @@ function renderFinanzasTable() {
   }
   tbody.innerHTML = bz.expositores.map((exp) => {
     const adelanto = Number(exp.adelanto || 0);
-    const saldo    = Number(exp.costo || 0) - adelanto;
+    const saldo    = getExpositorPendingBalance(exp);
     return `
       <tr>
         <td>

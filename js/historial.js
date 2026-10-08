@@ -39,6 +39,9 @@ function describeExpositorChanges(before, after) {
     ["ubicacion", "Ubicación"],
     ["areaEncargada", "Área encargada"],
     ["mesasCantidad", "Mesas solicitadas"],
+    ["sillasPorMesa", "Sillas por mesa"],
+    ["sillasCantidad", "Sillas asignadas"],
+    ["sillasExtraCantidad", "Sillas extra"],
     ["fechaLimitePago", "Fecha límite de pago"]
   ].forEach(([key, label]) => {
     const a = String(before[key] ?? "");
@@ -46,7 +49,8 @@ function describeExpositorChanges(before, after) {
     if (a !== b) changes.push(`${label}: ${a || "—"} → ${b || "—"}`);
   });
 
-  [["costo", "Costo"], ["adelanto", "Adelanto"]].forEach(([key, label]) => {
+  [["costoBase", "Costo base"], ["costoSillaExtra", "Costo por silla extra"],
+    ["costoExtraSillas", "Cargo por sillas extra"], ["costo", "Costo final"], ["adelanto", "Adelanto"]].forEach(([key, label]) => {
     if (Number(before[key] || 0) !== Number(after[key] || 0)) {
       changes.push(`${label}: ${formatCurrency(before[key])} → ${formatCurrency(after[key])}`);
     }

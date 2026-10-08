@@ -64,6 +64,7 @@ function setTableAttendance(tableId, newState) {
   bazaarCanvas.render();
   renderChecklist();
   renderPanelDiaEvento();
+  renderPanelMetricas(bz);
   const labels = { pending:"pendiente ⏳", attended:"asistencia confirmada ✅", absent:"no asistió ❌" };
   showToast(`${t.name}: ${labels[newState]}`);
 }
