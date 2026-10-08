@@ -2,13 +2,18 @@
  * BAZARIX — compras.js
  * Lista de compras del evento (hoja "Lista de compras" de la plantilla), con costo opcional
  * y envío al Presupuesto (Costos del Evento).
- * Datos: bz.compras = [{ id, articulo, descripcion, responsableId, fecha, cantidad, costoUnit, comprado, presupuestoId }]
+ * Datos: bz.compras = [{ id, articulo, descripcion, responsableId, fecha, cantidad, costoTotal, costoUnit, ivaIncluido, comprado, presupuestoId }]
  * responsableId referencia bz.responsables (ver responsables.js).
  * Dependencias: state.js, utils.js, costos.js
  */
 
 function _compraTotal(c) {
-  return Number(c.cantidad || 0) * Number(c.costoUnit || 0);
+  return Number(c.costoTotal || 0);
+}
+
+function _compraUnit(c) {
+  const cantidad = Number(c.cantidad || 0);
+  return cantidad > 0 ? _compraTotal(c) / cantidad : 0;
 }
 
 /** ¿El artículo ya fue enviado al presupuesto (y sigue existiendo allí)? */
@@ -31,7 +36,7 @@ function renderCompras() {
   set("compras-stat-pendiente", formatCurrency(total - comprado));
 
   if (!bz.compras.length) {
-    body.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin artículos. Agrega el primero con "+ Agregar artículo".</td></tr>`;
+    body.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin artículos. Agrega el primero con "+ Agregar artículo".</td></tr>`;
     return;
   }
 
@@ -46,14 +51,18 @@ function renderCompras() {
       <td><select class="form-select" onchange="updateCompra('${c.id}','responsableId',this.value)">${responsableOptionsHTML(c.responsableId, bz)}</select></td>
       <td><input class="form-input" type="date" value="${escapeHTML(c.fecha)}" onchange="updateCompra('${c.id}','fecha',this.value)"></td>
       <td><input class="form-input" type="number" min="0" step="1" value="${Number(c.cantidad || 0)}" style="min-width:70px;" onchange="updateCompra('${c.id}','cantidad',this.value)"></td>
-      <td><input class="form-input" type="number" min="0" step="0.01" value="${Number(c.costoUnit || 0)}" style="min-width:90px;" onchange="updateCompra('${c.id}','costoUnit',this.value)"></td>
-      <td style="font-weight:800;white-space:nowrap;">${formatCurrency(_compraTotal(c))}</td>
+      <td style="font-weight:700;white-space:nowrap;">${formatCurrency(_compraUnit(c))}</td>
+      <td><label class="switch" title="¿El costo total ya incluye IVA?">
+        <input type="checkbox" ${c.ivaIncluido ? "checked" : ""} onchange="updateCompra('${c.id}','ivaIncluido',this.checked)" aria-label="El costo de ${escapeHTML(c.articulo || "este artículo")} incluye IVA">
+        <span class="slider"></span>
+      </label></td>
+      <td><input class="form-input" type="number" min="0" step="0.01" value="${Number(c.costoTotal || 0)}" style="min-width:100px;" onchange="updateCompra('${c.id}','costoTotal',this.value)" aria-label="Costo total de ${escapeHTML(c.articulo || "este artículo")}"></td>
       <td>
         <button class="btn-secondary btn-sm" onclick="enviarCompraAPresupuesto('${c.id}')"
-          title="${enPresupuesto ? "Quitar del presupuesto" : "Agregar como gasto en Costos del Evento"}"
-          aria-label="${enPresupuesto ? "Quitar del presupuesto" : "Agregar al presupuesto"}"
+          title="${enPresupuesto ? "Quitar de Costos del Evento" : "Agregar a Costos del Evento"}"
+          aria-label="${enPresupuesto ? "Quitar de Costos del Evento" : "Agregar a Costos del Evento"}"
           aria-pressed="${enPresupuesto}">
-          ${enPresupuesto ? "✅ En presupuesto" : "➕ Presupuesto"}
+          ${enPresupuesto ? "✅ En Costos del Evento" : "➕ Agregar a costos"}
         </button>
       </td>
       <td><button class="btn-danger btn-sm" onclick="deleteCompra('${c.id}')" title="Eliminar">🗑️</button></td>
@@ -67,6 +76,8 @@ function addCompra() {
   if (!bz) return;
   ensureEventoFields(bz);
   document.getElementById("form-compra").reset();
+  document.getElementById("compra-iva-incluido").checked = true;
+  updateCompraUnitHint();
   document.getElementById("compra-responsable").innerHTML = responsableOptionsHTML("", bz);
   openModal("modal-compra");
   setTimeout(() => document.getElementById("compra-articulo")?.focus(), 50);
@@ -83,10 +94,14 @@ function saveCompraHandler(e) {
     responsableId: document.getElementById("compra-responsable").value,
     fecha: document.getElementById("compra-fecha").value,
     cantidad: Math.max(0, Number(document.getElementById("compra-cantidad").value) || 0),
-    costoUnit: Math.max(0, Number(document.getElementById("compra-costo").value) || 0),
+    costoTotal: Math.max(0, Number(document.getElementById("compra-costo-total").value) || 0),
+    costoUnit: 0,
+    ivaIncluido: document.getElementById("compra-iva-incluido").checked,
     comprado: false,
     presupuestoId: ""
   });
+  const nuevaCompra = bz.compras[bz.compras.length - 1];
+  nuevaCompra.costoUnit = _compraUnit(nuevaCompra);
   saveState();
   closeModal("modal-compra");
   renderCompras();
@@ -97,10 +112,39 @@ function saveCompraHandler(e) {
 function updateCompra(id, field, value) {
   const bz = getActiveBazaar();
   const c = bz?.compras.find((item) => item.id === id);
-  if (!c || !["articulo", "descripcion", "responsableId", "fecha", "cantidad", "costoUnit"].includes(field)) return;
-  c[field] = ["cantidad", "costoUnit"].includes(field) ? Math.max(0, Number(value) || 0) : value;
+  if (!c || !["articulo", "descripcion", "responsableId", "fecha", "cantidad", "costoTotal", "ivaIncluido"].includes(field)) return;
+  c[field] = ["cantidad", "costoTotal"].includes(field)
+    ? Math.max(0, Number(value) || 0)
+    : field === "ivaIncluido" ? Boolean(value) : value;
+  if (["cantidad", "costoTotal"].includes(field)) {
+    c.costoUnit = _compraUnit(c);
+    if (c.presupuestoId) {
+      const gasto = bz.costsConfig.extraCosts.find((item) => item.id === c.presupuestoId);
+      if (gasto) {
+        gasto.unit = c.costoUnit;
+        gasto.qty = Number(c.cantidad || 0);
+        gasto.cost = _compraTotal(c);
+      }
+      renderCostosUI();
+    }
+    renderCompras();
+    renderFichaResumen(bz);
+  }
+  if (field === "ivaIncluido" && c.presupuestoId) {
+    const gasto = bz.costsConfig.extraCosts.find((item) => item.id === c.presupuestoId);
+    if (gasto) gasto.ivaIncluido = c.ivaIncluido;
+    renderCostosUI();
+    renderFichaResumen(bz);
+  }
   saveState();
-  if (["cantidad", "costoUnit"].includes(field)) { renderCompras(); renderFichaResumen(bz); }
+}
+
+function updateCompraUnitHint() {
+  const cantidad = Number(document.getElementById("compra-cantidad")?.value) || 0;
+  const total = Number(document.getElementById("compra-costo-total")?.value) || 0;
+  const unit = cantidad > 0 ? total / cantidad : 0;
+  const hint = document.getElementById("compra-unit-hint");
+  if (hint) hint.textContent = `Costo unitario calculado: ${formatCurrency(unit)}`;
 }
 
 // Autoguardado mientras se escribe, sin esperar a perder el foco.
@@ -126,10 +170,10 @@ async function deleteCompra(id) {
 }
 
 function _compraAPresupuesto(bz, c) {
-  const unit = Number(c.costoUnit || 0);
-  const qty = Number(c.cantidad || 0) || 1;
+  const unit = _compraUnit(c);
+  const qty = Number(c.cantidad || 0);
   const costId = `cost-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
-  bz.costsConfig.extraCosts.unshift({ id: costId, name: c.articulo || "Artículo", comment: c.descripcion || "", unit, qty, cost: unit * qty, ivaIncluido: false, fromCompraId: c.id });
+  bz.costsConfig.extraCosts.unshift({ id: costId, name: c.articulo || "Artículo", comment: c.descripcion || "", unit, qty, cost: _compraTotal(c), ivaIncluido: Boolean(c.ivaIncluido), fromCompraId: c.id });
   c.presupuestoId = costId;
 }
 
@@ -144,7 +188,7 @@ function enviarCompraAPresupuesto(id) {
     renderCompras();
     renderCostosUI();
     renderFichaResumen(bz);
-    showToast(`"${c.articulo || "Artículo"}" quitado del presupuesto`);
+    showToast(`"${c.articulo || "Artículo"}" quitado de Costos del Evento`);
     return;
   }
   _compraAPresupuesto(bz, c);
@@ -152,7 +196,7 @@ function enviarCompraAPresupuesto(id) {
   renderCompras();
   renderCostosUI();
   renderFichaResumen(bz);
-  showToast(`💰 "${c.articulo || "Artículo"}" agregado al presupuesto`);
+  showToast(`💰 "${c.articulo || "Artículo"}" agregado a Costos del Evento`);
 }
 
 /** Envía todos los artículos con costo que aún no están en el presupuesto. */
@@ -160,7 +204,7 @@ function enviarComprasAPresupuesto() {
   const bz = getActiveBazaar();
   if (!bz) return;
   const pendientes = bz.compras.filter((c) => !compraEnPresupuesto(bz, c));
-  const conCosto = pendientes.filter((c) => Number(c.costoUnit || 0) > 0);
+  const conCosto = pendientes.filter((c) => _compraTotal(c) > 0);
   if (!conCosto.length) {
     showToast(pendientes.length ? "Los artículos pendientes no tienen costo unitario" : "Todo ya está en el presupuesto", "error");
     return;
@@ -171,5 +215,5 @@ function enviarComprasAPresupuesto() {
   renderCostosUI();
   renderFichaResumen(bz);
   const omitidos = pendientes.length - conCosto.length;
-  showToast(`💰 ${conCosto.length} artículo(s) enviados al presupuesto${omitidos ? ` · ${omitidos} sin costo omitido(s)` : ""}`);
+  showToast(`💰 ${conCosto.length} compra(s) agregadas a Costos del Evento${omitidos ? ` · ${omitidos} sin costo omitida(s)` : ""}`);
 }

@@ -1,6 +1,6 @@
 /**
  * BAZARIX — evento_dia.js
- * Panel "Día del Evento" (asistencia y pagos en tiempo real) + Modo Presentación del plano.
+ * Panel "Día del Evento" (asistencia y pagos en tiempo real) + Mapeo del Evento.
  * Cuenta las mesas que tienen un expositor asignado, de TODOS los pisos del bazar.
  * Dependencias: state.js, utils.js, asistencia.js (setTableAttendance), canvas.js
  */
@@ -167,6 +167,23 @@ function drawPresentationFrame() {
   }
 }
 
+function renderPresentationFloorSelector() {
+  const selector = document.getElementById("presentation-floor-select");
+  const bz = getActiveBazaar();
+  if (!selector || !bz) return;
+  selector.innerHTML = (bz.floors || []).map((floor) =>
+    `<option value="${escapeHTML(floor.id)}" ${floor.id === bz.activeFloorId ? "selected" : ""}>${escapeHTML(floor.name)}</option>`
+  ).join("");
+  selector.hidden = bz.floors.length < 2;
+}
+
+function changePresentationFloor(floorId) {
+  if (!getActiveBazaar()?.floors?.some((floor) => floor.id === floorId)) return;
+  switchFloor(floorId);
+  renderPresentationFloorSelector();
+  drawPresentationFrame();
+}
+
 function _presentationKeyHandler(e) {
   if (e.key === "Escape") exitPresentationMode();
 }
@@ -179,9 +196,10 @@ function _presentationFullscreenHandler() {
 function enterPresentationMode() {
   const overlay = document.getElementById("presentation-overlay");
   if (!overlay || !bazaarCanvas?.canvas) {
-    showToast("❌ No se pudo abrir el modo presentación", "error");
+    showToast("❌ No se pudo abrir el mapeo del evento", "error");
     return;
   }
+  renderPresentationFloorSelector();
   overlay.style.display = "flex";
   drawPresentationFrame();
 

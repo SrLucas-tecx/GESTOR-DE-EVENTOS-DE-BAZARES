@@ -81,7 +81,7 @@ function renderResumenCategorias() {
       <thead>
         <tr style="background:var(--color-surface-alt);">
           <th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.05em;">Categoría</th>
-          <th style="padding:8px 10px;text-align:center;">Exps.</th>
+          <th style="padding:8px 10px;text-align:center;">Expositores</th>
           <th style="padding:8px 10px;text-align:right;">Total</th>
           <th style="padding:8px 10px;text-align:right;">Cobrado</th>
           <th style="padding:8px 10px;text-align:right;">Pendiente</th>

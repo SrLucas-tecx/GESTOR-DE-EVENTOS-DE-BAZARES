@@ -75,6 +75,7 @@ function renderCostosUI() {
     if (totalInput) totalInput.disabled = Boolean(cfg.conjuntoEnabled);   // en paquete, el costo va en el total conjunto
   });
   setVal("chairs-per-table-default", cfg.chairsPerTable);
+  setVal("chair-extra-unit-price", cfg.chairExtraUnitPrice);
 
   // Precio conjunto
   const conjuntoToggle = get("cost-toggle-conjunto");
@@ -138,8 +139,10 @@ function _updateCostosCalculations(cfg) {
 }
 
 function updateEventCostsUI() {
-  const cfg = getActiveBazaar().costsConfig;
+  const bz = getActiveBazaar();
+  const cfg = bz.costsConfig;
   const get = (id) => document.getElementById(id);
+  const previousChairPrice = Number(cfg.chairExtraUnitPrice) || 0;
 
   MOBILIARIO_ITEMS.forEach(({ key }) => {
     const toggle = get(`cost-toggle-${key}`);
@@ -154,6 +157,10 @@ function updateEventCostsUI() {
 
   const chairsPerTable = Number(get("chairs-per-table-default")?.value);
   cfg.chairsPerTable = Number.isSafeInteger(chairsPerTable) && chairsPerTable >= 0 ? chairsPerTable : 2;
+  const chairPrice = Number(get("chair-extra-unit-price")?.value);
+  cfg.chairExtraUnitPrice = Number.isFinite(chairPrice) ? Math.round(Math.max(0, chairPrice) * 100) / 100 : 0;
+  const chairPriceChanged = cfg.chairExtraUnitPrice !== previousChairPrice;
+  if (chairPriceChanged) applyGlobalChairExtraPrice(bz);
 
   cfg.ivaEnabled = get("cost-toggle-iva")?.checked || false;
   const rate = Number(get("cost-iva-rate")?.value);
@@ -162,6 +169,12 @@ function updateEventCostsUI() {
   saveState();
   renderCostosUI();
   renderFichaResumen();
+  if (chairPriceChanged) {
+    renderExpositores();
+    renderFinanzasTable();
+    renderFinanzasStats();
+    renderFichaResumen(bz);
+  }
 }
 
 // Alta en ventana emergente. El gasto nuevo se inserta al INICIO de la lista.

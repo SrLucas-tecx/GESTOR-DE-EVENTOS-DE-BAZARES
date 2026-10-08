@@ -198,6 +198,9 @@ function renderFloorSelector() {
   select.innerHTML = bz.floors.map((floor) =>
     `<option value="${floor.id}" ${floor.id === bz.activeFloorId ? "selected" : ""}>${escapeHTML(floor.name)}</option>`
   ).join("");
+  select.disabled = bz.floors.length < 2;
+  const renameButton = document.querySelector('[onclick="renameCurrentFloor()"]');
+  if (renameButton) renameButton.disabled = bz.floors.length === 0;
 }
 
 function switchFloor(floorId) {
@@ -212,6 +215,18 @@ function switchFloor(floorId) {
   bazaarCanvas.render();
   renderChecklist();
   updateMapaBazaarLabel();
+}
+
+async function renameCurrentFloor() {
+  const floor = getActiveFloor();
+  if (!floor) return;
+  const name = await appPrompt("Nombre del piso:", floor.name, "Renombrar piso");
+  if (!name?.trim()) return;
+  floor.name = name.trim();
+  saveState();
+  updateMapaBazaarLabel();
+  renderExpositores();
+  showToast("✅ Nombre del piso actualizado");
 }
 
 async function addFloor() {

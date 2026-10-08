@@ -35,10 +35,21 @@ function renderCategorias() {
 function renderCategoryChips() {
   const container = document.getElementById("category-chips-container");
   if (!container) return;
-  container.innerHTML = AppState.categorias.map((cat) => `
+  const bz = getActiveBazaar();
+  const expositorCategories = new Set((bz?.expositores || []).map((exp) => exp.categoria).filter(Boolean));
+  const categories = !bz || bz.expositores.length === 0
+    ? AppState.categorias
+    : AppState.categorias.filter((cat) => expositorCategories.has(cat.id));
+  let filterChanged = false;
+  if (AppState.filterCategory !== "all" && !categories.some((cat) => cat.id === AppState.filterCategory)) {
+    AppState.filterCategory = "all";
+    filterChanged = true;
+  }
+  container.innerHTML = categories.map((cat) => `
     <button class="filter-chip" onclick="setFilterCategory('${cat.id}', this)">
       ${cat.emoji} ${escapeHTML(cat.nombre)}
     </button>`).join("");
+  if (filterChanged) renderExpositores();
 }
 
 // ==========================================

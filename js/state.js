@@ -128,11 +128,31 @@ function ensureEventoFields(bz) {
     ["articulo", "descripcion", "fecha", "presupuestoId"].forEach((k) => { if (c[k] === undefined) c[k] = ""; });
     if (c.responsableId === undefined) c.responsableId = c.responsable ? responsableIdFromTexto(c.responsable) : "";
     if (!Number.isFinite(Number(c.cantidad))) c.cantidad = 1;
-    if (!Number.isFinite(Number(c.costoUnit))) c.costoUnit = 0;
+    if (!Number.isFinite(Number(c.costoTotal))) {
+      c.costoTotal = Number(c.cantidad || 0) * Number(c.costoUnit || 0);
+    }
+    c.costoTotal = Math.max(0, Number(c.costoTotal) || 0);
+    c.costoUnit = Number(c.cantidad) > 0 ? c.costoTotal / Number(c.cantidad) : 0;
+    if (c.ivaIncluido === undefined) c.ivaIncluido = true;
+    c.ivaIncluido = Boolean(c.ivaIncluido);
     c.comprado = Boolean(c.comprado);
   });
 
   const cfg = bz.costsConfig || (bz.costsConfig = emptyCostsConfig());
+  if (!Number.isFinite(Number(cfg.chairExtraUnitPrice))) {
+    const rateCounts = new Map();
+    (Array.isArray(bz.expositores) ? bz.expositores : []).forEach((exp) => {
+      if (Number(exp.sillasExtraCantidad || 0) <= 0) return;
+      const price = Math.round(Math.max(0, Number(exp.costoSillaExtra) || 0) * 100) / 100;
+      rateCounts.set(price, (rateCounts.get(price) || 0) + 1);
+    });
+    const initialPrice = [...rateCounts.entries()].reduce(
+      (best, entry) => entry[1] > best[1] ? entry : best,
+      [0, 0]
+    )[0];
+    cfg.chairExtraUnitPrice = initialPrice;
+    applyGlobalChairExtraPrice(bz);
+  }
   if (cfg.ivaEnabled === undefined) cfg.ivaEnabled = false;
   if (!Number.isFinite(Number(cfg.ivaRate))) cfg.ivaRate = 16;
   if (!Array.isArray(cfg.extraCosts)) cfg.extraCosts = [];
@@ -147,6 +167,24 @@ function ensureEventoFields(bz) {
     if (row.lugar === undefined) row.lugar = "";
     if (row.horaFin === undefined) row.horaFin = "";
     if (row.responsableId === undefined) row.responsableId = row.responsible ? responsableIdFromTexto(row.responsible) : "";
+  });
+}
+
+function applyGlobalChairExtraPrice(bz) {
+  const price = Math.round(Math.max(0, Number(bz?.costsConfig?.chairExtraUnitPrice) || 0) * 100) / 100;
+  (Array.isArray(bz?.expositores) ? bz.expositores : []).forEach((exp) => {
+    const extraCount = Math.max(0, Number(exp.sillasExtraCantidad) || 0);
+    const oldExtraCost = Number(exp.costoExtraSillas);
+    if (!Number.isFinite(Number(exp.costoBase))) {
+      const legacyExtraCost = Number.isFinite(oldExtraCost)
+        ? oldExtraCost
+        : (Number(exp.costoSillaExtra) || 0) * extraCount;
+      exp.costoBase = Math.max(0, (Number(exp.costo) || 0) - legacyExtraCost);
+    }
+    const extraCost = Math.round(extraCount * price * 100) / 100;
+    exp.costoSillaExtra = price;
+    exp.costoExtraSillas = extraCost;
+    exp.costo = Math.round((Math.max(0, Number(exp.costoBase) || 0) + extraCost) * 100) / 100;
   });
 }
 

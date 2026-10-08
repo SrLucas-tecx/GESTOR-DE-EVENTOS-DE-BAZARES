@@ -6,6 +6,9 @@
  * Dependencias: state.js, utils.js
  */
 
+let staffSearchQuery = "";
+let staffRoleFilter = "all";
+
 // ==========================================
 // LECTURA / HELPERS COMPARTIDOS
 // ==========================================
@@ -57,6 +60,17 @@ function renderResponsables() {
         }).join("");
   }
 
+  const roleFilter = document.getElementById("staff-role-filter");
+  if (roleFilter) {
+    const previousRole = staffRoleFilter;
+    roleFilter.innerHTML = `<option value="all">Todas las etiquetas</option>
+      ${bz.roles.map((role) => `<option value="${escapeHTML(role.id)}">${escapeHTML(role.nombre)}</option>`).join("")}
+      <option value="__none">Sin etiqueta</option>`;
+    staffRoleFilter = bz.roles.some((role) => role.id === previousRole) || previousRole === "all" || previousRole === "__none"
+      ? previousRole : "all";
+    roleFilter.value = staffRoleFilter;
+  }
+
   const grid = document.getElementById("responsables-grid");
   if (!grid) return;
 
@@ -70,7 +84,19 @@ function renderResponsables() {
     return;
   }
 
-  const list = bz.responsables.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const query = staffSearchQuery.trim().toLocaleLowerCase("es");
+  const list = bz.responsables.filter((r) => {
+    const role = getRol(r.rolId, bz);
+    const matchesQuery = !query || [r.nombre, r.tel, r.email, role?.nombre]
+      .some((value) => String(value || "").toLocaleLowerCase("es").includes(query));
+    const matchesRole = staffRoleFilter === "all"
+      || (staffRoleFilter === "__none" ? !r.rolId : r.rolId === staffRoleFilter);
+    return matchesQuery && matchesRole;
+  }).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  if (!list.length) {
+    grid.innerHTML = `<div class="catalog-empty"><span class="catalog-empty-icon">🔎</span><h3>Sin resultados</h3><p>No hay responsables que coincidan con la búsqueda y la etiqueta seleccionada.</p></div>`;
+    return;
+  }
   grid.innerHTML = list.map((r) => {
     const rol = getRol(r.rolId, bz);
     const tareasCount  = (bz.tareas   || []).filter((t) => t.responsableId === r.id && !t.hecho).length;
@@ -100,6 +126,16 @@ function renderResponsables() {
         </div>
       </div>`;
   }).join("");
+}
+
+function setStaffSearch(value) {
+  staffSearchQuery = String(value || "");
+  renderResponsables();
+}
+
+function setStaffRoleFilter(roleId) {
+  staffRoleFilter = roleId || "all";
+  renderResponsables();
 }
 
 // ==========================================

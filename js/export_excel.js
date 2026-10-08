@@ -303,10 +303,10 @@ async function exportarPlanEventoXLSX() {
       tareasDeFase(bz, "post").map((t, i) => tareaRow(t, i, false)), { dateCols: [4] });
 
     _xlTableSheet(wb, "Lista de compras", bz,
-      ["#", "Artículo", "Descripción", "Responsable", "Fecha de entrega", "Cantidad", "Costo unitario", "Total", "Comprado"],
-      [6, 28, 36, 20, 16, 10, 14, 14, 10],
-      bz.compras.map((c, i) => [i + 1, c.articulo, c.descripcion, getResponsableNombre(c.responsableId, bz), _xlDate(c.fecha), Number(c.cantidad || 0), Number(c.costoUnit || 0), Number(c.cantidad || 0) * Number(c.costoUnit || 0), c.comprado ? "✔" : ""]),
-      { dateCols: [4], moneyCols: [6, 7] });
+      ["#", "Artículo", "Descripción", "Responsable", "Fecha de entrega", "Cantidad", "Costo unitario", "IVA incluido", "Total", "Comprado"],
+      [6, 28, 36, 20, 16, 10, 14, 12, 14, 10],
+      bz.compras.map((c, i) => [i + 1, c.articulo, c.descripcion, getResponsableNombre(c.responsableId, bz), _xlDate(c.fecha), Number(c.cantidad || 0), Number(c.costoUnit || 0), c.ivaIncluido ? "Sí" : "No", Number(c.costoTotal || 0), c.comprado ? "✔" : ""]),
+      { dateCols: [4], moneyCols: [6, 8] });
 
     _xlPresupuesto(wb, bz);
     _xlLayout(wb, bz);

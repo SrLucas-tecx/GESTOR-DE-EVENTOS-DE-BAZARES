@@ -43,7 +43,7 @@ function openModalExpositor(id = null, categoryId = null) {
       document.getElementById("exp-costo-base").value    = Math.max(0, Number(exp.costoBase ?? (Number(exp.costo || 0) - Number(exp.costoExtraSillas || 0))));
       document.getElementById("exp-sillas-extra-enabled").checked = Number(exp.sillasExtraCantidad || 0) > 0;
       document.getElementById("exp-sillas-extra-cantidad").value = exp.sillasExtraCantidad || 1;
-      document.getElementById("exp-costo-silla-extra").value = exp.costoSillaExtra || 0;
+      document.getElementById("exp-costo-silla-extra").value = bz.costsConfig.chairExtraUnitPrice || 0;
       document.getElementById("exp-adelanto").value      = exp.adelanto || 0;
       document.getElementById("exp-fecha-limite").value  = exp.fechaLimitePago || "";
       document.getElementById("exp-pagado").checked      = exp.pagado;
@@ -59,7 +59,7 @@ function openModalExpositor(id = null, categoryId = null) {
     document.getElementById("exp-sillas-por-mesa").value = bz.costsConfig.chairsPerTable ?? 2;
     document.getElementById("exp-sillas-extra-enabled").checked = false;
     document.getElementById("exp-sillas-extra-cantidad").value = 1;
-    document.getElementById("exp-costo-silla-extra").value = 0;
+    document.getElementById("exp-costo-silla-extra").value = bz.costsConfig.chairExtraUnitPrice || 0;
     if (categoryId && AppState.categorias.some((category) => category.id === categoryId)) {
       document.getElementById("exp-categoria").value = categoryId;
     }
@@ -139,9 +139,10 @@ function updateExpositorCostPreview() {
   const extraCount = hasExtraChairs
     ? Math.max(0, Math.floor(Number(document.getElementById("exp-sillas-extra-cantidad")?.value) || 0))
     : 0;
-  const unitCost = hasExtraChairs
-    ? Math.max(0, Number(document.getElementById("exp-costo-silla-extra")?.value) || 0)
-    : 0;
+  const bz = getActiveBazaar();
+  const unitCost = hasExtraChairs ? Math.max(0, Number(bz?.costsConfig?.chairExtraUnitPrice) || 0) : 0;
+  const unitInput = document.getElementById("exp-costo-silla-extra");
+  if (unitInput) unitInput.value = unitCost;
   const extraCost = extraCount * unitCost;
   const finalCost = Math.round((baseCost + extraCost) * 100) / 100;
   totalInput.value = Number.isFinite(finalCost) ? finalCost.toFixed(2) : "";
@@ -404,15 +405,14 @@ async function saveExpositorHandler(e) {
   const baseCost = Number(document.getElementById("exp-costo-base").value);
   const hasExtraChairs = document.getElementById("exp-sillas-extra-enabled").checked;
   const extraCountInput = document.getElementById("exp-sillas-extra-cantidad");
-  const extraCostInput = document.getElementById("exp-costo-silla-extra");
-  const hasExtraChairDetails = hasExtraChairs && extraCountInput.value !== "" && extraCostInput.value !== "";
+  const hasExtraChairDetails = hasExtraChairs && extraCountInput.value !== "";
   const extraChairCount = hasExtraChairDetails ? Number(extraCountInput.value) : 0;
-  const extraChairUnitCost = hasExtraChairDetails ? Number(extraCostInput.value) : 0;
+  const extraChairUnitCost = Math.max(0, Number(bz.costsConfig.chairExtraUnitPrice) || 0);
   const extraChairCost = extraChairCount * extraChairUnitCost;
   const finalCost = Math.round((baseCost + extraChairCost) * 100) / 100;
   if (!Number.isFinite(baseCost) || baseCost < 0
       || (hasExtraChairDetails && (!Number.isSafeInteger(extraChairCount) || extraChairCount < 1
-        || !Number.isFinite(extraChairUnitCost) || extraChairUnitCost <= 0))
+        || !Number.isFinite(extraChairUnitCost) || extraChairUnitCost < 0))
       || !Number.isSafeInteger(chairCount + extraChairCount)
       || !Number.isFinite(extraChairCost) || !Number.isFinite(finalCost)) {
     showToast("Revisa el costo base y los datos de las sillas extra.", "error");
@@ -524,7 +524,7 @@ async function saveExpositorHandler(e) {
   closeModal("modal-expositor");
   const savedMessage = id ? "✅ Expositor actualizado" : "✅ Expositor registrado";
   showToast(hasExtraChairs && !hasExtraChairDetails
-    ? `${savedMessage}. No se incluyeron sillas extra; captura cantidad y costo para agregarlas.`
+    ? `${savedMessage}. Indica cuántas sillas extra requiere para calcular el cargo.`
     : savedMessage);
 }
 

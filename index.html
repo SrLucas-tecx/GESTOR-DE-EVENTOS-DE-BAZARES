@@ -385,6 +385,11 @@
                 <input type="number" id="chairs-per-table-default" class="form-input" min="0" step="1" value="2" onchange="updateEventCostsUI()">
                 <p class="form-hint">Se usa como cantidad inicial al registrar expositores; puedes ajustarla en cada registro.</p>
               </div>
+              <div class="chairs-per-table-setting">
+                <label class="form-label" for="chair-extra-unit-price">Precio global por silla extra cobrado al expositor (MXN)</label>
+                <input type="number" id="chair-extra-unit-price" class="form-input" min="0" step="0.01" value="0" oninput="updateEventCostsUI()">
+                <p class="form-hint">Este precio se aplica por igual a todos los expositores, incluidos los ya registrados.</p>
+              </div>
             </div>
 
             <div class="chart-card" id="costos-panel-gastos">
@@ -414,8 +419,9 @@
           <div class="top-bar-left">
           <div class="control-group-inline floor-controls">
             <label class="form-label" style="margin:0;">Piso:</label>
-            <select id="floor-select" class="filter-select" onchange="switchFloor(this.value)"></select>
+            <select id="floor-select" class="filter-select" onchange="switchFloor(this.value)" aria-label="Cambiar piso del plano"></select>
             <button class="btn-secondary btn-sm" onclick="addFloor()"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Piso</button>
+            <button class="btn-secondary btn-sm" onclick="renameCurrentFloor()" title="Cambiar el nombre del piso actual">✏️ Renombrar piso</button>
             <button class="btn-danger btn-sm" onclick="deleteCurrentFloor()" title="Eliminar piso actual" aria-label="Eliminar piso actual"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
           </div>
@@ -805,6 +811,15 @@
           </div>
           <button class="btn-primary" onclick="openModalResponsable()">+ Agregar Responsable</button>
         </div>
+        <div class="filter-bar" style="margin-bottom:var(--space-4);">
+          <div class="search-bar">
+            <span>🔍</span>
+            <input type="search" id="staff-search" placeholder="Buscar por nombre, teléfono o correo..." oninput="setStaffSearch(this.value)" aria-label="Buscar en el staff">
+          </div>
+          <select id="staff-role-filter" class="filter-select" onchange="setStaffRoleFilter(this.value)" aria-label="Filtrar staff por etiqueta">
+            <option value="all">Todas las etiquetas</option>
+          </select>
+        </div>
 
         <div class="chart-card" style="margin-bottom:var(--space-5);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -858,7 +873,7 @@
             <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">Artículos por comprar, con responsable y costo. Puedes enviarlos al presupuesto de Costos del Evento.</p>
           </div>
           <div class="control-group-inline">
-            <button class="btn-secondary" onclick="enviarComprasAPresupuesto()">💰 Enviar todo al presupuesto</button>
+            <button class="btn-secondary" onclick="enviarComprasAPresupuesto()">💰 Enviar compras con costo a Costos del Evento</button>
             <button class="btn-primary" onclick="addCompra()">+ Agregar artículo</button>
           </div>
         </div>
@@ -868,9 +883,9 @@
           <div class="stat-card accent-gold"><div class="stat-icon">⏳</div><div class="stat-value" id="compras-stat-pendiente">$0</div><div class="stat-label">Por comprar</div></div>
         </div>
         <div class="payments-table-wrap">
-          <table class="payments-table minute-table" style="min-width:1250px;">
+          <table class="payments-table minute-table" style="min-width:1320px;">
             <thead>
-              <tr><th style="width:1%;"></th><th>#</th><th>Artículo</th><th>Descripción</th><th>Responsable</th><th>Fecha de entrega</th><th>Cant.</th><th>Costo unit.</th><th>Total</th><th>Presupuesto</th><th>Acciones</th></tr>
+              <tr><th style="width:1%;"></th><th>Número</th><th>Artículo</th><th>Descripción</th><th>Responsable</th><th>Fecha de entrega</th><th>Cantidad</th><th>Costo unitario</th><th>¿IVA incluido?</th><th>Costo total</th><th>Presupuesto de costos</th><th>Acciones</th></tr>
             </thead>
             <tbody id="compras-list"></tbody>
           </table>
@@ -916,7 +931,7 @@
           </div>
           <div style="display:flex;gap:8px;">
             <button class="btn-secondary btn-sm" onclick="renderPanelDiaEvento()">🔄 Actualizar</button>
-            <button class="btn-primary btn-sm" onclick="enterPresentationMode()">📺 Modo Presentación</button>
+            <button class="btn-primary btn-sm" onclick="enterPresentationMode()">🗺️ Mapeo del evento</button>
           </div>
         </div>
         <!-- Stats rápidos -->
@@ -1306,9 +1321,10 @@
                    oninput="updateExpositorCostPreview()">
           </div>
           <div class="form-group">
-            <label class="form-label" for="exp-costo-silla-extra">Costo por silla extra (MXN)</label>
-            <input type="number" id="exp-costo-silla-extra" class="form-input" min="0.01" step="0.01"
-                   oninput="updateExpositorCostPreview()">
+            <label class="form-label" for="exp-costo-silla-extra">Precio global por silla extra (MXN)</label>
+            <input type="number" id="exp-costo-silla-extra" class="form-input" min="0" step="0.01" readonly
+                   aria-describedby="exp-chair-price-hint">
+            <p class="form-hint" id="exp-chair-price-hint">El precio se configura en Costos del Evento → Mobiliario y se comparte con todos los expositores.</p>
           </div>
         </div>
         <p class="form-hint">La cantidad y el costo de sillas extra son opcionales. Si falta alguno, no se sumarán sillas extra al costo.</p>
@@ -1998,8 +2014,16 @@
         <div class="form-group"><label class="form-label" for="compra-fecha">Fecha de entrega</label><input type="date" id="compra-fecha" class="form-input" ></div>
         </div>
         <div class="form-row">
-        <div class="form-group"><label class="form-label" for="compra-cantidad">Cantidad</label><input type="number" id="compra-cantidad" class="form-input" min="0" step="1" value="1"></div>
-        <div class="form-group"><label class="form-label" for="compra-costo">Costo unitario</label><input type="number" id="compra-costo" class="form-input" min="0" step="0.01" value="0"></div>
+        <div class="form-group"><label class="form-label" for="compra-cantidad">Cantidad</label><input type="number" id="compra-cantidad" class="form-input" min="0" step="1" value="1" oninput="updateCompraUnitHint()"></div>
+        <div class="form-group"><label class="form-label" for="compra-costo-total">Costo total</label><input type="number" id="compra-costo-total" class="form-input" min="0" step="0.01" value="0" oninput="updateCompraUnitHint()"></div>
+        </div>
+        <p class="form-hint" id="compra-unit-hint" style="margin:-4px 0 12px;">Costo unitario calculado: $0.00</p>
+        <div class="form-switch">
+          <span class="switch-label">¿El costo unitario ya incluye IVA?</span>
+          <label class="switch" aria-label="El costo unitario ya incluye IVA">
+            <input type="checkbox" id="compra-iva-incluido" checked>
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
       <div class="modal-footer">
@@ -2106,12 +2130,17 @@
   </div>
 </div>
 
-<!-- Modo presentación (Sprint 4) -->
+<!-- Mapeo del evento (vista de presentación del plano) -->
 <div id="presentation-overlay" style="display:none;position:fixed;inset:0;z-index:9999;
     background:#0f172a;flex-direction:column;align-items:center;justify-content:center;">
   <div style="display:flex;justify-content:space-between;align-items:center;width:100%;
       padding:12px 24px;background:rgba(255,255,255,0.05);">
-    <span style="color:#94a3b8;font-size:14px;font-weight:700;" id="presentation-bazar-name">BAZARIX</span>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <strong style="color:#fff;font-size:14px;">🗺️ Mapeo del evento</strong>
+      <span style="color:#94a3b8;font-size:14px;font-weight:700;" id="presentation-bazar-name">BAZARIX</span>
+    </div>
+    <select id="presentation-floor-select" onchange="changePresentationFloor(this.value)" aria-label="Cambiar piso del mapeo"
+            style="background:#1e293b;color:#fff;border:1px solid #475569;padding:8px 12px;border-radius:8px;"></select>
     <button onclick="exitPresentationMode()"
             style="background:rgba(255,255,255,0.1);color:#fff;border:none;padding:8px 16px;
                    border-radius:8px;cursor:pointer;font-weight:700;">✕ Salir</button>
