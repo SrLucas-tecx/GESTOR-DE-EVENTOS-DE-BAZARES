@@ -133,13 +133,16 @@ function _xlPresupuesto(wb, bz) {
   headers.forEach((h, i) => { ws.getCell(2, 2 + i).value = h; });
 
   const lines = [];
-  if (cfg.tablesEnabled) {
-    const qty = Number(cfg.tablesQty) || 1;
-    lines.push(["Renta de mesas", "Costo total del proveedor", Number(cfg.tablesTotal || 0) / qty, qty, false]);
-  }
-  if (cfg.chairsEnabled) {
-    const qty = Number(cfg.chairsQty) || 1;
-    lines.push(["Renta de sillas", "Costo total del proveedor", Number(cfg.chairsTotal || 0) / qty, qty, false]);
+  if (cfg.conjuntoEnabled) {
+    const incluye = MOBILIARIO_ITEMS.filter(({ key }) => cfg[`${key}Enabled`])
+      .map(({ key, label }) => `${Number(cfg[`${key}Qty`] || 0)} ${label}`).join(", ");
+    lines.push(["Mobiliario (precio conjunto)", `Incluye: ${incluye || "sin conceptos marcados"}`, Number(cfg.conjuntoTotal || 0), 1, false]);
+  } else {
+    [["tables", "Renta de mesas"], ["chairs", "Renta de sillas"], ["manteles", "Renta de manteles"]].forEach(([key, name]) => {
+      if (!cfg[`${key}Enabled`]) return;
+      const qty = Number(cfg[`${key}Qty`]) || 1;
+      lines.push([name, "Costo total del proveedor", Number(cfg[`${key}Total`] || 0) / qty, qty, false]);
+    });
   }
   cfg.extraCosts.forEach((c) => lines.push([c.name, c.comment || "", Number(c.unit || 0), Number(c.qty ?? 1), cfg.ivaEnabled && !!c.ivaIncluido]));
 

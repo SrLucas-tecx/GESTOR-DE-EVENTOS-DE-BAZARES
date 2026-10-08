@@ -100,6 +100,72 @@ async function confirmDeleteZone(zoneId) {
   bazaarCanvas.deleteZone(zoneId);
 }
 
+/**
+ * Captura el plano ajustado a su contenido, sobre fondo blanco, sin selección y en
+ * colores de modo claro, con la proporción (aspect) de la zona donde irá en el PDF.
+ * Devuelve un data URL PNG. Restaura el canvas tal como estaba.
+ */
+function capturePlanoImage(floor, aspect) {
+  const canvas = bazaarCanvas.canvas;
+  const saved = {
+    w: canvas.width, h: canvas.height,
+    scale: bazaarCanvas.scale, panX: bazaarCanvas.panX, panY: bazaarCanvas.panY,
+    mode: bazaarCanvas.mode, element: bazaarCanvas.selectedElementId,
+    zone: bazaarCanvas.selectedZoneId, table: bazaarCanvas.selectedTableId,
+    dark: document.body.classList.contains("dark")
+  };
+  try {
+    const baseW = 2000;
+    canvas.width = baseW;
+    canvas.height = Math.max(200, Math.round(baseW / (aspect || (saved.w / saved.h))));
+    bazaarCanvas.mode = "select";
+    bazaarCanvas.selectedElementId = null;
+    bazaarCanvas.selectedZoneId = null;
+    bazaarCanvas.selectedTableId = null;
+    document.body.classList.remove("dark");
+
+    const bounds = typeof getPresentationBounds === "function" ? getPresentationBounds(floor) : null;
+    if (bounds) {
+      const pad = 60;
+      const contentW = Math.max(1, bounds.maxX - bounds.minX);
+      const contentH = Math.max(1, bounds.maxY - bounds.minY);
+      const scale = Math.max(0.2, Math.min(4,
+        (canvas.width - pad * 2) / contentW,
+        (canvas.height - pad * 2) / contentH));
+      bazaarCanvas.scale = scale;
+      bazaarCanvas.panX = (canvas.width - contentW * scale) / 2 - bounds.minX * scale;
+      bazaarCanvas.panY = (canvas.height - contentH * scale) / 2 - bounds.minY * scale;
+    } else {
+      const factor = canvas.width / saved.w;
+      bazaarCanvas.scale = saved.scale * factor;
+      bazaarCanvas.panX = saved.panX * factor;
+      bazaarCanvas.panY = saved.panY * factor;
+    }
+    bazaarCanvas.render();
+
+    const out = document.createElement("canvas");
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const octx = out.getContext("2d");
+    octx.fillStyle = "#ffffff";
+    octx.fillRect(0, 0, out.width, out.height);
+    octx.drawImage(canvas, 0, 0);
+    return out.toDataURL("image/png");
+  } finally {
+    canvas.width = saved.w;
+    canvas.height = saved.h;
+    bazaarCanvas.scale = saved.scale;
+    bazaarCanvas.panX = saved.panX;
+    bazaarCanvas.panY = saved.panY;
+    bazaarCanvas.mode = saved.mode;
+    bazaarCanvas.selectedElementId = saved.element;
+    bazaarCanvas.selectedZoneId = saved.zone;
+    bazaarCanvas.selectedTableId = saved.table;
+    document.body.classList.toggle("dark", saved.dark);
+    bazaarCanvas.render();
+  }
+}
+
 function exportarMapaPDF() {
   const bz = getActiveBazaar();
   const floor = getActiveFloor(bz);
@@ -108,22 +174,33 @@ function exportarMapaPDF() {
     return;
   }
 
-  // El PDF sigue la orientación del plano: un plano vertical ya no se
-  // fuerza dentro de una hoja horizontal (quedaba con márgenes enormes).
+  // La hoja sigue la orientación del plano. Área útil de una A4 con margen de 8 mm:
+  // 281×194 mm (horizontal) o 194×281 mm (vertical). El contenedor debe CABER en ella
+  // (si se pasaba de alto, el PDF se partía en dos páginas o quedaba cortado).
   const isPortrait = floor.orientation === "portrait";
   const wrapW = isPortrait ? 650 : 1000;
-  const wrapH = isPortrait ? 1000 : 650;
-  const imgH  = isPortrait ? 830 : 515;
+  const wrapH = isPortrait ? 930 : 680;
+  const pad = 18, headH = 52, headGap = 10, footH = 16, footGap = 6;
+  const boxW = wrapW - pad * 2;
+  const boxH = wrapH - pad * 2 - headH - headGap - footH - footGap;
 
-  bazaarCanvas.render();
-  const wrapper = document.createElement("div");
+  let planoImg;
+  try {
+    planoImg = capturePlanoImage(floor, boxW / boxH);
+  } catch (err) {
+    console.error(err);
+    showToast("❌ No se pudo preparar el PDF del mapa", "error");
+    return;
+  }
+
   const issuedAt = new Date().toLocaleDateString("es-MX");
   const safeName = `${bz.name}_${floor.name}`.replace(/[^a-z0-9]+/gi, "_");
-  wrapper.style.cssText = `display:none;box-sizing:border-box;width:${wrapW}px;height:${wrapH}px;overflow:hidden;padding:18px;font-family:Arial,sans-serif;background:#fff;color:#1e293b;page-break-inside:avoid;`;
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = `display:block;box-sizing:border-box;width:${wrapW}px;height:${wrapH}px;overflow:hidden;padding:${pad}px;font-family:Arial,sans-serif;background:#fff;color:#1e293b;`;
   wrapper.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0d9488;padding-bottom:8px;margin-bottom:10px;">
+    <div style="box-sizing:border-box;height:${headH}px;margin-bottom:${headGap}px;overflow:hidden;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0d9488;padding-bottom:6px;">
       <div>
-        <h1 style="color:#0d9488;margin:0;font-size:22px;">PLANO DEL EVENTO</h1>
+        <h1 style="color:#0d9488;margin:0;font-size:22px;line-height:1.2;">PLANO DEL EVENTO</h1>
         <p style="margin:2px 0 0;color:#64748b;font-size:12px;">BAZARIX — Gestión de Eventos</p>
       </div>
       <div style="text-align:right;font-size:12px;color:#64748b;">
@@ -131,22 +208,24 @@ function exportarMapaPDF() {
         <span>${escapeHTML(floor.name)} · ${issuedAt}</span>
       </div>
     </div>
-    <img src="${bazaarCanvas.canvas.toDataURL("image/png")}" alt="Plano de ${escapeHTML(bz.name)}" style="display:block;width:100%;height:${imgH}px;object-fit:contain;border:1px solid #cbd5e1;border-radius:6px;">
-    <p style="margin:6px 0 0;text-align:center;color:#64748b;font-size:10px;">Documento generado por BAZARIX</p>`;
+    <div style="box-sizing:border-box;width:${boxW}px;height:${boxH}px;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;background:#fff;">
+      <img src="${planoImg}" alt="Plano de ${escapeHTML(bz.name)}" style="display:block;width:${boxW - 2}px;height:${boxH - 2}px;object-fit:contain;">
+    </div>
+    <p style="height:${footH}px;margin:${footGap}px 0 0;text-align:center;color:#64748b;font-size:10px;line-height:${footH}px;">Documento generado por BAZARIX</p>`;
 
   document.body.appendChild(wrapper);
-  wrapper.style.display = "block";
-  window.html2pdf().set({
+  renderElementToPDF(wrapper, {
     margin: 8,
     filename: `mapa_${safeName}.pdf`,
-    image: { type: "png" },
-    html2canvas: { scale: 3, backgroundColor: "#ffffff" },
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2, backgroundColor: "#ffffff", useCORS: true },
     jsPDF: { unit: "mm", format: "a4", orientation: isPortrait ? "portrait" : "landscape" },
     pagebreak: { mode: ["avoid-all"] }
-  }).from(wrapper).save().then(() => {
+  }).then(() => {
     wrapper.remove();
     showToast("✅ Mapa descargado en PDF");
-  }).catch(() => {
+  }).catch((err) => {
+    console.error(err);
     wrapper.remove();
     showToast("❌ No se pudo generar el PDF del mapa", "error");
   });

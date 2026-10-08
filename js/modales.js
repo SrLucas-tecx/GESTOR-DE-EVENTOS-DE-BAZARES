@@ -65,7 +65,7 @@ function openModalExpositor(id = null, categoryId = null) {
     }
   }
   populateExpositorAssignmentSelects(bz, exp);
-  updateExpositorExtraChairFields(false);
+  updateExpositorExtraChairFields();
   updateExpositorCostPreview();
   updateExpositorPaymentFields();
   openModal("modal-expositor");
@@ -115,11 +115,15 @@ function updateExpositorPaymentPreview() {
 function updateExpositorExtraChairFields(clearWhenDisabled = true) {
   const enabled = document.getElementById("exp-sillas-extra-enabled")?.checked || false;
   const details = document.getElementById("exp-sillas-extra-details");
-  document.getElementById("exp-sillas-extra-cantidad").required = enabled;
-  document.getElementById("exp-costo-silla-extra").required = enabled;
+  const countInput = document.getElementById("exp-sillas-extra-cantidad");
+  const costInput = document.getElementById("exp-costo-silla-extra");
+  countInput.required = false;
+  countInput.disabled = !enabled;
+  costInput.required = false;
+  costInput.disabled = !enabled;
   if (!enabled && clearWhenDisabled) {
-    document.getElementById("exp-sillas-extra-cantidad").value = 1;
-    document.getElementById("exp-costo-silla-extra").value = 0;
+    countInput.value = "";
+    costInput.value = "";
   }
   setExpositorConditionalVisibility(details, enabled);
   updateExpositorCostPreview();
@@ -181,7 +185,7 @@ function populateExpositorAssignmentSelects(bz, exp = null) {
         ${ownedByOther ? `<span class="exp-table-tile-status">Asignada</span>` : ""}
       </label>`;
     }).join("")
-    : `<span class="form-hint">No hay mesas en el plano. Agrega mesas en la sección Plano del Evento.</span>`;
+    : `<span class="form-hint">No hay mesas en el plano. La asignación es opcional; puedes agregar o asignar mesas después.</span>`;
   if (hasLegacyLocation) {
     tableList.insertAdjacentHTML("beforeend", `<p class="form-hint">Ubicación anterior conservada: ${escapeHTML(legacyLocation)}</p>`);
   }
@@ -253,7 +257,7 @@ function renderExpositorTableAssignmentHint(exp, requested, selectedCount, total
   if (!hint) return;
   hint.textContent = totalTables
     ? `${selectedCount} de ${requested} mesa(s) seleccionada(s). ${selectedCount < requested ? "Puedes dejar mesas por asignar." : "Cantidad solicitada completada."}`
-    : `${requested} mesa(s) solicitada(s); agrega mesas al plano para asignarlas.`;
+    : `${requested} mesa(s) solicitada(s). La asignación en el plano es opcional y puedes hacerla después.`;
 }
 
 function updateExpositorTableSelection(changedCheckbox = null) {
@@ -324,7 +328,8 @@ function toggleOtherTableCount() {
   if (!select || !input) return;
   const custom = select.value === "otro";
   input.style.display = custom ? "block" : "none";
-  input.required = custom;
+  input.required = false;
+  if (!custom) input.value = "";   // un valor inválido oculto bloqueaba el envío en silencio
   updateExpositorTableSelection();
 }
 
@@ -344,10 +349,25 @@ function handleFotoUpload(e) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (evt) => {
-    const b64 = evt.target.result;
-    document.getElementById("exp-foto-base64").value = b64;
-    const box = document.getElementById("avatar-preview-box");
-    if (box) box.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    const img = new Image();
+    img.onload = () => {
+      // Se reduce la foto: una imagen original llena el localStorage (~5 MB) y el guardado falla.
+      const MAX = 400;
+      const ratio = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * ratio));
+      canvas.height = Math.max(1, Math.round(img.height * ratio));
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const b64 = canvas.toDataURL("image/jpeg", 0.8);
+      document.getElementById("exp-foto-base64").value = b64;
+      const box = document.getElementById("avatar-preview-box");
+      if (box) box.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    };
+    img.onerror = () => showToast("No se pudo leer la imagen", "error");
+    img.src = evt.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -383,12 +403,15 @@ async function saveExpositorHandler(e) {
   }
   const baseCost = Number(document.getElementById("exp-costo-base").value);
   const hasExtraChairs = document.getElementById("exp-sillas-extra-enabled").checked;
-  const extraChairCount = hasExtraChairs ? Number(document.getElementById("exp-sillas-extra-cantidad").value) : 0;
-  const extraChairUnitCost = hasExtraChairs ? Number(document.getElementById("exp-costo-silla-extra").value) : 0;
+  const extraCountInput = document.getElementById("exp-sillas-extra-cantidad");
+  const extraCostInput = document.getElementById("exp-costo-silla-extra");
+  const hasExtraChairDetails = hasExtraChairs && extraCountInput.value !== "" && extraCostInput.value !== "";
+  const extraChairCount = hasExtraChairDetails ? Number(extraCountInput.value) : 0;
+  const extraChairUnitCost = hasExtraChairDetails ? Number(extraCostInput.value) : 0;
   const extraChairCost = extraChairCount * extraChairUnitCost;
   const finalCost = Math.round((baseCost + extraChairCost) * 100) / 100;
   if (!Number.isFinite(baseCost) || baseCost < 0
-      || (hasExtraChairs && (!Number.isSafeInteger(extraChairCount) || extraChairCount < 1
+      || (hasExtraChairDetails && (!Number.isSafeInteger(extraChairCount) || extraChairCount < 1
         || !Number.isFinite(extraChairUnitCost) || extraChairUnitCost <= 0))
       || !Number.isSafeInteger(chairCount + extraChairCount)
       || !Number.isFinite(extraChairCost) || !Number.isFinite(finalCost)) {
@@ -419,7 +442,7 @@ async function saveExpositorHandler(e) {
     areaRoleId = areaRole?.id || "";
   }
   const expData = {
-    ...(existing || {}),   // conserva campos que el formulario no maneja (historial, etc.)
+    ...(existing || {}),   // conserva campos que el formulario no maneja
     id:             id || "exp-" + Date.now(),
     nombre:         document.getElementById("exp-nombre").value.trim(),
     negocio:        document.getElementById("exp-negocio").value.trim(),
@@ -452,7 +475,7 @@ async function saveExpositorHandler(e) {
     publicationStatus: existing?.publicationStatus || "pendiente",
     banned:         existing?.banned || false,
     checklist:      existing ? existing.checklist : defaultChecklistItems(),
-    historial:      existing?.historial || [],
+    historial:      [...(existing?.historial || [])],   // copia: si algo falla, el original queda intacto
   };
   if (expData.encargadoId && !bz.responsables.some((person) =>
     person.id === expData.encargadoId && person.rolId === areaRoleId
@@ -461,8 +484,22 @@ async function saveExpositorHandler(e) {
     return;
   }
 
+  // ── Instantánea para deshacer si algo falla (asignación de mesas o guardado) ──
+  const prevList = bz.expositores.slice();
+  const prevTables = allTables.map((table) => ({ table, exhibitorId: table.exhibitorId }));
+  const prevOwners = bz.expositores.map((item) => ({
+    item, tableId: item.tableId, tableIds: [...(item.tableIds || [])], ubicacion: item.ubicacion
+  }));
+  const rollback = () => {
+    bz.expositores = prevList;
+    prevTables.forEach(({ table, exhibitorId }) => { table.exhibitorId = exhibitorId; });
+    prevOwners.forEach(({ item, tableId, tableIds: ids, ubicacion }) => {
+      item.tableId = tableId; item.tableIds = ids; item.ubicacion = ubicacion;
+    });
+  };
+
   if (id) {
-    const idx = bz.expositores.findIndex((e) => e.id === id);
+    const idx = bz.expositores.findIndex((x) => x.id === id);
     if (idx !== -1) {
       const changes = describeExpositorChanges(bz.expositores[idx], expData);
       bz.expositores[idx] = expData;
@@ -473,14 +510,22 @@ async function saveExpositorHandler(e) {
     registrarHistorial(expData.id, "Expositor registrado", bz);
   }
 
-  if (!applyExpositorTableAssignments(bz, expData, tableIds)) return;
+  if (!applyExpositorTableAssignments(bz, expData, tableIds)) { rollback(); return; }
   if (!tableIds.length && existing && !getExpositorTableIds(existing, bz).length) {
     expData.ubicacion = existing.ubicacion || "";
   }
-  saveState();
+  if (!saveState()) {
+    rollback();   // no se pudo guardar: no dejar al expositor "fantasma" en pantalla
+    renderAll();
+    showToast("⚠️ No se guardó: el almacenamiento está lleno. Quita la foto o exporta un respaldo y libera espacio.", "error");
+    return;
+  }
   renderAll();
   closeModal("modal-expositor");
-  showToast(id ? "✅ Expositor actualizado" : "✅ Expositor registrado");
+  const savedMessage = id ? "✅ Expositor actualizado" : "✅ Expositor registrado";
+  showToast(hasExtraChairs && !hasExtraChairDetails
+    ? `${savedMessage}. No se incluyeron sillas extra; captura cantidad y costo para agregarlas.`
+    : savedMessage);
 }
 
 function syncExpositorTableAssignment(bz, exp) {

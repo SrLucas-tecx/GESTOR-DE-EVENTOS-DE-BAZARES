@@ -6,6 +6,27 @@
  */
 
 /**
+ * Mobiliario: mesas, sillas y manteles. Se puede capturar por concepto o como un
+ * PRECIO CONJUNTO (un solo costo por todo) que se puede desglosar en cualquier momento.
+ */
+const MOBILIARIO_ITEMS = [
+  { key: "tables",   label: "mesas" },
+  { key: "chairs",   label: "sillas" },
+  { key: "manteles", label: "manteles" },
+];
+
+function _round2(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+/** Costo de mobiliario sin IVA: el precio conjunto, o la suma de los conceptos incluidos. */
+function calcMobiliarioSinIva(cfg) {
+  if (cfg.conjuntoEnabled) return Math.max(0, Number(cfg.conjuntoTotal || 0));
+  return MOBILIARIO_ITEMS.reduce((sum, { key }) =>
+    sum + (cfg[`${key}Enabled`] ? Number(cfg[`${key}Total`] || 0) : 0), 0);
+}
+
+/**
  * Totales del presupuesto de un bazar.
  * Mobiliario nunca incluye IVA en el dato capturado (si el IVA global está
  * activo, se le suma). Cada gasto extra decide por su cuenta si su "costo
@@ -16,18 +37,16 @@ function calcPresupuesto(bz = getActiveBazaar()) {
   const cfg = bz.costsConfig;
   const rate = cfg.ivaEnabled ? Number(cfg.ivaRate || 0) / 100 : 0;
 
-  const mobiliarioSinIva = (cfg.tablesEnabled ? Number(cfg.tablesTotal || 0) : 0) + (cfg.chairsEnabled ? Number(cfg.chairsTotal || 0) : 0);
+  const mobiliarioSinIva = calcMobiliarioSinIva(cfg);
   const mobiliarioConIva = mobiliarioSinIva * (1 + rate);
 
   let extrasSinIva = 0, extrasConIva = 0;
   (cfg.extraCosts || []).forEach((c) => {
     const cost = Number(c.cost || 0);
     if (cfg.ivaEnabled && c.ivaIncluido) {
-      // El monto capturado ya trae IVA: el "sin IVA" se calcula hacia atrás.
       extrasConIva += cost;
       extrasSinIva += rate > 0 ? cost / (1 + rate) : cost;
     } else {
-      // El monto capturado no incluye IVA: se le suma si el IVA global está activo.
       extrasSinIva += cost;
       extrasConIva += cost * (1 + rate);
     }
@@ -44,18 +63,36 @@ function renderCostosUI() {
   const cfg = bz.costsConfig;
 
   const get = (id) => document.getElementById(id);
+  // No se pisa el campo que la persona está escribiendo.
+  const setVal = (id, value) => { const el = get(id); if (el && document.activeElement !== el) el.value = value; };
 
-  if (get("cost-toggle-tables")) get("cost-toggle-tables").checked = cfg.tablesEnabled;
-  if (get("cost-qty-tables"))    get("cost-qty-tables").value      = cfg.tablesQty;
-  if (get("cost-total-tables"))  get("cost-total-tables").value    = cfg.tablesTotal;
+  MOBILIARIO_ITEMS.forEach(({ key }) => {
+    const toggle = get(`cost-toggle-${key}`);
+    if (toggle) toggle.checked = Boolean(cfg[`${key}Enabled`]);
+    setVal(`cost-qty-${key}`, cfg[`${key}Qty`]);
+    setVal(`cost-total-${key}`, cfg[`${key}Total`]);
+    const totalInput = get(`cost-total-${key}`);
+    if (totalInput) totalInput.disabled = Boolean(cfg.conjuntoEnabled);   // en paquete, el costo va en el total conjunto
+  });
+  setVal("chairs-per-table-default", cfg.chairsPerTable);
 
-  if (get("cost-toggle-chairs")) get("cost-toggle-chairs").checked = cfg.chairsEnabled;
-  if (get("cost-qty-chairs"))    get("cost-qty-chairs").value      = cfg.chairsQty;
-  if (get("cost-total-chairs"))  get("cost-total-chairs").value    = cfg.chairsTotal;
-  if (get("chairs-per-table-default")) get("chairs-per-table-default").value = cfg.chairsPerTable;
+  // Precio conjunto
+  const conjuntoToggle = get("cost-toggle-conjunto");
+  if (conjuntoToggle) conjuntoToggle.checked = Boolean(cfg.conjuntoEnabled);
+  const conjuntoBox = get("costos-conjunto-box");
+  if (conjuntoBox) conjuntoBox.hidden = !cfg.conjuntoEnabled;
+  setVal("cost-total-conjunto", cfg.conjuntoTotal);
+  const incluye = get("costos-conjunto-incluye");
+  if (incluye) {
+    const parts = MOBILIARIO_ITEMS.filter(({ key }) => cfg[`${key}Enabled`])
+      .map(({ key, label }) => `${Number(cfg[`${key}Qty`] || 0)} ${label}`);
+    incluye.textContent = parts.length
+      ? `El paquete incluye: ${parts.join(", ")}.`
+      : "Marca en la tabla qué incluye el paquete (mesas, sillas o manteles).";
+  }
 
   if (get("cost-toggle-iva")) get("cost-toggle-iva").checked = cfg.ivaEnabled;
-  if (get("cost-iva-rate"))   get("cost-iva-rate").value     = cfg.ivaRate;
+  setVal("cost-iva-rate", cfg.ivaRate);
 
   _updateCostosCalculations(cfg);
 
@@ -84,30 +121,37 @@ function renderCostosUI() {
 }
 
 function _updateCostosCalculations(cfg) {
-  const subTables = cfg.tablesEnabled ? Number(cfg.tablesTotal || 0) : 0;
-  const subChairs = cfg.chairsEnabled ? Number(cfg.chairsTotal || 0) : 0;
-
-  const unitTables = cfg.tablesQty > 0 ? subTables / cfg.tablesQty : 0;
-  const unitChairs = cfg.chairsQty > 0 ? subChairs / cfg.chairsQty : 0;
-
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set("subtotal-tables", formatCurrency(subTables));
-  set("unit-tables",     formatCurrency(unitTables));
-  set("subtotal-chairs", formatCurrency(subChairs));
-  set("unit-chairs",     formatCurrency(unitChairs));
+  MOBILIARIO_ITEMS.forEach(({ key }) => {
+    const enabled = Boolean(cfg[`${key}Enabled`]);
+    if (cfg.conjuntoEnabled) {
+      // En paquete no hay costo por concepto: solo se indica si está incluido.
+      set(`unit-${key}`,     "—");
+      set(`subtotal-${key}`, enabled ? "En paquete" : "—");
+      return;
+    }
+    const qty = Number(cfg[`${key}Qty`] || 0);
+    const subtotal = enabled ? Number(cfg[`${key}Total`] || 0) : 0;
+    set(`unit-${key}`,     formatCurrency(qty > 0 ? subtotal / qty : 0));
+    set(`subtotal-${key}`, formatCurrency(subtotal));
+  });
 }
 
 function updateEventCostsUI() {
   const cfg = getActiveBazaar().costsConfig;
   const get = (id) => document.getElementById(id);
 
-  cfg.tablesEnabled = get("cost-toggle-tables")?.checked || false;
-  cfg.tablesQty     = Number(get("cost-qty-tables")?.value  || 0);
-  cfg.tablesTotal   = Number(get("cost-total-tables")?.value || 0);
+  MOBILIARIO_ITEMS.forEach(({ key }) => {
+    const toggle = get(`cost-toggle-${key}`);
+    const qty = get(`cost-qty-${key}`);
+    const total = get(`cost-total-${key}`);
+    if (toggle) cfg[`${key}Enabled`] = toggle.checked;
+    if (qty)    cfg[`${key}Qty`]     = Math.max(0, Number(qty.value || 0));
+    if (total)  cfg[`${key}Total`]   = Math.max(0, Number(total.value || 0));
+  });
+  const conjunto = get("cost-total-conjunto");
+  if (conjunto) cfg.conjuntoTotal = Math.max(0, Number(conjunto.value || 0));
 
-  cfg.chairsEnabled = get("cost-toggle-chairs")?.checked || false;
-  cfg.chairsQty     = Number(get("cost-qty-chairs")?.value  || 0);
-  cfg.chairsTotal   = Number(get("cost-total-chairs")?.value || 0);
   const chairsPerTable = Number(get("chairs-per-table-default")?.value);
   cfg.chairsPerTable = Number.isSafeInteger(chairsPerTable) && chairsPerTable >= 0 ? chairsPerTable : 2;
 
@@ -236,4 +280,63 @@ function _extraCostsTableHTML(cfg) {
         <tbody>${rows}</tbody>
       </table>
     </div>`;
+}
+
+// ==========================================
+// PRECIO CONJUNTO DE MOBILIARIO (mesas + sillas + manteles)
+// Agrupar: suma los conceptos incluidos en un solo costo.
+// Desglosar: reparte el costo conjunto entre los conceptos, proporcional a su cantidad.
+// ==========================================
+function agruparMobiliario() {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  ensureEventoFields(bz);
+  const cfg = bz.costsConfig;
+  cfg.conjuntoTotal = _round2(MOBILIARIO_ITEMS.reduce((sum, { key }) =>
+    sum + (cfg[`${key}Enabled`] ? Number(cfg[`${key}Total`] || 0) : 0), 0));
+  cfg.conjuntoEnabled = true;
+  saveState();
+  renderCostosUI();
+  renderFichaResumen(bz);
+  showToast("📦 Mobiliario agrupado en un solo costo conjunto");
+}
+
+/** Devuelve true si se desglosó; false si no había nada que repartir o se canceló. */
+async function desglosarMobiliario() {
+  const bz = getActiveBazaar();
+  if (!bz) return false;
+  ensureEventoFields(bz);
+  const cfg = bz.costsConfig;
+  const items = MOBILIARIO_ITEMS.filter(({ key }) => cfg[`${key}Enabled`]);
+  if (!items.length) {
+    showToast("Marca qué incluye el paquete (mesas, sillas o manteles) para poder desglosarlo", "error");
+    return false;
+  }
+  const total = _round2(cfg.conjuntoTotal);
+  const names = items.map((item) => item.label).join(", ");
+  if (total > 0 && !await appConfirm(
+    `Se repartirán ${formatCurrency(total)} entre ${names}, de forma proporcional a su cantidad. Después podrás ajustar el costo de cada concepto.`,
+    "Desglosar paquete", "Desglosar"
+  )) return false;
+
+  const weights = items.map(({ key }) => Math.max(0, Number(cfg[`${key}Qty`] || 0)));
+  const sumWeights = weights.reduce((a, b) => a + b, 0);
+  let rest = total;
+  items.forEach(({ key }, i) => {
+    const weight = sumWeights > 0 ? weights[i] / sumWeights : 1 / items.length;
+    const share = i === items.length - 1 ? Math.max(0, rest) : _round2(total * weight);
+    cfg[`${key}Total`] = share;
+    rest = _round2(rest - share);
+  });
+  cfg.conjuntoEnabled = false;
+  saveState();
+  renderCostosUI();
+  renderFichaResumen(bz);
+  showToast("✂️ Paquete desglosado: ajusta el costo de cada concepto si hace falta");
+  return true;
+}
+
+async function toggleMobiliarioConjunto(checked) {
+  if (checked) agruparMobiliario();
+  else if (!await desglosarMobiliario()) renderCostosUI();   // cancelado: el interruptor vuelve a su estado
 }

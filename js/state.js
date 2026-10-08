@@ -345,8 +345,11 @@ function saveState() {
   try {
     localStorage.setItem("EXPOSITORES_APP_STATE", JSON.stringify(AppState));
     if (typeof showSaveIndicator === "function") showSaveIndicator();
+    return true;
   } catch (err) {
+    console.error("Error al guardar datos:", err);
     showToast("⚠️ Error al guardar datos", "error");
+    return false;
   }
 }
 

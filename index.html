@@ -333,6 +333,25 @@
             <div class="chart-card" id="costos-panel-mobiliario">
               <h3>🪑 Mobiliario e insumos opcionales</h3>
               <p class="form-hint" style="margin:-8px 0 12px;">Introduce el costo total del proveedor; el costo unitario se calcula solo.</p>
+
+              <div class="form-switch costos-conjunto-switch">
+                <span class="switch-label">Precio conjunto (mesas + sillas + manteles)
+                  <small class="form-hint" style="display:block;font-weight:500;">Actívalo si el proveedor da un solo precio por todo. Puedes desglosarlo en cualquier momento.</small>
+                </span>
+                <label class="switch">
+                  <input type="checkbox" id="cost-toggle-conjunto" aria-label="Precio conjunto de mobiliario" onchange="toggleMobiliarioConjunto(this.checked)">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div id="costos-conjunto-box" class="costos-conjunto-box" hidden>
+                <div class="form-group" style="margin-bottom:var(--space-2);">
+                  <label class="form-label" for="cost-total-conjunto">Costo total del paquete (MXN)</label>
+                  <input type="number" id="cost-total-conjunto" class="form-input" min="0" step="0.01" value="0" oninput="updateEventCostsUI()">
+                </div>
+                <p class="form-hint" id="costos-conjunto-incluye"></p>
+                <button type="button" class="btn-secondary btn-sm" onclick="toggleMobiliarioConjunto(false)">✂️ Desglosar paquete</button>
+              </div>
+
               <div class="costos-table-scroll">
                 <table class="payments-table costos-table">
                   <thead><tr><th>Incluir</th><th>Cantidad</th><th>Costo total proveedor</th><th>Unitario</th><th>Subtotal</th></tr></thead>
@@ -340,16 +359,23 @@
                     <tr>
                       <td><div class="costos-incluir"><label class="switch"><input type="checkbox" id="cost-toggle-tables" aria-label="Incluir costo de mesas" onchange="updateEventCostsUI()"><span class="slider"></span></label><strong>Mesas</strong></div></td>
                       <td><input type="number" id="cost-qty-tables" class="form-input" value="0" min="0" aria-label="Número de mesas" oninput="updateEventCostsUI()"></td>
-                      <td><input type="number" id="cost-total-tables" class="form-input" value="0" min="0" aria-label="Costo total de mesas" oninput="updateEventCostsUI()"></td>
+                      <td><input type="number" id="cost-total-tables" class="form-input" value="0" min="0" step="0.01" aria-label="Costo total de mesas" oninput="updateEventCostsUI()"></td>
                       <td class="costos-total"><span id="unit-tables">$0</span></td>
                       <td class="costos-total"><span id="subtotal-tables">$0</span></td>
                     </tr>
                     <tr>
                       <td><div class="costos-incluir"><label class="switch"><input type="checkbox" id="cost-toggle-chairs" aria-label="Incluir costo de sillas" onchange="updateEventCostsUI()"><span class="slider"></span></label><strong>Sillas</strong></div></td>
                       <td><input type="number" id="cost-qty-chairs" class="form-input" value="0" min="0" aria-label="Número de sillas" oninput="updateEventCostsUI()"></td>
-                      <td><input type="number" id="cost-total-chairs" class="form-input" value="0" min="0" aria-label="Costo total de sillas" oninput="updateEventCostsUI()"></td>
+                      <td><input type="number" id="cost-total-chairs" class="form-input" value="0" min="0" step="0.01" aria-label="Costo total de sillas" oninput="updateEventCostsUI()"></td>
                       <td class="costos-total"><span id="unit-chairs">$0</span></td>
                       <td class="costos-total"><span id="subtotal-chairs">$0</span></td>
+                    </tr>
+                    <tr>
+                      <td><div class="costos-incluir"><label class="switch"><input type="checkbox" id="cost-toggle-manteles" aria-label="Incluir costo de manteles" onchange="updateEventCostsUI()"><span class="slider"></span></label><strong>Manteles</strong></div></td>
+                      <td><input type="number" id="cost-qty-manteles" class="form-input" value="0" min="0" aria-label="Número de manteles" oninput="updateEventCostsUI()"></td>
+                      <td><input type="number" id="cost-total-manteles" class="form-input" value="0" min="0" step="0.01" aria-label="Costo total de manteles" oninput="updateEventCostsUI()"></td>
+                      <td class="costos-total"><span id="unit-manteles">$0</span></td>
+                      <td class="costos-total"><span id="subtotal-manteles">$0</span></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1198,7 +1224,7 @@
             </select>
             <input type="number" id="exp-mesas-otro" class="form-input" min="1" step="1" oninput="updateExpositorTableSelection()"
                    placeholder="Cantidad de mesas" style="display:none;margin-top:8px;">
-            <p class="form-hint">Solo se pueden asignar hasta esta cantidad de mesas.</p>
+            <p class="form-hint">La cantidad es opcional; si se deja vacía, se considera 1 mesa. Solo se pueden asignar hasta esta cantidad.</p>
           </div>
         </div>
         <div class="form-row">
@@ -1216,7 +1242,7 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Mesas asignadas en el plano</label>
+            <label class="form-label">Mesas asignadas en el plano (opcional)</label>
             <div id="exp-ubicacion" class="form-input exp-table-picker">
               <span class="form-hint">Selecciona las mesas que pidió este expositor.</span>
             </div>
@@ -1248,7 +1274,7 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="exp-costo-base">Costo base de mesas (MXN) *</label>
-            <input type="number" id="exp-costo-base" class="form-input" required min="0" step="10" placeholder="450"
+            <input type="number" id="exp-costo-base" class="form-input" required min="0" step="0.01" placeholder="450"
                    oninput="updateExpositorCostPreview()">
             <p class="form-hint">El costo final suma automáticamente las sillas extra.</p>
           </div>
@@ -1276,15 +1302,16 @@
         <div class="form-row exp-conditional is-collapsed" id="exp-sillas-extra-details" hidden inert>
           <div class="form-group">
             <label class="form-label" for="exp-sillas-extra-cantidad">Cantidad de sillas extra</label>
-            <input type="number" id="exp-sillas-extra-cantidad" class="form-input" min="1" step="1" value="1"
+            <input type="number" id="exp-sillas-extra-cantidad" class="form-input" min="1" step="1"
                    oninput="updateExpositorCostPreview()">
           </div>
           <div class="form-group">
             <label class="form-label" for="exp-costo-silla-extra">Costo por silla extra (MXN)</label>
-            <input type="number" id="exp-costo-silla-extra" class="form-input" min="0.01" step="0.01" value="0"
+            <input type="number" id="exp-costo-silla-extra" class="form-input" min="0.01" step="0.01"
                    oninput="updateExpositorCostPreview()">
           </div>
         </div>
+        <p class="form-hint">La cantidad y el costo de sillas extra son opcionales. Si falta alguno, no se sumarán sillas extra al costo.</p>
         <div class="form-group">
           <label class="form-label" for="exp-costo">Costo final del expositor (MXN)</label>
           <input type="number" id="exp-costo" class="form-input" readonly aria-readonly="true">
@@ -1294,7 +1321,7 @@
         <div class="form-row exp-payment-details exp-conditional is-collapsed" id="exp-payment-details" hidden inert>
           <div class="form-group">
             <label class="form-label" for="exp-adelanto">Adelanto Entregado (MXN)</label>
-            <input type="number" id="exp-adelanto" class="form-input" min="0" step="10" value="0"
+            <input type="number" id="exp-adelanto" class="form-input" min="0" step="0.01" value="0"
                    placeholder="0" oninput="updateExpositorPaymentPreview()">
             <p class="form-hint">Monto parcial ya recibido.</p>
           </div>
@@ -1312,7 +1339,7 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="exp-descuento">Descuento Aplicado (MXN)</label>
-            <input type="number" id="exp-descuento" class="form-input" min="0" step="10" value="0"
+            <input type="number" id="exp-descuento" class="form-input" min="0" step="0.01" value="0"
                    oninput="updateExpositorPaymentFields()">
             <p class="form-hint">Se descuenta del costo antes de calcular el saldo.</p>
           </div>
@@ -1735,6 +1762,9 @@
     <table style="width:100%;font-size:13px;border-collapse:collapse;">
       <tr>
         <td style="padding:6px 0;color:#64748b;"><div id="pdf-exp-costo"></div></td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#b45309;"><div id="pdf-exp-descuento"></div></td>
       </tr>
       <tr>
         <td style="padding:6px 0;color:#10b981;"><div id="pdf-exp-adelanto"></div></td>

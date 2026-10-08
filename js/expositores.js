@@ -45,94 +45,86 @@ function renderExpositores() {
     return;
   }
 
+  // Todas las tarjetas muestran los mismos campos (con "Sin dato" cuando falta uno),
+  // así tienen la misma estructura y altura aunque el expositor esté incompleto.
+  const meta = (label, value) => `
+          <div class="card-meta-item">
+            <div class="card-meta-label">${label}</div>
+            <div class="card-meta-value">${value}</div>
+          </div>`;
+
   container.innerHTML = list.map((exp) => {
     const cat = AppState.categorias.find((c) => c.id === exp.categoria);
     const catName = cat ? `${cat.emoji} ${cat.nombre}` : "Sin Categoría";
     const checklist = exp.checklist || [];
     const doneCount = checklist.filter((i) => i.done).length;
     const adelanto = Number(exp.adelanto || 0);
+    const descuento = Math.max(0, Number(exp.descuento || 0));
     const saldo = getExpositorPendingBalance(exp);
+    const mesas = escapeHTML(exp.mesasCantidad === "otro" ? exp.mesasCantidadOtro : exp.mesasCantidad || "1");
+    const sillasExtra = Number(exp.sillasExtraCantidad || 0);
+    const area = getExpositorAreaName(exp) || "Por asignar";
+    const persona = exp.encargadoId ? getExpositorResponsibleName(exp) : "";
+    const encargado = escapeHTML(area) + (persona ? ` · ${escapeHTML(persona)}` : "");
+    const status = exp.publicationStatus || "pendiente";
 
     return `
-      <div class="expositor-card ${exp.banned ? "banned-card" : (exp.pagado ? "paid-card" : "unpaid-card")}">
+      <div class="expositor-card exp-card ${exp.banned ? "banned-card" : (exp.pagado ? "paid-card" : "unpaid-card")}">
         <div class="card-top">
           <div class="avatar-wrap">
             <div class="expositor-avatar">
               ${exp.foto ? `<img src="${exp.foto}" alt="${escapeHTML(exp.nombre)}">` : escapeHTML((exp.negocio || "?").charAt(0).toUpperCase())}
             </div>
-            <button class="avatar-edit-btn" onclick="openModalExpositor('${exp.id}')" title="Editar expositor">✏️</button>
+            <button class="avatar-edit-btn" onclick="openModalExpositor('${exp.id}')" title="Editar expositor" aria-label="Editar expositor">✏️</button>
           </div>
           <div class="card-info">
             <div class="card-name" title="${escapeHTML(exp.negocio)}">${escapeHTML(exp.negocio)}</div>
             <span class="card-category" title="${escapeHTML(cat?.descripcion || "")}">${escapeHTML(catName)}</span>
-            ${cat?.descripcion ? `<small class="form-hint">${escapeHTML(cat.descripcion)}</small>` : ""}
             <div class="card-contact">${escapeHTML(exp.nombre)}</div>
           </div>
         </div>
 
-        <span class="paid-badge ${exp.pagado ? "paid" : "unpaid"}">
-          ${exp.pagado ? "✅ Pagado" : "⏳ Pendiente"}
-        </span>
-        <button class="publication-status status-${escapeHTML(exp.publicationStatus || "pendiente")}" onclick="cyclePublicationStatus('${exp.id}')">
-          📣 Publicación: ${publicationStatusLabel(exp.publicationStatus)}
-        </button>
-        ${exp.banned ? `<span class="banned-badge">🚫 Expositor baneado</span>` : ""}
-
-        <div class="card-meta">
-          <div class="card-meta-item">
-            <div class="card-meta-label">Ubicación</div>
-            <div class="card-meta-value">${escapeHTML(getExpositorLocation(exp))}</div>
-          </div>
-          <div class="card-meta-item">
-            <div class="card-meta-label">Mesas solicitadas</div>
-            <div class="card-meta-value">${escapeHTML(exp.mesasCantidad === "otro" ? exp.mesasCantidadOtro : exp.mesasCantidad || "1")} mesa(s)</div>
-          </div>
-          <div class="card-meta-item">
-            <div class="card-meta-label">Sillas asignadas</div>
-            <div class="card-meta-value">${Number(exp.sillasCantidad ?? 0)} silla(s)</div>
-          </div>
-          ${exp.areaEncargada ? `<div class="card-meta-item"><div class="card-meta-label">Área encargada</div><div class="card-meta-value">${escapeHTML(getExpositorAreaName(exp))}</div></div>` : ""}
-          ${exp.encargadoId ? `<div class="card-meta-item"><div class="card-meta-label">Persona encargada</div><div class="card-meta-value">${escapeHTML(getExpositorResponsibleName(exp))}</div></div>` : ""}
-          <div class="card-meta-item">
-            <div class="card-meta-label">Costo Total</div>
-            <div class="card-meta-value">${formatCurrency(exp.costo)}</div>
-          </div>
-          ${Number(exp.sillasExtraCantidad || 0) > 0 ? `
-          <div class="card-meta-item">
-            <div class="card-meta-label">Sillas extra</div>
-            <div class="card-meta-value">${Number(exp.sillasExtraCantidad)} × ${formatCurrency(exp.costoSillaExtra)} = ${formatCurrency(exp.costoExtraSillas)}</div>
-          </div>` : ""}
-          ${adelanto > 0 ? `
-          <div class="card-meta-item">
-            <div class="card-meta-label">Adelanto</div>
-            <div class="card-meta-value" style="color:var(--color-paid);">${formatCurrency(adelanto)}</div>
-          </div>
-          <div class="card-meta-item">
-            <div class="card-meta-label">Saldo</div>
-            <div class="card-meta-value" style="color:${saldo > 0 ? "var(--color-unpaid)" : "var(--color-paid)"};">${formatCurrency(saldo)}</div>
-          </div>` : ""}
-          ${exp.fechaLimitePago ? `
-          <div class="card-meta-item" style="grid-column:1/-1;">
-            <div class="card-meta-label">Fecha límite de pago</div>
-            <div class="card-meta-value">📅 ${escapeHTML(exp.fechaLimitePago)}</div>
-          </div>` : ""}
+        <div class="card-badges">
+          <span class="paid-badge ${exp.pagado ? "paid" : "unpaid"}">
+            ${exp.pagado ? "✅ Pagado" : "⏳ Pendiente"}
+          </span>
+          <button class="publication-status status-${escapeHTML(status)}" onclick="cyclePublicationStatus('${exp.id}')">
+            📣 Publicación: ${publicationStatusLabel(exp.publicationStatus)}
+          </button>
+          ${exp.banned ? `<span class="banned-badge">🚫 Expositor baneado</span>` : ""}
         </div>
 
-        <div class="card-contact" style="margin-bottom: 10px;">
-          📞 ${escapeHTML(exp.tel || "N/A")} &nbsp;·&nbsp; ✉️ ${escapeHTML(exp.email || "N/A")}
-          ${exp.notas ? `<br>📝 <em>${escapeHTML(exp.notas)}</em>` : ""}
+        <div class="card-meta">
+          ${meta("Ubicación", escapeHTML(getExpositorLocation(exp)))}
+          ${meta("Mesas solicitadas", `${mesas} mesa(s)`)}
+          ${meta("Sillas asignadas", `${Number(exp.sillasCantidad ?? 0)} silla(s)${sillasExtra ? `<small>incluye ${sillasExtra} extra (${formatCurrency(exp.costoExtraSillas)})</small>` : ""}`)}
+          ${meta("Costo total", `${formatCurrency(exp.costo)}${descuento ? `<small>Descuento −${formatCurrency(descuento)}</small>` : ""}`)}
+          ${meta("Adelanto", adelanto > 0 ? `<span style="color:var(--color-paid);">${formatCurrency(adelanto)}</span>` : `<span class="is-muted">${formatCurrency(0)}</span>`)}
+          ${meta("Saldo", `<span style="color:${saldo > 0 ? "var(--color-unpaid)" : "var(--color-paid)"};">${formatCurrency(saldo)}</span>`)}
+          ${meta("Fecha límite de pago", exp.fechaLimitePago ? `📅 ${escapeHTML(exp.fechaLimitePago)}` : `<span class="is-muted">Sin fecha</span>`)}
+          ${meta("Encargado", encargado)}
+        </div>
+
+        <div class="card-contact exp-contact">
+          <span title="${escapeHTML(exp.tel || "")}">📞 ${escapeHTML(exp.tel || "N/A")}</span>
+          <span title="${escapeHTML(exp.email || "")}">✉️ ${escapeHTML(exp.email || "N/A")}</span>
+          <span class="exp-notes ${exp.notas ? "" : "is-muted"}">📝 ${exp.notas ? `<em>${escapeHTML(exp.notas)}</em>` : "Sin notas"}</span>
         </div>
 
         <div class="card-actions">
-          <button class="btn-pay-toggle ${exp.pagado ? "mark-unpaid" : "mark-paid"}" onclick="togglePaymentStatus('${exp.id}')">
-            ${exp.pagado ? "Marcar Pendiente" : "Marcar Pagado"}
-          </button>
-          <button class="btn-secondary btn-sm" onclick="openExpositorChecklist('${exp.id}')">☑️ (${doneCount}/${checklist.length})</button>
-          <button class="btn-secondary btn-sm" onclick="generatePDFInvoice('${exp.id}')">📄 Recibo</button>
-          <button class="btn-secondary btn-sm" onclick="openHistorial('${exp.id}')" title="Ver historial de cambios" aria-label="Ver historial de cambios">🕘</button>
-          <button class="btn-secondary btn-sm" onclick="guardarComoPlantilla('${exp.id}')" title="Guardar expositor como plantilla" aria-label="Guardar expositor como plantilla">💾</button>
-          <button class="${exp.banned ? "btn-secondary" : "btn-danger"} btn-sm" onclick="toggleExpositorBan('${exp.id}')">${exp.banned ? "✅ Quitar baneo" : "🚫 Banear"}</button>
-          <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')" title="Eliminar expositor" aria-label="Eliminar expositor">🗑️</button>
+          <div class="card-actions-main">
+            <button class="btn-pay-toggle ${exp.pagado ? "mark-unpaid" : "mark-paid"}" onclick="togglePaymentStatus('${exp.id}')">
+              ${exp.pagado ? "Marcar Pendiente" : "Marcar Pagado"}
+            </button>
+            <button class="btn-secondary btn-sm" onclick="openExpositorChecklist('${exp.id}')" title="Checklist" aria-label="Checklist">☑️ (${doneCount}/${checklist.length})</button>
+          </div>
+          <div class="card-actions-tools">
+            <button class="btn-secondary btn-sm btn-recibo" onclick="generatePDFInvoice('${exp.id}')">📄 Recibo</button>
+            <button class="btn-secondary btn-sm" onclick="openHistorial('${exp.id}')" title="Ver historial de cambios" aria-label="Ver historial de cambios">🕘</button>
+            <button class="btn-secondary btn-sm" onclick="guardarComoPlantilla('${exp.id}')" title="Guardar expositor como plantilla" aria-label="Guardar expositor como plantilla">💾</button>
+            <button class="${exp.banned ? "btn-secondary" : "btn-danger"} btn-sm" onclick="toggleExpositorBan('${exp.id}')">${exp.banned ? "✅ Quitar baneo" : "🚫 Banear"}</button>
+            <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')" title="Eliminar expositor" aria-label="Eliminar expositor">🗑️</button>
+          </div>
         </div>
       </div>`;
   }).join("");
