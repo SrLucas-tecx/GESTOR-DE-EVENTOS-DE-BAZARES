@@ -282,6 +282,28 @@ a{color:inherit;text-decoration:none}
 .status-parcial{background:#fefce8;color:#a16207;border-color:#fde68a}
 .status-lista{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
 .status-publicada{background:var(--color-success-soft);color:#047857;border-color:#a7f3d0}
+.expositor-card .paid-badge{font-size:var(--fs-sm);font-weight:800;padding:5px 13px}
+.expositor-card .paid-badge.paid{
+  background:#047857;color:#f0fdf4;border:1.5px solid #34d399;
+}
+.expositor-card .paid-badge.unpaid{
+  background:#b91c1c;color:#fff;border:1.5px solid #f87171;
+}
+.expositor-card .publication-status{
+  font-size:var(--fs-sm);font-weight:800;letter-spacing:.01em;
+}
+.expositor-card .publication-status.status-pendiente{
+  background:#9a3412;color:#fff7ed;border:1.5px solid #fb923c;
+}
+.expositor-card .publication-status.status-parcial{
+  background:#854d0e;color:#fffbeb;border:1.5px solid #fbbf24;
+}
+.expositor-card .publication-status.status-lista{
+  background:#1d4ed8;color:#eff6ff;border:1.5px solid #60a5fa;
+}
+.expositor-card .publication-status.status-publicada{
+  background:#047857;color:#f0fdf4;border:1.5px solid #34d399;
+}
 .banned-card{opacity:.72;border-color:var(--color-danger)}
 .banned-card::before{background:var(--color-danger)}
 .banned-badge{display:block;margin-bottom:var(--space-3);font-size:var(--fs-xs);font-weight:800;color:var(--color-danger)}
@@ -874,6 +896,7 @@ body.dark .exp-payment-paid-badge{border-color:rgba(16,185,129,.45);background:r
   #btn-toggle-sidebar{display:none}
 }
 .minute-table .form-input{min-width:110px;padding:7px 9px}
+.minute-table .minute-responsable-select{min-width:210px}
 .minute-table td:last-child{white-space:nowrap;width:1%}
 .notification-card{
   display:flex;justify-content:space-between;align-items:center;gap:12px;

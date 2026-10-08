@@ -30,7 +30,7 @@ function responsableOptionsHTML(selectedId, bz = getActiveBazaar()) {
   const lista = (bz?.responsables || []).slice().sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   const opts = lista.map((r) => {
     const rol = getRolNombre(r.rolId, bz);
-    return `<option value="${r.id}" ${r.id === selectedId ? "selected" : ""}>${escapeHTML(r.nombre)}${rol ? ` (${escapeHTML(rol)})` : ""}</option>`;
+    return `<option value="${escapeHTML(r.id)}" ${r.id === selectedId ? "selected" : ""}>${escapeHTML(r.nombre)}${rol ? ` · ${escapeHTML(rol)}` : ""}</option>`;
   }).join("");
   return `<option value="">-- Sin asignar --</option>${opts}`;
 }

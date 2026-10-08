@@ -56,6 +56,22 @@ function minuteDuration(start, end) {
   return m ? `${h} h ${m} min` : `${h} h`;
 }
 
+function minuteAreaOptionsHTML(selectedArea) {
+  const categories = AppState.categorias || [];
+  const selectedCategory = categories.find((category) =>
+    category.id === selectedArea || category.nombre === selectedArea
+  );
+  const selectedValue = selectedCategory?.nombre || selectedArea || "";
+  const options = categories.map((category) =>
+    `<option value="${escapeHTML(category.nombre)}" ${category.nombre === selectedValue ? "selected" : ""}>${escapeHTML(`${category.emoji || ""} ${category.nombre}`.trim())}</option>`
+  );
+
+  if (selectedValue && !selectedCategory) {
+    options.unshift(`<option value="${escapeHTML(selectedValue)}" selected>${escapeHTML(selectedValue)} (actual)</option>`);
+  }
+  return `<option value="" ${selectedValue ? "" : "selected"}>-- Seleccionar área --</option>${options.join("")}`;
+}
+
 function renderMinuteByMinute() {
   const container = document.getElementById("minute-by-minute-list");
   const bz = getActiveBazaar();
@@ -79,8 +95,8 @@ function renderMinuteByMinute() {
       </td>
       <td><input class="form-input" value="${escapeHTML(row.activity)}" onchange="updateMinuteRow('${row.id}','activity',this.value)"></td>
       <td><input class="form-input" value="${escapeHTML(row.lugar || "")}" placeholder="Ej. Auditorio" onchange="updateMinuteRow('${row.id}','lugar',this.value)"></td>
-      <td><input class="form-input" value="${escapeHTML(row.area)}" placeholder="Ej. Montaje" onchange="updateMinuteRow('${row.id}','area',this.value)"></td>
-      <td><select class="form-select" onchange="updateMinuteRow('${row.id}','responsableId',this.value)">${responsableOptionsHTML(row.responsableId, bz)}</select></td>
+      <td><select class="form-select" aria-label="Área encargada" onchange="updateMinuteRow('${row.id}','area',this.value)">${minuteAreaOptionsHTML(row.area)}</select></td>
+      <td><select class="form-select minute-responsable-select" aria-label="Responsable" onchange="updateMinuteRow('${row.id}','responsableId',this.value)">${responsableOptionsHTML(row.responsableId, bz)}</select></td>
       <td><input class="form-input" value="${escapeHTML(row.notes)}" onchange="updateMinuteRow('${row.id}','notes',this.value)"></td>
       <td><button class="btn-danger btn-sm" onclick="deleteMinuteRow('${row.id}')">🗑️</button></td>
     </tr>`;
@@ -94,6 +110,7 @@ function addMinuteRow() {
   ensureEventoFields(bz);
   document.getElementById("form-actividad").reset();
   document.getElementById("act-responsable").innerHTML = responsableOptionsHTML("", bz);
+  document.getElementById("act-area").innerHTML = minuteAreaOptionsHTML("");
   openModal("modal-actividad");
   setTimeout(() => document.getElementById("act-actividad")?.focus(), 50);
 }
@@ -109,7 +126,7 @@ function saveActividadHandler(e) {
     horaFin: document.getElementById("act-fin").value,
     activity: document.getElementById("act-actividad").value.trim(),
     lugar: document.getElementById("act-lugar").value.trim(),
-    area: document.getElementById("act-area").value.trim(),
+    area: document.getElementById("act-area").value,
     responsableId: document.getElementById("act-responsable").value,
     notes: document.getElementById("act-notas").value.trim()
   });
