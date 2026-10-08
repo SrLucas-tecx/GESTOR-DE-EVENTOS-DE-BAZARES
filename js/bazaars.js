@@ -34,6 +34,7 @@ function updateMapaBazaarLabel() {
   const scaleValue = document.getElementById("floor-plan-scale-value");
   if (bgScaleInput) bgScaleInput.value = Math.round(bgScale * 100);
   if (scaleValue) scaleValue.textContent = `${Math.round(bgScale * 100)}%`;
+  if (typeof updateScaleBar === "function") updateScaleBar();
 }
 
 function getPixelsPerMeter() {
@@ -323,24 +324,24 @@ function renderBazaresTabla() {
       : `<span style="font-size:1.4rem;">🎪</span>`;
     return `
       <tr class="${isActive ? "active-bazaar-row" : ""}">
-        <td style="display:flex;align-items:center;gap:10px;">
+        <td><div style="display:flex;align-items:center;gap:10px;">
           <div class="bazar-logo-mini">${logoHtml}</div>
           <div>
             <strong>${escapeHTML(bz.name)}</strong>
             ${isActive ? `<span class="section-count" style="margin-left:6px;font-size:10px;">Activo</span>` : ""}
           </div>
-        </td>
+        </div></td>
         <td>${expCount} expositor${expCount !== 1 ? "es" : ""}</td>
         <td>${paidCount}/${expCount} pagados</td>
         <td>${invCount} invitado${invCount !== 1 ? "s" : ""}</td>
-        <td style="display:flex;gap:8px;flex-wrap:wrap;">
+        <td><div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn-secondary btn-sm" onclick="switchBazaarAndGo('${bz.id}')" title="Abrir el panel de este bazar">
             📂 Abrir
           </button>
           <button class="btn-secondary btn-sm" onclick="openLogoUploadModal('${bz.id}')">🖼️ Logo</button>
-          <button class="btn-secondary btn-sm" onclick="renameBazaar('${bz.id}')">✏️ Renombrar</button>
+          <button class="btn-secondary btn-sm" onclick="editarFichaBazar('${bz.id}')" title="Editar la ficha del evento: nombre, fecha, lugar…">📝 Editar ficha</button>
           <button class="btn-danger btn-sm" onclick="deleteBazaarById('${bz.id}')">🗑️ Eliminar</button>
-        </td>
+        </div></td>
       </tr>`;
   }).join("");
 }
@@ -370,6 +371,14 @@ function renderBazaarHome() {
         <button class="btn-primary btn-sm" onclick="switchBazaarAndGo('${bz.id}')">Abrir bazar</button>
       </article>`;
   }).join("");
+}
+
+// Abre el Panel del bazar con el formulario de la ficha listo para editar (incluye el nombre).
+function editarFichaBazar(id) {
+  if (!AppState.bazaars[id]) return;
+  switchBazaar(id);
+  switchTab("ficha");
+  toggleFichaForm(true);
 }
 
 function switchBazaarAndGo(id) {
@@ -475,8 +484,11 @@ function syncCanvasWithState() {
 function applyFloorOrientation() {
   const floor = getActiveFloor();
   const orientation = floor?.orientation === "portrait" ? "portrait" : "landscape";
-  const select = document.getElementById("map-orientation");
-  if (select) select.value = orientation;
+  document.querySelectorAll("#map-orientation [data-value]").forEach((btn) => {
+    const on = btn.dataset.value === orientation;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", String(on));
+  });
   const canvas = document.getElementById("bazaar-canvas");
   if (!canvas) return;
   const [width, height] = orientation === "portrait" ? [560, 900] : [900, 560];
@@ -536,7 +548,7 @@ async function duplicarBazaar() {
 // 8. RENDERIZADO PRINCIPAL
 // ==========================================
 // Rutas que existen aunque no haya un bazar abierto; el resto depende del bazar activo.
-const GLOBAL_TABS = ["inicio", "bazares", "comparar"];
+const GLOBAL_TABS = ["inicio", "bazares", "comparar", "categorias", "plantillas"];
 
 // Selector de bazar del nivel 2 (reemplaza al selector que estaba en el header).
 function updateNavBazaarLabel() {
@@ -580,6 +592,8 @@ function renderAll() {
   updateMapaBazaarLabel();
   if (!getActiveBazaar()) {
     // Estado "sin bazar": solo pantallas globales; las demás se bloquean.
+    renderCategorias();
+    renderCategoryChips();
     updateAlertBadge();
     if (bazaarCanvas?.ctx) bazaarCanvas.render();
     const current = document.querySelector(".page-section.active")?.id.replace(/^sec-/, "");

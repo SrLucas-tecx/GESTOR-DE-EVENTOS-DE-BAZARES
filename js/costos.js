@@ -38,32 +38,11 @@ function calcPresupuesto(bz = getActiveBazaar()) {
   return { mobiliario: mobiliarioSinIva, extras: extrasSinIva, subtotal, rate, iva: total - subtotal, total };
 }
 
-// Costos del Evento vive en 2 sub-páginas: Mobiliario (mesas/sillas del
-// proveedor) y Otros Gastos (renta, permisos, etc. con IVA). Se muestra
-// una a la vez para no mezclar dos formularios sin relación entre sí.
-function setCostosSubTab(tab) {
-  if (!["mobiliario", "gastos"].includes(tab)) return;
-  AppState.costosSubTab = tab;
-  saveState();
-  _renderCostosSubTabs();
-}
-
-function _renderCostosSubTabs() {
-  const tab = ["mobiliario", "gastos"].includes(AppState.costosSubTab) ? AppState.costosSubTab : "mobiliario";
-  const panelMob = document.getElementById("costos-panel-mobiliario");
-  const panelGas = document.getElementById("costos-panel-gastos");
-  if (panelMob) panelMob.style.display = tab === "mobiliario" ? "" : "none";
-  if (panelGas) panelGas.style.display = tab === "gastos" ? "" : "none";
-  document.getElementById("costos-tab-mobiliario")?.classList.toggle("active", tab === "mobiliario");
-  document.getElementById("costos-tab-gastos")?.classList.toggle("active", tab === "gastos");
-}
-
 function renderCostosUI() {
   const bz  = getActiveBazaar();
   ensureEventoFields(bz);
   const cfg = bz.costsConfig;
 
-  _renderCostosSubTabs();
   const get = (id) => document.getElementById(id);
 
   if (get("cost-toggle-tables")) get("cost-toggle-tables").checked = cfg.tablesEnabled;
@@ -79,48 +58,8 @@ function renderCostosUI() {
 
   _updateCostosCalculations(cfg);
 
-  const rate = cfg.ivaEnabled ? Number(cfg.ivaRate || 0) / 100 : 0;
   const extraContainer = get("extra-costs-list");
-  if (extraContainer) {
-    extraContainer.innerHTML = cfg.extraCosts.length === 0
-      ? `<p style="font-size:var(--fs-xs);color:var(--color-text-muted);">Aún no hay gastos adicionales.</p>`
-      : cfg.extraCosts.map((c) => {
-        const cost      = Number(c.cost || 0);
-        const included  = cfg.ivaEnabled && !!c.ivaIncluido;
-        const sinIva    = included ? (rate > 0 ? cost / (1 + rate) : cost) : cost;
-        const conIva    = included ? cost : cost * (1 + rate);
-        return `
-        <div class="card-meta-item" style="display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="text" class="form-input" style="flex:1;" value="${escapeHTML(c.name)}" placeholder="Concepto" oninput="debouncedUpdateExtraCost('${c.id}','name',this.value)">
-            <button class="btn-danger btn-sm" onclick="removeExtraCostRow('${c.id}')" title="Eliminar">🗑️</button>
-          </div>
-          <input type="text" class="form-input" value="${escapeHTML(c.comment || "")}" placeholder="Comentario (opcional)" oninput="debouncedUpdateExtraCost('${c.id}','comment',this.value)">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <div>
-              <label class="form-label" style="font-size:var(--fs-xs);">Costo unitario</label>
-              <input type="number" class="form-input" min="0" step="0.01" value="${Number(c.unit || 0)}" onchange="updateExtraCost('${c.id}','unit',this.value)">
-            </div>
-            <div>
-              <label class="form-label" style="font-size:var(--fs-xs);">Cantidad</label>
-              <input type="number" class="form-input" min="0" step="1" value="${Number(c.qty ?? 1)}" onchange="updateExtraCost('${c.id}','qty',this.value)">
-            </div>
-          </div>
-          ${cfg.ivaEnabled ? `
-          <div class="form-switch" style="padding:2px 0;">
-            <span class="switch-label" style="font-size:var(--fs-xs);">Este costo ya incluye IVA</span>
-            <label class="switch">
-              <input type="checkbox" ${c.ivaIncluido ? "checked" : ""} onchange="updateExtraCost('${c.id}','ivaIncluido',this.checked)">
-              <span class="slider"></span>
-            </label>
-          </div>` : ""}
-          <div style="font-size:var(--fs-xs);font-weight:700;color:var(--color-accent);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-            <span>Sin IVA: ${formatCurrency(sinIva)}</span>
-            ${cfg.ivaEnabled ? `<span>Con IVA: ${formatCurrency(conIva)}</span>` : ""}
-          </div>
-        </div>`;
-      }).join("");
-  }
+  if (extraContainer) extraContainer.innerHTML = _extraCostsTableHTML(cfg);
 
   const totalIncome = bz.expositores.reduce((s, e) => s + Number(e.costo || 0), 0);
   const p = calcPresupuesto(bz);
@@ -178,33 +117,75 @@ function updateEventCostsUI() {
   renderFichaResumen();
 }
 
+// Alta en ventana emergente. El gasto nuevo se inserta al INICIO de la lista.
 function addExtraCostRow() {
   const bz = getActiveBazaar();
   if (!bz) return;
   ensureEventoFields(bz);
-  bz.costsConfig.extraCosts.push({
+  document.getElementById("form-gasto").reset();
+  updateGastoUnitHint();
+  const ivaGroup = document.getElementById("gasto-iva-group");
+  if (ivaGroup) ivaGroup.style.display = bz.costsConfig.ivaEnabled ? "" : "none";   // solo tiene sentido con IVA activo
+  openModal("modal-gasto");
+  setTimeout(() => document.getElementById("gasto-nombre")?.focus(), 50);
+}
+
+// Muestra en vivo el costo unitario (total ÷ cantidad) mientras se llena el formulario.
+function updateGastoUnitHint() {
+  const hint = document.getElementById("gasto-unit-hint");
+  if (!hint) return;
+  const total = Math.max(0, Number(document.getElementById("gasto-total")?.value) || 0);
+  const qty = Math.max(1, Number(document.getElementById("gasto-qty")?.value) || 1);
+  hint.textContent = `Costo unitario: ${formatCurrency(total / qty)}`;
+}
+
+function saveGastoHandler(e) {
+  e.preventDefault();
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  ensureEventoFields(bz);
+  const cfg = bz.costsConfig;
+  const total = Math.max(0, Number(document.getElementById("gasto-total").value) || 0);
+  const qty = Math.max(1, Number(document.getElementById("gasto-qty").value) || 1);
+  const unit = total / qty;
+  cfg.extraCosts.unshift({
     id: `cost-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    name: "Nuevo Gasto", comment: "", unit: 0, qty: 1, cost: 0, ivaIncluido: false
+    name: document.getElementById("gasto-nombre").value.trim(),
+    comment: document.getElementById("gasto-comentario").value.trim(),
+    unit, qty, cost: total,
+    ivaIncluido: cfg.ivaEnabled && document.getElementById("gasto-iva-incluido").checked
   });
-  AppState.costosSubTab = "gastos";
   saveState();
+  closeModal("modal-gasto");
   renderCostosUI();
+  renderFichaResumen();
+  showToast("✅ Gasto agregado al inicio de la lista");
 }
 
 function updateExtraCost(id, field, value) {
   const item = getActiveBazaar().costsConfig.extraCosts.find((c) => c.id === id);
-  if (!item || !["name", "comment", "unit", "qty", "ivaIncluido"].includes(field)) return;
-  if (field === "unit" || field === "qty") {
-    item[field] = Math.max(0, Number(value) || 0);
-    item.cost = Number(item.unit || 0) * Number(item.qty ?? 1); // total capturado (según ivaIncluido, con o sin IVA)
+  if (!item || !["name", "comment", "cost", "unit", "qty", "ivaIncluido"].includes(field)) return;
+  if (field === "cost") {
+    // El usuario captura el COSTO TOTAL; el unitario se calcula (total ÷ cantidad).
+    item.cost = Math.max(0, Number(value) || 0);
+    item.qty = Math.max(1, Number(item.qty) || 1);
+    item.unit = item.cost / item.qty;
+  } else if (field === "qty") {
+    // Al cambiar la cantidad el total se conserva y cambia el unitario.
+    item.qty = Math.max(1, Number(value) || 1);
+    item.unit = Number(item.cost || 0) / item.qty;
+  } else if (field === "unit") {   // compatibilidad: unitario × cantidad
+    item.qty = Math.max(1, Number(item.qty) || 1);
+    item.unit = Math.max(0, Number(value) || 0);
+    item.cost = item.unit * item.qty;
   } else if (field === "ivaIncluido") {
     item.ivaIncluido = Boolean(value);
   } else {
     item[field] = value;
   }
   saveState();
-  if (["unit", "qty", "ivaIncluido"].includes(field)) renderCostosUI(); // recalcula el total/balance mostrado
-  else renderFichaResumen(); // nombre/comentario: no hace falta repintar la fila mientras se escribe
+  if (["cost", "unit", "qty", "ivaIncluido"].includes(field)) renderCostosUI(); // recalcula totales y balance
+  else renderFichaResumen();
 }
 
 // Autoguardado mientras se escribe (concepto y comentario), sin esperar a perder el foco.
@@ -217,4 +198,39 @@ function removeExtraCostRow(id) {
   renderCostosUI();
   renderCompras();      // si venía de la lista de compras, vuelve a poder enviarse
   renderFichaResumen();
+}
+
+/** Otros gastos como tabla de filas compactas (en vez de una tarjeta por gasto). */
+function _extraCostsTableHTML(cfg) {
+  if (!cfg.extraCosts.length) {
+    return `<p class="form-hint" style="padding:var(--space-3) 0;">Aún no hay gastos adicionales. Pulsa “+ Agregar” para registrar el primero.</p>`;
+  }
+  const rate = cfg.ivaEnabled ? Number(cfg.ivaRate || 0) / 100 : 0;
+  const rows = cfg.extraCosts.map((c) => {
+    const cost = Number(c.cost || 0);
+    const qty = Math.max(1, Number(c.qty) || 1);
+    const unit = cost / qty;                       // el unitario siempre se calcula
+    const included = cfg.ivaEnabled && !!c.ivaIncluido;
+    const sinIva = included ? (rate > 0 ? cost / (1 + rate) : cost) : cost;
+    const conIva = included ? cost : cost * (1 + rate);
+    return `
+      <tr>
+        <td><input type="text" class="form-input" value="${escapeHTML(c.name)}" placeholder="Concepto" aria-label="Concepto" oninput="debouncedUpdateExtraCost('${c.id}','name',this.value)"></td>
+        <td><input type="text" class="form-input" value="${escapeHTML(c.comment || "")}" placeholder="Comentario (opcional)" aria-label="Comentario" oninput="debouncedUpdateExtraCost('${c.id}','comment',this.value)"></td>
+        <td><input type="number" class="form-input costos-num" min="0" step="0.01" value="${cost}" aria-label="Costo total" onchange="updateExtraCost('${c.id}','cost',this.value)"></td>
+        <td><input type="number" class="form-input costos-num" min="1" step="1" value="${qty}" aria-label="Cantidad" onchange="updateExtraCost('${c.id}','qty',this.value)"></td>
+        <td class="costos-total costos-unit" title="Costo total ÷ cantidad">${formatCurrency(unit)}</td>
+        ${cfg.ivaEnabled ? `
+        <td style="text-align:center;"><input type="checkbox" class="costos-check" ${c.ivaIncluido ? "checked" : ""} title="El costo total ya incluye IVA" aria-label="El costo total ya incluye IVA" onchange="updateExtraCost('${c.id}','ivaIncluido',this.checked)"></td>
+        <td class="costos-total">${formatCurrency(conIva)}<small>sin IVA ${formatCurrency(sinIva)}</small></td>` : ""}
+        <td><button class="btn-danger btn-sm" onclick="removeExtraCostRow('${c.id}')" title="Eliminar gasto" aria-label="Eliminar gasto">🗑️</button></td>
+      </tr>`;
+  }).join("");
+  return `
+    <div class="costos-table-scroll">
+      <table class="payments-table costos-table">
+        <thead><tr><th>Concepto</th><th>Comentario</th><th>Costo total</th><th>Cant.</th><th title="Costo total ÷ cantidad">Unitario</th>${cfg.ivaEnabled ? `<th title="El costo total ya incluye IVA">IVA incl.</th><th>Total con IVA</th>` : ""}<th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }

@@ -37,7 +37,8 @@ function renderFicha() {
     el.value = field === "nombre" ? bz.name : (bz.evento[field] ?? "");
   });
   renderFichaResumen(bz);
-  renderPanelAccesos(bz);
+  renderPanelMetricas(bz);
+  renderFichaDatos(bz);
 }
 
 function updateFichaField(field, value) {
@@ -59,6 +60,7 @@ function updateFichaField(field, value) {
   bz.evento[field] = ["asistentes", "staff"].includes(field) && value !== "" ? Math.max(0, Number(value) || 0) : value;
   saveState();
   renderFichaResumen(bz);
+  renderFichaDatos(bz);
 }
 
 // Autoguardado mientras se escribe (campos de texto libre), sin esperar a
@@ -96,32 +98,83 @@ function renderFichaResumen(bz = getActiveBazaar()) {
     card("accent-red",   "💰", formatCurrency(presupuesto.total), "Presupuesto total");
 }
 
-/** Accesos rápidos del Panel del bazar: de aquí se entra al resto del menú, con un dato vivo por pantalla. */
-function renderPanelAccesos(bz = getActiveBazaar()) {
-  const box = document.getElementById("panel-accesos");
+/** Métricas del Panel del bazar (cada tarjeta lleva a su pantalla de detalle). */
+function renderPanelMetricas(bz = getActiveBazaar()) {
+  const box = document.getElementById("panel-metricas");
   if (!box || !bz) return;
   ensureEventoFields(bz);
+  const pct = (a, t) => (t ? Math.round((a / t) * 100) : 0);
+  const ingresos = bz.expositores.reduce((s, e) => s + Number(e.costo || 0), 0);
+  const egresos = calcPresupuesto(bz).total;
   const pagados = bz.expositores.filter((e) => e.pagado).length;
-  const mesas = (bz.floors || []).reduce((n, fl) => n + (fl.tables || []).length, 0);
-  const previo = tareasStats(bz, "previo");
-  const comprados = bz.compras.filter((c) => c.comprado).length;
+  const mesas = typeof getDiaEventoTables === "function" ? getDiaEventoTables(bz) : [];
+  const asistieron = mesas.filter((e) => e.state === "attended").length;
+  const invitados = bz.invitados || [];
+  const confirmados = invitados.filter((i) => i.confirmado).length;
   const alertas = getTodasLasAlertas(bz).length;
-  const items = [
-    ["expositores", "👥", "Expositores", `${bz.expositores.length} registrados`],
-    ["finanzas", "💰", "Control de pagos", `${pagados}/${bz.expositores.length} pagados`],
-    ["costos", "📊", "Costos del evento", formatCurrency(calcPresupuesto(bz).total)],
-    ["mapa", "🗺️", "Plano del evento", `${mesas} mesa(s)`],
-    ["tareas", "✅", "Tareas", `${previo.hechas}/${previo.total} previas listas`],
-    ["compras", "🛒", "Lista de compras", `${comprados}/${bz.compras.length} comprados`],
-    ["minuto-a-minuto", "🕒", "Minuto a minuto", `${(bz.minuteByMinute || []).length} actividad(es)`],
-    ["dia-evento", "🎪", "Día del evento", "Asistencia en vivo"],
-    ["estadisticas", "📈", "Métricas", "Resumen general"],
-    ["alertas", "⚠️", "Alertas", alertas ? `${alertas} por atender` : "Todo al día"],
-  ];
-  box.innerHTML = `<h3 class="panel-accesos-title">Ir a…</h3>` + items.map(([tab, icon, label, stat]) => `
-    <button type="button" class="panel-acceso" onclick="switchTab('${tab}')">
-      <span class="panel-acceso-icon" aria-hidden="true">${icon}</span>
-      <strong>${escapeHTML(label)}</strong>
-      <small>${escapeHTML(stat)}</small>
-    </button>`).join("");
+  const card = (accent, icon, value, label, tab) => `
+    <button type="button" class="stat-card stat-link ${accent}" onclick="switchTab('${tab}')" title="Ver detalle">
+      <div class="stat-icon">${icon}</div>
+      <div class="stat-value">${escapeHTML(String(value))}</div>
+      <div class="stat-label">${escapeHTML(label)}</div>
+    </button>`;
+  box.innerHTML = `<h3 class="panel-section-title">Métricas del bazar</h3>` +
+    card("accent-teal",  "📥", formatCurrency(ingresos), "Ingresos", "finanzas") +
+    card("accent-red",   "📤", formatCurrency(egresos), "Egresos", "costos") +
+    card("accent-green", "💎", formatCurrency(ingresos - egresos), "Balance", "costos") +
+    card("accent-teal",  "🎯", formatCurrency(calcTicketPromedio(bz)), "Ticket promedio", "estadisticas") +
+    card("accent-gold",  "💳", `${pagados}/${bz.expositores.length} · ${pct(pagados, bz.expositores.length)}%`, "Expositores al corriente", "finanzas") +
+    card("accent-teal",  "🎪", `${pct(asistieron, mesas.length)}%`, `Asistencia (${asistieron}/${mesas.length} mesas)`, "dia-evento") +
+    card("accent-gold",  "🎟️", `${pct(confirmados, invitados.length)}%`, "Confirmación de invitados", "invitados") +
+    card("accent-red",   "⚠️", alertas, alertas === 1 ? "Alerta por atender" : "Alertas por atender", "alertas") +
+    `<div style="grid-column:1/-1;"><button type="button" class="link-inline" onclick="switchTab('estadisticas')">📈 Ver todas las métricas y gráficas</button></div>`;
+}
+
+/** Resumen de solo lectura de la ficha (se muestra cuando el formulario está oculto). */
+function renderFichaDatos(bz = getActiveBazaar()) {
+  const box = document.getElementById("ficha-datos");
+  if (!box || !bz) return;
+  ensureEventoFields(bz);
+  const ev = bz.evento;
+  let fecha = "";
+  if (ev.fecha) {
+    const d = new Date(`${ev.fecha}T00:00:00`);
+    fecha = Number.isNaN(d.getTime()) ? ev.fecha : d.toLocaleDateString("es-MX", { dateStyle: "long" });
+  }
+  const rows = [["📅 Fecha", fecha], ["📍 Lugar", ev.lugar], ["👤 Líderes", ev.lideres], ["🎯 Público", ev.publico],
+                ["👥 Asistentes esperados", ev.asistentes], ["🙋 Staff considerado", ev.staff]]
+    .filter(([, v]) => v !== "" && v !== null && v !== undefined);
+  box.innerHTML = `
+    <div class="ficha-resumen-nombre">${escapeHTML(bz.name)}</div>
+    ${ev.objetivo ? `<p class="ficha-objetivo">${escapeHTML(ev.objetivo)}</p>` : ""}
+    ${rows.length || ev.objetivo
+      ? `<div class="ficha-datos-grid">${rows.map(([label, value]) => `
+          <div class="card-meta-item">
+            <div class="card-meta-label">${label}</div>
+            <div class="card-meta-value">${escapeHTML(String(value))}</div>
+          </div>`).join("")}</div>`
+      : `<p class="form-hint">Aún no hay datos del evento. Pulsa “✏️ Editar” para completarlos.</p>`}`;
+}
+
+/** Muestra u oculta el formulario de la ficha. Sin argumento alterna; true/false fuerza el estado. */
+function toggleFichaForm(forceOpen) {
+  const card = document.getElementById("ficha-form-card");
+  if (!card) return;
+  const open = typeof forceOpen === "boolean" ? forceOpen : card.hidden;
+  card.hidden = !open;
+  const datos = document.getElementById("ficha-datos");
+  if (datos) datos.hidden = open;
+  const btn = document.getElementById("btn-toggle-ficha");
+  if (btn) {
+    btn.textContent = open ? "✔ Listo" : "✏️ Editar";
+    btn.setAttribute("aria-expanded", String(open));
+  }
+  if (open) {
+    renderFicha();
+    document.getElementById("ficha-nombre")?.focus();
+    document.getElementById("ficha-card")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else {
+    document.activeElement?.blur();   // dispara el guardado del campo en edición
+    renderFichaDatos();
+  }
 }

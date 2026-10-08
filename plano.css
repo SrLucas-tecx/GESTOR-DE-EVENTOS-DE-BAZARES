@@ -58,12 +58,6 @@ html .row-blue-card input[type="range"]::-moz-range-thumb {
 }
 
 /* 4. Botones de alternar (Capas / Snap): estado claro ✓ activo, tenue punteado apagado */
-html .toolbar-card :is(#layer-btn-tables, #layer-btn-zones, #btn-snap-tables).active::before {
-  content: "✓"; font-weight: 900;
-}
-html .toolbar-card :is(#layer-btn-tables, #layer-btn-zones, #btn-snap-tables):not(.active) {
-  background: transparent; border-style: dashed; opacity: .65;
-}
 
 /* 5. Botones de peligro legibles (rojo sobre rojo oscuro tenía poco contraste) */
 html .toolbar-card .btn-danger {
@@ -108,7 +102,7 @@ html .toolbar-card .group-toggle {
 .bg-group.collapsed > :not(.group-toggle) { display: none !important; }
 
 /* Panel lateral: pestañas + fijo al hacer scroll */
-html .map-side-panel { position: sticky; top: calc(var(--topnav-h, 56px) + 76px); align-self: flex-start; }
+html .map-side-panel { position: sticky; top: calc(var(--topnav-h, 56px) + 16px); align-self: flex-start; }
 .side-tabs { display: flex; gap: 4px; padding: 4px; flex-shrink: 0;
   background: var(--color-surface-alt); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
 .side-tab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -153,9 +147,6 @@ html .ribbon.row-green-card > .canvas-toolbar-group[data-rt="imagen"]:nth-child(
 
 /* ═══ MODO SIN BAZAR (Sprint A) ═══ */
 [hidden] { display: none !important; }
-body.no-bazaar .search-bar,
-body.no-bazaar .header .control-group-inline,
-body.no-bazaar .header > .btn-primary { display: none; }
 
 /* ═══ NAVEGACIÓN EN 2 NIVELES (Sprint B) ═══
    Nivel 1 (.nav-global): Inicio · Mis Bazares · Comparar  →  fila superior
@@ -169,15 +160,15 @@ body.no-bazaar .header > .btn-primary { display: none; }
   display: inline-block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom;
 }
 @media (min-width: 769px) {
-  :root { --topnav-h: 100px; }
-  body.no-bazaar { --topnav-h: 56px; }
+  :root { --topnav-h: 6.25rem; }
+  body.no-bazaar { --topnav-h: 3.5rem; }
   html .sidebar { flex-wrap: wrap; align-content: flex-start; height: var(--topnav-h); }
-  .sidebar > .sidebar-logo { order: 0; height: 56px; }
-  .sidebar > .nav-global   { order: 1; flex: 1; height: 56px; }
-  .sidebar > .sidebar-footer { order: 2; height: 56px; }
+  .sidebar > .sidebar-logo { order: 0; height: 3.5rem; }
+  .sidebar > .nav-global   { order: 1; flex: 1; height: 3.5rem; }
+  .sidebar > .sidebar-footer { order: 2; height: 3.5rem; }
   .sidebar > .nav-bazaar {
     order: 3; flex: 0 0 auto; width: calc(100% + 2 * var(--space-4));
-    margin: 0 calc(-1 * var(--space-4)); padding: 0 var(--space-4); height: 44px;
+    margin: 0 calc(-1 * var(--space-4)); padding: 0 var(--space-4); height: 2.75rem;
     border-top: 1px solid var(--color-border); background: var(--color-surface-alt);
     gap: var(--space-2);
   }
@@ -200,27 +191,7 @@ body.no-bazaar .header > .btn-primary { display: none; }
 .nav-bazaar-select:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-accent); outline-offset: 1px; }
 @media (max-width: 768px) { .nav-bazaar-label { display: flex; padding: var(--space-2) var(--space-3); } .nav-bazaar-select { flex: 1; max-width: none; } }
 
-.panel-accesos { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-6); }
-.panel-accesos-title { grid-column: 1 / -1; font-family: var(--font-display); font-size: var(--fs-md); font-weight: 800; }
-.panel-acceso {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
-  padding: var(--space-4); background: var(--color-surface); color: var(--color-text);
-  border: 1.5px solid var(--color-border); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm); transition: all var(--transition);
-}
-.panel-acceso:hover, .panel-acceso:focus-visible { border-color: var(--color-accent); transform: translateY(-2px); box-shadow: var(--shadow-md); outline: none; }
-.panel-acceso-icon { font-size: 1.5rem; margin-bottom: var(--space-1); }
-.panel-acceso strong { font-family: var(--font-display); font-size: var(--fs-md); }
-.panel-acceso small { color: var(--color-text-muted); font-size: var(--fs-xs); font-weight: 600; }
 
-/* ═══ PULIDO UX (Sprint D) ═══ */
-/* Buscador de expositores y "+ Nuevo Expositor" no tienen sentido en las pantallas generales */
-body[data-tab="inicio"] .search-bar,
-body[data-tab="bazares"] .search-bar,
-body[data-tab="comparar"] .search-bar,
-body[data-tab="inicio"] .header > .btn-primary,
-body[data-tab="bazares"] .header > .btn-primary,
-body[data-tab="comparar"] .header > .btn-primary { display: none; }
 
 /* ═══ CUADRÍCULA DEL PLANO (Sprint E) ═══
    La cuadrícula ahora se dibuja solo en el canvas (canvas.js → drawGrid).
@@ -228,5 +199,146 @@ body[data-tab="comparar"] .header > .btn-primary { display: none; }
 html body #bazaar-canvas,
 html body.dark #bazaar-canvas { background-image: none; }
 
-html .toolbar-card #layer-btn-grid.active::before { content: "✓"; font-weight: 900; }
-html .toolbar-card #layer-btn-grid:not(.active) { background: transparent; border-style: dashed; opacity: .65; }
+
+/* ═══ PANEL DEL BAZAR: métricas, datos y formulario oculto (Sprint F) ═══ */
+.panel-section-title { grid-column: 1 / -1; font-family: var(--font-display); font-size: var(--fs-md); font-weight: 800; }
+.stat-link { width: 100%; text-align: left; color: inherit; cursor: pointer; transition: all var(--transition); }
+.stat-link:hover, .stat-link:focus-visible { border-color: var(--color-accent); transform: translateY(-2px); box-shadow: var(--shadow-md); outline: none; }
+.ficha-datos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--space-2); }
+
+/* ═══ LIMPIEZA DE BOTONES Y HEADER (Sprint G) ═══ */
+/* El header ya no es fijo: solo queda fijo el menú (antes había tres capas fijas apiladas). */
+html .header { position: static; }
+
+/* Barra de acciones de Expositores: buscador a la izquierda, "+ Nuevo Expositor" a la derecha */
+.expositores-toolbar { justify-content: space-between; }
+.expositores-toolbar .search-bar { flex: 1 1 280px; max-width: 420px; }
+
+/* El 🔗 ocupa la esquina inferior derecha (donde estaba el "+" flotante) */
+html .fab-social-container { right: var(--space-8); }
+@media (max-width: 768px) { html .fab-social-container { right: var(--space-5); } }
+
+/* ═══ CATÁLOGOS GLOBALES (Sprint H) ═══ */
+.plantilla-dest { flex: 1 1 150px; min-width: 0; padding: 6px 10px; font-size: var(--fs-xs); }
+.picker-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border); }
+.picker-row:last-child { border-bottom: none; }
+.picker-avatar { width: 40px; height: 40px; font-size: 1rem; flex-shrink: 0; }
+.picker-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.picker-info small { color: var(--color-text-muted); font-size: var(--fs-xs); }
+
+/* ═══ QUITAR BARRA DE TÍTULO + REDISEÑO DE COSTOS (Sprint I) ═══ */
+/* El título de la página ya aparece en cada sección: la barra del header sobra en escritorio.
+   En móvil se conserva porque aloja el botón ☰ del menú. */
+@media (min-width: 769px) { html .header { display: none; } }
+.sidebar-footer .save-indicator { min-width: 84px; text-align: right; }
+
+.costos-layout { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+.costos-resumen { position: sticky; top: calc(var(--topnav-h, 56px) + 16px); }
+.costos-main { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+.costos-kpi { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2);
+  padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border); font-size: var(--fs-sm); }
+.costos-kpi small { color: var(--color-text-muted); }
+.costos-kpi strong { font-family: var(--font-display); font-size: var(--fs-lg); }
+.costos-kpi-total strong { color: var(--color-accent); }
+.costos-iva { display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-4) 0; }
+.costos-iva-rate { display: flex; align-items: center; gap: var(--space-2); }
+.costos-iva-rate .form-label { margin: 0; }
+.costos-iva-rate .form-input { width: 90px; }
+.costos-incluir { display: flex; align-items: center; gap: var(--space-2); }
+.costos-table-scroll { overflow-x: auto; }
+.costos-table .form-input { padding: 6px 8px; min-width: 80px; }
+.costos-table td { vertical-align: middle; }
+.costos-table .costos-num { min-width: 70px; max-width: 110px; }
+.costos-total { white-space: nowrap; font-weight: 800; }
+.costos-total small { display: block; font-weight: 600; color: var(--color-text-muted); font-size: var(--fs-xs); }
+@media (max-width: 900px) {
+  .costos-layout { grid-template-columns: 1fr; }
+  .costos-resumen { position: static; }
+}
+
+/* ═══ FICHA PLEGABLE (Sprint J) ═══ */
+.ficha-card-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+.ficha-card-head h3 { margin: 0; }
+.ficha-resumen-nombre { font-family: var(--font-display); font-weight: 800; font-size: var(--fs-lg); margin-bottom: var(--space-2); }
+.ficha-objetivo { color: var(--color-text-muted); margin-bottom: var(--space-4); }
+
+/* ═══ DISEÑO FLUIDO PARA PANTALLAS ANCHAS (Sprint K) ═══
+   Idea: el contenido sigue al ancho de la pantalla igual que el 🔗 flotante.
+   1) Sin tope de ancho en el contenido, con márgenes que crecen con la pantalla.
+   2) Tipografía fluida desde 1440px: como todo usa rem, escala el conjunto.
+   3) Rejillas y paneles con tamaños en rem y minmax(min(100%, …)) para no desbordar. */
+html .page-content { max-width: none; padding-inline: clamp(1rem, 2.2vw, 3.5rem); padding-top: clamp(1rem, 1.6vw, 2.5rem); }
+
+@media (min-width: 1440px) { html { font-size: clamp(16px, 11px + 0.36vw, 22px); } }
+
+.cards-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); }
+.stats-row   { grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr)); }
+.charts-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 25rem), 1fr)); }
+.bazaar-home-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); }
+.ficha-datos-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); }
+.chart-wrap { height: clamp(14rem, 18vw, 22rem); }
+
+.modal-box { width: min(32.5rem, 92vw); }
+.modal-box-wide { width: min(42.5rem, 94vw); }
+.fab { width: 3.5rem; height: 3.5rem; }
+html .map-side-panel { width: clamp(20rem, 20vw, 30rem); }
+.costos-layout { grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr); }
+#ficha-form-card { max-width: 64rem; }
+
+/* Tablet / portátil chico: el segundo nivel del menú tiene que caber en una fila */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .nav-bazaar-label label { display: none; }
+  .nav-bazaar-select { max-width: 9rem; }
+  .sidebar-footer .save-indicator { min-width: 0; }
+  .sidebar-nav .nav-item, .nav-group .nav-group-label { font-size: var(--fs-xs); }
+}
+@media (max-width: 900px) { .costos-layout { grid-template-columns: 1fr; } }
+
+/* Móvil: la cinta no debe ensancharse más que la pantalla (las pestañas se desplazan por dentro) */
+@media (max-width: 768px) {
+  html .ribbon.row-green-card { flex-wrap: nowrap; }
+  .ribbon-tabs { min-width: 0; max-width: 100%; }
+}
+
+/* ═══ PULIDO VISUAL + MEJORAS DEL PLANO (Sprint K) ═══ */
+/* Controles nativos (checkbox, flechas de número, scroll) en oscuro cuando el tema es oscuro */
+html { color-scheme: light; }
+html:has(body.dark), body.dark { color-scheme: dark; }
+.costos-check { width: 1.15rem; height: 1.15rem; accent-color: var(--color-accent); cursor: pointer; }
+.costos-table th { white-space: nowrap; }
+.costos-unit { color: var(--color-text-muted); }
+
+/* Orientación: control segmentado */
+.segmented { display: inline-flex; padding: 3px; gap: 2px; background: var(--color-surface-alt);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.segmented button { padding: 6px 14px; border-radius: calc(var(--radius-md) - 3px); background: transparent;
+  color: var(--color-text-muted); font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; transition: all var(--transition); }
+.segmented button:hover { color: var(--color-accent); }
+.segmented button.active { background: var(--color-accent); color: #fff; box-shadow: 0 2px 8px rgba(13,148,136,.3); }
+.segmented button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
+/* Barra de escala (1 m, 50 cm… según el zoom) */
+.scale-bar { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 3rem; }
+.scale-bar #scale-bar-line { display: block; height: 7px; min-width: 8px; border: 2px solid var(--color-accent); border-top: none; }
+.scale-bar small { font-size: var(--fs-xs); font-weight: 800; color: var(--color-accent); }
+
+/* Capas y Snap como interruptores (en lugar de botones punteados) */
+html .toolbar-card .toggle-switch-btn,
+html .toolbar-card .toggle-switch-btn.active {
+  background: transparent; color: var(--color-text); border-color: transparent; box-shadow: none; gap: .5rem; padding-inline: .35rem;
+}
+html .toolbar-card .toggle-switch-btn:hover { background: var(--color-accent-soft); }
+html .toolbar-card .toggle-switch-btn::before {
+  content: ""; width: 2rem; height: 1.1rem; border-radius: 999px; flex-shrink: 0;
+  background: radial-gradient(circle at .55rem 50%, #fff .38rem, transparent .4rem), var(--color-border);
+  transition: background-color var(--transition);
+}
+html .toolbar-card .toggle-switch-btn.active::before {
+  background: radial-gradient(circle at 1.45rem 50%, #fff .38rem, transparent .4rem), var(--color-paid);
+}
+
+/* Modo y Añadir: icono grande con su nombre debajo */
+html .ribbon .canvas-toolbar-group[data-rt="plano"] :is(.canvas-mode-btn, .btn-primary, .btn-secondary, .btn-danger) {
+  flex-direction: column; min-width: 4.4rem; min-height: 3.6rem; padding: .45rem .6rem; gap: .3rem; font-size: var(--fs-xs);
+}
+html .ribbon .canvas-toolbar-group[data-rt="plano"] .ico { width: 1.3rem; height: 1.3rem; }

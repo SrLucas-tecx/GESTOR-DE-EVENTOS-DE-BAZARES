@@ -61,14 +61,37 @@ function renderCompras() {
   }).join("");
 }
 
+// Alta en ventana emergente (la edición posterior sigue siendo en la propia fila).
 function addCompra() {
   const bz = getActiveBazaar();
   if (!bz) return;
   ensureEventoFields(bz);
-  bz.compras.push({ id: `compra-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, articulo: "", descripcion: "", responsableId: "", fecha: "", cantidad: 1, costoUnit: 0, comprado: false, presupuestoId: "" });
+  document.getElementById("form-compra").reset();
+  document.getElementById("compra-responsable").innerHTML = responsableOptionsHTML("", bz);
+  openModal("modal-compra");
+  setTimeout(() => document.getElementById("compra-articulo")?.focus(), 50);
+}
+
+function saveCompraHandler(e) {
+  e.preventDefault();
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  bz.compras.push({
+    id: `compra-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+    articulo: document.getElementById("compra-articulo").value.trim(),
+    descripcion: document.getElementById("compra-descripcion").value.trim(),
+    responsableId: document.getElementById("compra-responsable").value,
+    fecha: document.getElementById("compra-fecha").value,
+    cantidad: Math.max(0, Number(document.getElementById("compra-cantidad").value) || 0),
+    costoUnit: Math.max(0, Number(document.getElementById("compra-costo").value) || 0),
+    comprado: false,
+    presupuestoId: ""
+  });
   saveState();
+  closeModal("modal-compra");
   renderCompras();
   renderFichaResumen(bz);
+  showToast("✅ Artículo agregado");
 }
 
 function updateCompra(id, field, value) {
@@ -106,7 +129,7 @@ function _compraAPresupuesto(bz, c) {
   const unit = Number(c.costoUnit || 0);
   const qty = Number(c.cantidad || 0) || 1;
   const costId = `cost-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
-  bz.costsConfig.extraCosts.push({ id: costId, name: c.articulo || "Artículo", comment: c.descripcion || "", unit, qty, cost: unit * qty, ivaIncluido: false, fromCompraId: c.id });
+  bz.costsConfig.extraCosts.unshift({ id: costId, name: c.articulo || "Artículo", comment: c.descripcion || "", unit, qty, cost: unit * qty, ivaIncluido: false, fromCompraId: c.id });
   c.presupuestoId = costId;
 }
 

@@ -89,15 +89,46 @@ function renderTareas() {
     </tr>`).join("");
 }
 
+// Alta en ventana emergente (la edición posterior sigue siendo en la propia fila).
 function addTarea() {
   const bz = getActiveBazaar();
   if (!bz) return;
   ensureEventoFields(bz);
-  const fase = TAREAS_FASES[AppState.tareasFase] ? AppState.tareasFase : "previo";
-  bz.tareas.push({ id: `tarea-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, fase, actividad: "", descripcion: "", responsableId: "", fecha: "", avance: "", hecho: false });
+  document.getElementById("form-tarea").reset();
+  document.getElementById("tarea-fase").value = TAREAS_FASES[AppState.tareasFase] ? AppState.tareasFase : "previo";
+  document.getElementById("tarea-responsable").innerHTML = responsableOptionsHTML("", bz);
+  toggleTareaAvance();
+  openModal("modal-tarea");
+  setTimeout(() => document.getElementById("tarea-actividad")?.focus(), 50);
+}
+
+// "Avances" solo existe en la fase Previo.
+function toggleTareaAvance() {
+  const group = document.getElementById("tarea-avance-group");
+  if (group) group.style.display = document.getElementById("tarea-fase").value === "previo" ? "" : "none";
+}
+
+function saveTareaHandler(e) {
+  e.preventDefault();
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  const fase = document.getElementById("tarea-fase").value === "post" ? "post" : "previo";
+  bz.tareas.push({
+    id: `tarea-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+    fase,
+    actividad: document.getElementById("tarea-actividad").value.trim(),
+    descripcion: document.getElementById("tarea-descripcion").value.trim(),
+    responsableId: document.getElementById("tarea-responsable").value,
+    fecha: document.getElementById("tarea-fecha").value,
+    avance: fase === "previo" ? document.getElementById("tarea-avance").value.trim() : "",
+    hecho: false
+  });
+  AppState.tareasFase = fase;   // se muestra la fase donde quedó la tarea
   saveState();
+  closeModal("modal-tarea");
   renderTareas();
   renderFichaResumen(bz);
+  showToast("✅ Tarea agregada");
 }
 
 function updateTarea(id, field, value) {

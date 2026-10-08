@@ -201,7 +201,9 @@ function saveCategoriaHandler(e) {
 }
 
 async function deleteCategoria(id) {
-  if (!await appConfirm("¿Eliminar esta categoría?", "Eliminar categoría")) return;
+  const enUso = Object.values(AppState.bazaars).reduce((n, bz) => n + (bz.expositores || []).filter((e) => e.categoria === id).length, 0);
+  const aviso = enUso ? `\n\n${enUso} expositor(es) de tus bazares usan esta categoría y quedarán sin categoría.` : "";
+  if (!await appConfirm(`¿Eliminar esta categoría?${aviso}`, "Eliminar categoría")) return;
   AppState.categorias = AppState.categorias.filter((c) => c.id !== id);
   saveState();
   renderAll();

@@ -32,7 +32,10 @@ function renderExpositores() {
         <p>${sinDatos
           ? `Registra al primer expositor de "${escapeHTML(bz.name)}".`
           : `No hay expositores que coincidan con los filtros en "${escapeHTML(bz.name)}".`}</p>
-        ${sinDatos ? `<button class="btn-primary" style="margin-top:16px;" onclick="openModalExpositorForCurrentCategory()">+ Nuevo expositor</button>` : ""}
+        ${sinDatos ? `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px;">
+          <button class="btn-primary" onclick="openModalExpositorForCurrentCategory()">+ Nuevo expositor</button>
+          ${AppState.expositorPlantillas.length ? `<button class="btn-secondary" onclick="openPickerGuardados()">💾 Traer de guardados</button>` : ""}
+        </div>` : ""}
       </div>`;
     return;
   }

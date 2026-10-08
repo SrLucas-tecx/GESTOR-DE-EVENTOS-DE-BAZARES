@@ -10,9 +10,7 @@
 // ==========================================
 window.bazaarCanvas                 = bazaarCanvas;
 window.switchTab                     = switchTab;
-window.toggleFabMenu                 = toggleFabMenu;
 window.toggleSocialFabMenu           = toggleSocialFabMenu;
-window.runFabAction                  = runFabAction;
 window.toggleDarkMode                = toggleDarkMode;
 window.toggleBackupMenu              = toggleBackupMenu;
 window.exportarJSON                  = exportarJSON;
@@ -126,7 +124,6 @@ window.renderAlertas                   = renderAlertas;
 window.updateAlertBadge                = updateAlertBadge;
 window.renderMetricasFinancieras       = renderMetricasFinancieras;
 window.renderMetricasResumenGeneral    = renderMetricasResumenGeneral;
-window.setCostosSubTab                 = setCostosSubTab;
 window.openBackupExport                = openBackupExport;
 window.renderBackupExportSections      = renderBackupExportSections;
 window.backupExportSeleccionar         = backupExportSeleccionar;
@@ -196,16 +193,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!menu) return;
     if (!menu.contains(e.target) && !e.target.closest('[onclick="toggleBackupMenu()"]')) {
       menu.classList.remove("open");
-    }
-  });
-
-  // [NUEVO] Cierra el menú del botón flotante (FAB) al hacer clic fuera de él
-  document.addEventListener("click", (e) => {
-    const fabMenu = document.getElementById("fab-add-menu");
-    if (!fabMenu) return;
-    if (!fabMenu.contains(e.target) && !e.target.closest(".fab")) {
-      fabMenu.classList.remove("open");
-      fabMenu.setAttribute("aria-hidden", "true");
     }
   });
 

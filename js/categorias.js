@@ -7,14 +7,19 @@
 function renderCategorias() {
   const container = document.getElementById("categorias-grid");
   if (!container) return;
-  const bz = getActiveBazaar();
+  // Las categorías son globales: el contador suma los expositores de TODOS los bazares.
+  const bazaars = Object.values(AppState.bazaars);
+  if (!AppState.categorias.length) {
+    container.innerHTML = `<div class="catalog-empty"><span class="catalog-empty-icon">🏷️</span><h3>Sin categorías</h3><p>Crea la primera para clasificar a tus expositores.</p></div>`;
+    return;
+  }
   container.innerHTML = AppState.categorias.map((cat) => {
-    const totalInCat = bz.expositores.filter((e) => e.categoria === cat.id).length;
+    const total = bazaars.reduce((n, bz) => n + (bz.expositores || []).filter((e) => e.categoria === cat.id).length, 0);
     return `
       <div class="expositor-card" style="border-left: 5px solid ${cat.color};">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
           <div class="card-name">${cat.emoji} ${escapeHTML(cat.nombre)}</div>
-          <span class="card-category" style="background:${cat.color}20; color:${cat.color};">${totalInCat} en "${escapeHTML(bz.name)}"</span>
+          <span class="card-category" style="background:${cat.color}20; color:${cat.color};">${total} en total</span>
         </div>
         <div class="card-actions" style="border-top:none;margin-top:14px;padding-top:0;">
           <button class="btn-secondary btn-sm" onclick="openModalCategoria('${cat.id}')">✏️ Editar</button>

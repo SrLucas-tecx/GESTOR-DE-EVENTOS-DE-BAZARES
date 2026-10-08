@@ -41,6 +41,9 @@ function renderPlantillas() {
   const container = document.getElementById("plantillas-grid");
   if (!container) return;
   const list = AppState.expositorPlantillas;
+  const bazaarOptions = Object.values(AppState.bazaars)
+    .map((bz) => `<option value="${bz.id}" ${bz.id === AppState.currentBazaarId ? "selected" : ""}>${escapeHTML(bz.name)}</option>`)
+    .join("");
 
   if (list.length === 0) {
     container.innerHTML = `
@@ -71,8 +74,11 @@ function renderPlantillas() {
           📞 ${escapeHTML(plt.tel || "—")} &nbsp;·&nbsp; ✉️ ${escapeHTML(plt.email || "—")}
         </div>
         <div class="card-actions">
-          <button class="btn-primary btn-sm" onclick="usarPlantilla('${plt.id}')">➕ Usar en este Bazar</button>
-          <button class="btn-danger btn-sm" onclick="eliminarPlantilla('${plt.id}')">🗑️</button>
+          ${bazaarOptions
+            ? `<select id="plt-dest-${plt.id}" class="form-select plantilla-dest" aria-label="Bazar de destino">${bazaarOptions}</select>
+          <button class="btn-primary btn-sm" onclick="agregarPlantillaABazar('${plt.id}')">➕ Agregar al bazar</button>`
+            : `<span class="form-hint">Crea un bazar para poder agregarlo.</span>`}
+          <button class="btn-danger btn-sm" onclick="eliminarPlantilla('${plt.id}')" title="Eliminar plantilla" aria-label="Eliminar plantilla">🗑️</button>
         </div>
       </div>`;
   }).join("");
@@ -111,3 +117,52 @@ async function eliminarPlantilla(pltId) {
 }
 
 // ==========================================
+
+// Agrega la plantilla al bazar elegido en su tarjeta (abre el formulario de expositor de ese bazar).
+function agregarPlantillaABazar(pltId) {
+  const destId = document.getElementById(`plt-dest-${pltId}`)?.value;
+  if (!destId || !AppState.bazaars[destId]) { showToast("Elige un bazar de destino", "error"); return; }
+  if (destId !== AppState.currentBazaarId) switchBazaar(destId);
+  usarPlantilla(pltId);
+}
+
+// Selector "Traer de guardados" desde la pantalla de Expositores.
+function openPickerGuardados() {
+  if (!getActiveBazaar()) return;
+  renderPickerGuardados();
+  openModal("modal-guardados");
+}
+
+function renderPickerGuardados() {
+  const box = document.getElementById("guardados-picker");
+  const bz = getActiveBazaar();
+  if (!box || !bz) return;
+  const list = AppState.expositorPlantillas;
+  if (!list.length) {
+    box.innerHTML = `
+      <div class="catalog-empty" style="padding:var(--space-6);">
+        <span class="catalog-empty-icon">💾</span>
+        <h3>Sin expositores guardados</h3>
+        <p>Guarda uno con el botón 💾 de su tarjeta y aparecerá aquí.</p>
+      </div>`;
+    return;
+  }
+  box.innerHTML = list.map((plt) => {
+    const cat = AppState.categorias.find((c) => c.id === plt.categoria);
+    const catName = cat ? `${cat.emoji} ${cat.nombre}` : "Sin categoría";
+    const yaEsta = bz.expositores.some((e) => e.negocio === plt.negocio && e.nombre === plt.nombre);
+    return `
+      <div class="picker-row">
+        <div class="expositor-avatar picker-avatar">${plt.foto ? `<img src="${plt.foto}" alt="">` : escapeHTML((plt.negocio || "?").charAt(0).toUpperCase())}</div>
+        <div class="picker-info"><strong>${escapeHTML(plt.negocio)}</strong><small>${escapeHTML(plt.nombre)} · ${escapeHTML(catName)}</small></div>
+        ${yaEsta
+          ? `<span class="form-hint">Ya está en este bazar</span>`
+          : `<button class="btn-primary btn-sm" onclick="usarPlantillaDesdePicker('${plt.id}')">➕ Agregar</button>`}
+      </div>`;
+  }).join("");
+}
+
+function usarPlantillaDesdePicker(pltId) {
+  closeModal("modal-guardados");
+  usarPlantilla(pltId);
+}

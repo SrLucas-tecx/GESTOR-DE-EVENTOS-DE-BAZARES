@@ -87,14 +87,36 @@ function renderMinuteByMinute() {
   }).join("");
 }
 
+// Alta en ventana emergente (la edición posterior sigue siendo en la propia fila).
 function addMinuteRow() {
   const bz = getActiveBazaar();
   if (!bz) return;
+  ensureEventoFields(bz);
+  document.getElementById("form-actividad").reset();
+  document.getElementById("act-responsable").innerHTML = responsableOptionsHTML("", bz);
+  openModal("modal-actividad");
+  setTimeout(() => document.getElementById("act-actividad")?.focus(), 50);
+}
+
+function saveActividadHandler(e) {
+  e.preventDefault();
+  const bz = getActiveBazaar();
+  if (!bz) return;
   if (!Array.isArray(bz.minuteByMinute)) bz.minuteByMinute = [];
-  const id = `minute-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  bz.minuteByMinute.push({ id, time: "", horaFin: "", activity: "Nueva actividad", lugar: "", area: "", responsableId: "", notes: "" });
+  bz.minuteByMinute.push({
+    id: `minute-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    time: document.getElementById("act-inicio").value,
+    horaFin: document.getElementById("act-fin").value,
+    activity: document.getElementById("act-actividad").value.trim(),
+    lugar: document.getElementById("act-lugar").value.trim(),
+    area: document.getElementById("act-area").value.trim(),
+    responsableId: document.getElementById("act-responsable").value,
+    notes: document.getElementById("act-notas").value.trim()
+  });
   saveState();
+  closeModal("modal-actividad");
   renderMinuteByMinute();
+  showToast("✅ Actividad agregada");
 }
 
 function updateMinuteRow(id, field, value) {

@@ -50,6 +50,7 @@ function switchTab(tabId) {
   if (tabId === "minuto-a-minuto") renderMinuteByMinute();
   if (tabId === "bazares")      renderBazaresTabla();
   if (tabId === "plantillas")   renderPlantillas();
+  if (tabId === "categorias")   renderCategorias();
   if (tabId === "comparar")     renderComparaBazares();
   if (tabId === "alertas")      renderAlertas();
   if (tabId === "dia-evento")   renderPanelDiaEvento();
@@ -58,7 +59,6 @@ function switchTab(tabId) {
   if (tabId === "compras")      renderCompras();
   if (tabId === "staff")        renderResponsables();
   syncTopNav();
-  renderFabMenu(tabId);
 }
 
 // Barra superior: marca el grupo con la página activa y cierra menús abiertos.
@@ -142,76 +142,13 @@ function renderComparaBazares() {
     </div>`;
 }
 
-// [FIX] Antes faltaban "finanzas" y "plantillas": al no existir su llave,
-// caían en el fallback de fabActions.expositores y el botón + mostraba
-// siempre "Nuevo Expositor" sin importar la pantalla en la que estuvieras.
-// Ahora cada pestaña tiene su propia entrada explícita (aunque esté vacía).
-const fabActions = {
-  inicio: [],
-  expositores: [{ label: "👤 Nuevo Expositor", action: openModalExpositorForCurrentCategory }],
-  categorias: [{ label: "🏷️ Nueva Categoría", action: openModalCategoria }],
-  plantillas: [],
-  finanzas: [],
-  costos: [{ label: "💸 Agregar Gasto", action: addExtraCostRow }],
-  mapa: [
-    { label: "🪑 Nueva Mesa", action: addTableToCore },
-    { label: "📍 Nuevo Elemento", action: addMapElement },
-    { label: "🏢 Nuevo Piso", action: addFloor }
-  ],
-  invitados: [{ label: "👤 Agregar Expositor", action: openModalInvitado }],
-  "minuto-a-minuto": [{ label: "🕒 Agregar actividad", action: addMinuteRow }],
-  estadisticas: [],
-  "dia-evento": [],
-  ficha: [],
-  staff: [{ label: "🙋 Agregar Responsable", action: () => openModalResponsable() }],
-  tareas: [{ label: "✅ Nueva tarea", action: () => addTarea() }],
-  compras: [{ label: "🛒 Nuevo artículo", action: () => addCompra() }],
-  bazares: [{ label: "🏪 Nuevo Bazar", action: createBazaar }]
-};
-
-function renderFabMenu(tabId = "expositores") {
-  const menu = document.getElementById("fab-add-menu");
-  const container = document.querySelector(".fab-container");
-  if (!menu) return;
-  const actions = Object.prototype.hasOwnProperty.call(fabActions, tabId)
-    ? fabActions[tabId]
-    : [];
-  menu.innerHTML = actions.map((item, index) =>
-    `<button class="fab-add-item" onclick="runFabAction('${tabId}', ${index})">${item.label}</button>`
-  ).join("");
-  menu.classList.remove("open");
-  menu.setAttribute("aria-hidden", "true");
-  if (container) container.style.display = actions.length ? "" : "none";
-}
-
-function toggleFabMenu() {
-  const menu = document.getElementById("fab-add-menu");
-  if (!menu) return;
-  const activeTab = document.querySelector(".page-section.active")?.id.replace(/^sec-/, "") || "";
-  const actions = fabActions[activeTab] || [];
-  if (actions.length === 1) {
-    actions[0].action();
-    return;
-  }
-  if (!actions.length) return;
-  const isOpen = menu.classList.toggle("open");
-  menu.setAttribute("aria-hidden", String(!isOpen));
-}
-
+// Botón flotante de redes y formularios (🔗). El "+" flotante se eliminó: cada pantalla
+// tiene su propio botón de agregar, y tener dos para lo mismo confundía.
 function toggleSocialFabMenu() {
   const menu = document.getElementById("fab-social-menu");
   if (!menu) return;
   const isOpen = menu.classList.toggle("open");
   menu.setAttribute("aria-hidden", String(!isOpen));
-}
-
-function runFabAction(tabId, actionIndex) {
-  const activeSection = document.querySelector(".page-section.active")?.id || "";
-  if (activeSection !== `sec-${tabId}`) return;
-  const menu = document.getElementById("fab-add-menu");
-  if (menu) menu.classList.remove("open");
-  const action = fabActions[tabId]?.[actionIndex]?.action;
-  if (typeof action === "function") action();
 }
 
 // ==========================================

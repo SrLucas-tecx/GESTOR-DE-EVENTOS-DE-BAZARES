@@ -970,6 +970,7 @@ class BazaarCanvasManager {
     }
 
     this.ctx.restore();
+    if (typeof updateScaleBar === "function") updateScaleBar();
   }
 
   // Cuadrícula en coordenadas del plano: líneas finas cada gridSize y más marcadas cada 5 celdas.

@@ -397,3 +397,19 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch {}
   try { setRibbonTab(localStorage.getItem("BAZARIX_RIBBON_TAB") || "plano"); } catch {}
 });
+
+// Barra de escala del plano: muestra cuánto mide una longitud real con el zoom actual.
+function updateScaleBar() {
+  const line = document.getElementById("scale-bar-line");
+  const label = document.getElementById("scale-bar-label");
+  const canvas = bazaarCanvas?.canvas;
+  if (!line || !label || !canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width) return;                       // la pantalla del plano está oculta
+  const pxPerMeter = getPixelsPerMeter() * bazaarCanvas.scale * (rect.width / canvas.width);
+  const steps = [0.1, 0.25, 0.5, 1, 2, 5, 10, 25, 50, 100];
+  const length = steps.find((m) => m * pxPerMeter >= 40) ?? steps[steps.length - 1];
+  line.style.width = `${Math.min(160, Math.max(8, length * pxPerMeter))}px`;
+  label.textContent = length < 1 ? `${Math.round(length * 100)} cm` : `${length} m`;
+}
+window.addEventListener("resize", () => updateScaleBar());
