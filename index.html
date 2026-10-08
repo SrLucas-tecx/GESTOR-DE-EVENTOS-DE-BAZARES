@@ -35,22 +35,16 @@
 
     <!-- # SIDEBAR / Navegación principal
          Agrupada por tema (no alfabética ni de alta), para que las opciones
-         relacionadas se escaneen juntas. Categorías y Expositores Guardados
-         se muestran sangradas bajo Expositores porque son parte de ese
-         mismo flujo (gestionan datos que usan los expositores).
+         relacionadas se escaneen juntas. Expositores guardados tiene acceso
+         directo porque es un catálogo global reutilizable entre bazares.
          [EDITABLE: agrega más botones .nav-item aquí para nuevas secciones] -->
     <!-- Nivel 1: navegación general (siempre visible) -->
     <nav class="sidebar-nav nav-global" aria-label="Navegación general">
       <button class="nav-item" onclick="switchTab('inicio')">🏠 Inicio</button>
       <button class="nav-item" onclick="switchTab('bazares')">🏪 Mis Bazares</button>
       <button class="nav-item" onclick="switchTab('comparar')">📊 Comparar Bazares</button>
-      <div class="nav-group" data-group-color="teal">
-        <div class="nav-group-label">Catálogos</div>
-        <div class="nav-menu">
-          <button class="nav-item" onclick="switchTab('categorias')">🏷️ Categorías</button>
-          <button class="nav-item" onclick="switchTab('plantillas')">💾 Expositores guardados</button>
-        </div>
-      </div>
+      <button class="nav-item" onclick="switchTab('plantillas')">💾 Expositores guardados</button>
+      <button class="nav-item" onclick="switchTab('categorias')">🏷️ Catálogos</button>
     </nav>
 
     <!-- Nivel 2: navegación del bazar abierto (oculta si no hay bazar) -->
@@ -1132,19 +1126,12 @@
           </div>
         </div>
 
-        <!-- Categoría y ubicación -->
+        <!-- Categoría y cantidad solicitada -->
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Categoría</label>
             <select id="exp-categoria" class="form-select"></select>
           </div>
-          <div class="form-group">
-            <label class="form-label">Ubicación / N° Mesa *</label>
-            <input type="text" id="exp-ubicacion" class="form-input" required placeholder="Ej. Mesa C-12">
-          </div>
-        </div>
-
-        <div class="form-row">
           <div class="form-group">
             <label class="form-label">Número de mesas solicitadas</label>
             <select id="exp-mesas-cantidad" class="form-select" onchange="toggleOtherTableCount()">
@@ -1155,12 +1142,29 @@
               <option value="5">5 mesas</option>
               <option value="otro">Otro</option>
             </select>
-            <input type="number" id="exp-mesas-otro" class="form-input" min="1" step="1"
+            <input type="number" id="exp-mesas-otro" class="form-input" min="1" step="1" oninput="updateExpositorTableSelection()"
                    placeholder="Cantidad de mesas" style="display:none;margin-top:8px;">
+          </div>
+        </div>
+
+        <!-- Asignación de mesas y encargados -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Mesas asignadas en el plano</label>
+            <div id="exp-ubicacion" class="form-input" style="max-height:180px;overflow-y:auto;padding:8px 12px;">
+              <span class="form-hint">Selecciona las mesas que pidió este expositor.</span>
+            </div>
+            <p class="form-hint" id="exp-table-assignment-hint" aria-live="polite">Por asignar.</p>
           </div>
           <div class="form-group">
             <label class="form-label">Área encargada</label>
-            <input type="text" id="exp-area-encargada" class="form-input" placeholder="Ej. Montaje, electricidad">
+            <select id="exp-area-encargada" class="form-select" onchange="updateExpositorAreaStaff()">
+              <option value="">Por asignar</option>
+            </select>
+            <label class="form-label" for="exp-encargado" style="margin-top:10px;">Persona encargada</label>
+            <select id="exp-encargado" class="form-select" disabled>
+              <option value="">Primero elige un área</option>
+            </select>
           </div>
         </div>
 
@@ -1272,6 +1276,11 @@
             </span>
           </div>
         </div>
+        <div class="form-group">
+          <label class="form-label" for="cat-descripcion">Descripción del emoji / categoría</label>
+          <textarea id="cat-descripcion" class="form-textarea" rows="2"
+                    placeholder="Ej. 🎨 representa productos hechos a mano y artesanías."></textarea>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-secondary" onclick="closeModal('modal-categoria')">Cancelar</button>
@@ -1345,7 +1354,7 @@
     <div class="modal-footer">
       <!-- [NUEVO] Botón eliminar mesa desde el modal -->
       <button type="button" class="btn-danger"
-              onclick="deleteTable(document.getElementById('edit-table-id').value); closeModal('modal-editar-mesa');">
+              onclick="deleteTable(document.getElementById('edit-table-id').value);">
         🗑️ Eliminar Mesa
       </button>
       <button type="button" class="btn-secondary" onclick="closeModal('modal-editar-mesa')">Cancelar</button>

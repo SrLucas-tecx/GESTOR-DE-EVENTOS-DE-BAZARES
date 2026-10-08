@@ -133,26 +133,51 @@ function saveRolHandler(e) {
 
   if (id) {
     const rol = getRol(id, bz);
-    if (rol) Object.assign(rol, data);
+    if (rol) {
+      const oldName = rol.nombre;
+      Object.assign(rol, data);
+      bz.expositores.forEach((exp) => {
+        if (!exp.areaRolId && exp.areaEncargada === oldName) {
+          exp.areaRolId = rol.id;
+          exp.areaEncargada = rol.nombre;
+        }
+      });
+    }
   } else {
     bz.roles.push({ id: `rol-${Date.now()}`, ...data });
   }
   saveState();
   renderResponsables();
+  renderExpositores();
   closeModal("modal-rol");
   showToast(id ? "✅ Rol actualizado" : "✅ Rol agregado");
 }
 
 async function deleteRol(id) {
   const bz = getActiveBazaar();
+  const roleName = bz.roles.find((role) => role.id === id)?.nombre || "";
   const enUso = bz.responsables.filter((r) => r.rolId === id).length;
-  if (!await appConfirm(enUso
-    ? `${enUso} responsable(s) tienen este rol. Se quedarán sin rol asignado. ¿Eliminar de todos modos?`
-    : "¿Eliminar este rol?", "Eliminar rol")) return;
+  const expositoresEnArea = bz.expositores.filter((exp) => exp.areaRolId === id).length;
+  const dependencias = [
+    enUso ? `${enUso} responsable(s)` : "",
+    expositoresEnArea ? `${expositoresEnArea} expositor(es)` : ""
+  ].filter(Boolean).join(" y ");
+  const mensaje = dependencias
+    ? `${dependencias} tienen este rol y quedarán por asignar. ¿Eliminar de todos modos?`
+    : "¿Eliminar este rol?";
+  if (!await appConfirm(mensaje, "Eliminar rol")) return;
   bz.roles = bz.roles.filter((r) => r.id !== id);
   bz.responsables.forEach((r) => { if (r.rolId === id) r.rolId = ""; });
+  bz.expositores.forEach((exp) => {
+    if (exp.areaRolId === id || (!exp.areaRolId && exp.areaEncargada === roleName)) {
+      exp.areaRolId = "";
+      exp.areaEncargada = "";
+      exp.encargadoId = "";
+    }
+  });
   saveState();
   renderResponsables();
+  renderExpositores();
   showToast("🗑️ Rol eliminado");
 }
 
@@ -222,8 +247,10 @@ async function deleteResponsable(id) {
   bz.tareas.forEach((t) => { if (t.responsableId === id) t.responsableId = ""; });
   bz.compras.forEach((c) => { if (c.responsableId === id) c.responsableId = ""; });
   (bz.minuteByMinute || []).forEach((row) => { if (row.responsableId === id) row.responsableId = ""; });
+  bz.expositores.forEach((exp) => { if (exp.encargadoId === id) exp.encargadoId = ""; });
   saveState();
   renderResponsables();
+  renderExpositores();
   renderTareas();
   renderCompras();
   renderMinuteByMinute();

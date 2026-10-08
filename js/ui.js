@@ -65,14 +65,24 @@ function switchTab(tabId) {
 function syncTopNav() {
   document.querySelectorAll(".nav-group").forEach((g) => {
     g.classList.toggle("has-active", !!g.querySelector(".nav-item.active"));
-    g.classList.remove("open");
+  });
+  closeNavGroups();
+}
+
+function closeNavGroups() {
+  document.querySelectorAll(".nav-group.open").forEach((g) => g.classList.remove("open"));
+  document.querySelectorAll(".nav-group-label[aria-expanded='true']").forEach((label) => {
+    label.setAttribute("aria-expanded", "false");
   });
 }
 
 function toggleNavGroup(group) {
   const wasOpen = group.classList.contains("open");
-  document.querySelectorAll(".nav-group.open").forEach((g) => g.classList.remove("open"));
-  if (!wasOpen) group.classList.add("open");
+  closeNavGroups();
+  if (!wasOpen) {
+    group.classList.add("open");
+    group.querySelector(".nav-group-label")?.setAttribute("aria-expanded", "true");
+  }
 }
 
 function closeMobileSidebar() {

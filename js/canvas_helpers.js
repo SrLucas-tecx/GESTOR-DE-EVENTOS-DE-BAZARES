@@ -57,10 +57,17 @@ function autoNumberTables() {
     }
     rowNumber += 1;
     table.name = `${String.fromCodePoint(64 + Math.min(row, 26))}-${String(rowNumber).padStart(2, "0")}`;
+    const bz = getActiveBazaar();
+    const exhibitor = bz.expositores.find((item) => item.id === table.exhibitorId
+      || item.tableId === table.id || (item.tableIds || []).includes(table.id));
+    if (exhibitor) {
+      syncExpositorTableAssignment(bz, exhibitor);
+    }
   });
   saveState();
   bazaarCanvas.render();
   renderChecklist();
+  renderExpositores();
   showToast(tables.length ? "✅ Mesas numeradas" : "No hay mesas para numerar");
 }
 
@@ -85,6 +92,12 @@ async function clearAllZones() {
   bazaarCanvas.render();
   bazaarCanvas.updateZoneUI();
   showToast("🗑️ Todas las zonas eliminadas");
+}
+
+async function confirmDeleteZone(zoneId) {
+  const zone = bazaarCanvas.zones.find((item) => item.id === zoneId);
+  if (!zone || !await appConfirm(`¿Eliminar la zona "${zone.label}" del plano?`, "Eliminar zona")) return;
+  bazaarCanvas.deleteZone(zoneId);
 }
 
 function exportarMapaPDF() {
@@ -157,6 +170,16 @@ async function resetBazaarCanvas() {
   const bz = getActiveBazaar();
   const floor = getActiveFloor(bz);
   if (!floor) return;
+  const removedTableIds = new Set((floor.tables || []).map((table) => table.id));
+  (floor.tables || []).forEach((table) => {
+    removeTableFromExpositorAssignment(bz, table);
+  });
+  bz.expositores.forEach((exhibitor) => {
+    if (removedTableIds.has(exhibitor.tableId)) {
+      exhibitor.tableId = "";
+      exhibitor.ubicacion = "";
+    }
+  });
   floor.tables = [];
   floor.bgImage = null;
   floor.elements = [];
@@ -232,31 +255,50 @@ function addTableToCore() {
 // [NUEVO] Eliminar mesa del canvas
 async function deleteTable(tableId) {
   const bz = getActiveBazaar();
-  if (!await appConfirm("¿Eliminar esta mesa del plano?", "Eliminar mesa")) return;
-  const floor = getActiveFloor(bz);
-  if (!floor) return;
+  const floor = (bz?.floors || []).find((item) => (item.tables || []).some((table) => table.id === tableId));
+  const table = floor?.tables.find((item) => item.id === tableId);
+  if (!table || !await appConfirm(`¿Eliminar "${table.name}" del plano?`, "Eliminar mesa")) return;
+  removeTableFromExpositorAssignment(bz, table);
   floor.tables = floor.tables.filter((t) => t.id !== tableId);
+  if (document.getElementById("edit-table-id")?.value === tableId) closeModal("modal-editar-mesa");
   saveState(); bazaarCanvas.render(); renderChecklist();
+  renderExpositores();
   showToast("🗑️ Mesa eliminada del plano");
 }
 
-function deleteSelectedMapObject() {
+async function deleteSelectedMapObject() {
   const bz = getActiveBazaar();
   const floor = getActiveFloor(bz);
   if (!floor) return;
 
-  if (bazaarCanvas.selectedTableId) {
-    floor.tables = (floor.tables || []).filter((table) => table.id !== bazaarCanvas.selectedTableId);
+  const tableId = bazaarCanvas.selectedTableId;
+  const elementId = bazaarCanvas.selectedElementId;
+  const zoneId = bazaarCanvas.selectedZoneId;
+  const table = (floor.tables || []).find((item) => item.id === tableId);
+  const element = (floor.elements || []).find((item) => item.id === elementId);
+  const zone = bazaarCanvas.zones.find((item) => item.id === zoneId);
+  const kind = table ? "mesa" : element ? "elemento" : zone ? "zona" : "";
+  const label = table?.name || element?.label || zone?.label || "";
+  if (!kind) {
+    showToast("Selecciona una mesa, elemento o zona primero", "error");
+    return;
+  }
+  if (!await appConfirm(`¿Eliminar ${kind} "${label}" del plano?`, `Eliminar ${kind}`)) return;
+
+  if (table) {
+    removeTableFromExpositorAssignment(bz, table);
+    floor.tables = (floor.tables || []).filter((item) => item.id !== tableId);
     bazaarCanvas.selectedTableId = null;
     saveState();
     bazaarCanvas.render();
     renderChecklist();
+    renderExpositores();
     showToast("🗑️ Mesa seleccionada eliminada");
     return;
   }
 
-  if (bazaarCanvas.selectedElementId) {
-    floor.elements = (floor.elements || []).filter((element) => element.id !== bazaarCanvas.selectedElementId);
+  if (element) {
+    floor.elements = (floor.elements || []).filter((item) => item.id !== elementId);
     bazaarCanvas.selectedElementId = null;
     saveState();
     bazaarCanvas.render();
@@ -264,8 +306,8 @@ function deleteSelectedMapObject() {
     return;
   }
 
-  if (bazaarCanvas.selectedZoneId) {
-    bazaarCanvas.zones = bazaarCanvas.zones.filter((zone) => zone.id !== bazaarCanvas.selectedZoneId);
+  if (zone) {
+    bazaarCanvas.zones = bazaarCanvas.zones.filter((item) => item.id !== zoneId);
     bazaarCanvas.selectedZoneId = null;
     bazaarCanvas.saveZones();
     bazaarCanvas.render();
@@ -274,7 +316,6 @@ function deleteSelectedMapObject() {
     return;
   }
 
-  showToast("Selecciona una mesa, elemento o zona primero", "error");
 }
 
 function openModalTableEdit(tableId) {
@@ -300,13 +341,18 @@ function openModalTableEdit(tableId) {
   openModal("modal-editar-mesa");
 }
 
-function saveTableEdit() {
+async function saveTableEdit() {
   const id = document.getElementById("edit-table-id").value;
   const bz = getActiveBazaar();
   const t  = getActiveTables(bz).find((item) => item.id === id);
   if (t) {
+    const exhibitorId = document.getElementById("edit-table-exhibitor").value;
+    const exhibitor = bz.expositores.find((exp) => exp.id === exhibitorId);
+    if (exhibitorId && !exhibitor) {
+      showToast("No se encontró el expositor seleccionado", "error");
+      return;
+    }
     t.name        = document.getElementById("edit-table-name").value.trim() || t.name;
-    t.exhibitorId = document.getElementById("edit-table-exhibitor").value;
     const pixelsPerCentimeter = getPixelsPerMeter() / 100;
     t.w           = Math.max(1, Number(document.getElementById("edit-table-width-cm").value || 1) * pixelsPerCentimeter);
     t.h           = Math.max(1, Number(document.getElementById("edit-table-height-cm").value || 1) * pixelsPerCentimeter);
@@ -314,7 +360,13 @@ function saveTableEdit() {
     t.labelColor  = document.getElementById("edit-table-label-color").value || "#1e293b";
     t.labelFontSize = Math.max(8, Math.min(32, Number(document.getElementById("edit-table-label-size").value) || 11));
     t.rotation    = ((Number(document.getElementById("edit-table-rotation").value) || 0) % 360 + 360) % 360;
+    if (exhibitor) {
+      if (!await applyExpositorTableAssignment(bz, exhibitor, t.id)) return;
+    } else {
+      removeTableFromExpositorAssignment(bz, t);
+    }
     saveState(); bazaarCanvas.render(); renderChecklist();
+    renderExpositores();
     closeModal("modal-editar-mesa");
     showToast("✅ Mesa actualizada");
   }

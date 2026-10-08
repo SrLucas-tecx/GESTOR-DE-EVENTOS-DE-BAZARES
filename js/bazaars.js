@@ -238,6 +238,7 @@ async function deleteCurrentFloor() {
   }
   const floor = getActiveFloor(bz);
   if (!floor || !await appConfirm(`¿Eliminar "${floor.name}" y sus mesas?`, "Eliminar piso")) return;
+  (floor.tables || []).forEach((table) => removeTableFromExpositorAssignment(bz, table));
   bz.floors = bz.floors.filter((item) => item.id !== floor.id);
   bz.activeFloorId = bz.floors[0].id;
   bazaarCanvas.selectedTableId = null;

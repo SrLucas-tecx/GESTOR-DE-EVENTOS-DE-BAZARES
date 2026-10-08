@@ -559,8 +559,9 @@ class BazaarCanvasManager {
 
   snapDraggedTable() {
     const table = this.draggedTable;
+    if (!table) return;
     const others = getActiveTables(this.getCurrentBazaar()).filter((item) => item.id !== table.id);
-    const threshold = 10;
+    const threshold = 10 / this.scale;
     const originalX = table.x;
     const originalY = table.y;
     let bestX = { value: originalX, distance: threshold + 1 };
@@ -895,7 +896,7 @@ class BazaarCanvasManager {
         <input type="color" value="${z.color}" style="width:24px;height:24px;border:none;cursor:pointer;border-radius:4px;"
                onchange="bazaarCanvas.recolorZone('${z.id}', this.value)">
         <button class="btn-danger" style="padding:2px 6px;font-size:10px;border-radius:4px;"
-                onclick="bazaarCanvas.deleteZone('${z.id}')">🗑️</button>
+                onclick="confirmDeleteZone('${z.id}')">🗑️</button>
       </div>`).join("");
   }
 

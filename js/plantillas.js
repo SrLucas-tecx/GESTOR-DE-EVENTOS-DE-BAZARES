@@ -66,7 +66,8 @@ function renderPlantillas() {
           </div>
           <div class="card-info">
             <div class="card-name">${escapeHTML(plt.negocio)}</div>
-            <span class="card-category">${escapeHTML(catName)}</span>
+            <span class="card-category" title="${escapeHTML(cat?.descripcion || "")}">${escapeHTML(catName)}</span>
+            ${cat?.descripcion ? `<small class="form-hint">${escapeHTML(cat.descripcion)}</small>` : ""}
             <div class="card-contact">${escapeHTML(plt.nombre)}</div>
           </div>
         </div>
@@ -78,7 +79,7 @@ function renderPlantillas() {
             ? `<select id="plt-dest-${plt.id}" class="form-select plantilla-dest" aria-label="Bazar de destino">${bazaarOptions}</select>
           <button class="btn-primary btn-sm" onclick="agregarPlantillaABazar('${plt.id}')">➕ Agregar al bazar</button>`
             : `<span class="form-hint">Crea un bazar para poder agregarlo.</span>`}
-          <button class="btn-danger btn-sm" onclick="eliminarPlantilla('${plt.id}')" title="Eliminar plantilla" aria-label="Eliminar plantilla">🗑️</button>
+          <button class="btn-danger btn-sm" onclick="eliminarPlantilla('${plt.id}')" title="Eliminar plantilla" aria-label="Eliminar plantilla">🗑️ Eliminar</button>
         </div>
       </div>`;
   }).join("");
@@ -109,10 +110,12 @@ function usarPlantilla(pltId) {
 }
 
 async function eliminarPlantilla(pltId) {
-  if (!await appConfirm("¿Eliminar esta plantilla?", "Eliminar plantilla")) return;
+  const plantilla = AppState.expositorPlantillas.find((item) => item.id === pltId);
+  if (!plantilla || !await appConfirm(`¿Eliminar "${plantilla.negocio}" de los expositores guardados?`, "Eliminar expositor guardado")) return;
   AppState.expositorPlantillas = AppState.expositorPlantillas.filter((p) => p.id !== pltId);
   saveState();
   renderPlantillas();
+  if (document.getElementById("modal-guardados")?.classList.contains("open")) renderPickerGuardados();
   showToast("🗑️ Plantilla eliminada");
 }
 
@@ -154,10 +157,11 @@ function renderPickerGuardados() {
     return `
       <div class="picker-row">
         <div class="expositor-avatar picker-avatar">${plt.foto ? `<img src="${plt.foto}" alt="">` : escapeHTML((plt.negocio || "?").charAt(0).toUpperCase())}</div>
-        <div class="picker-info"><strong>${escapeHTML(plt.negocio)}</strong><small>${escapeHTML(plt.nombre)} · ${escapeHTML(catName)}</small></div>
+        <div class="picker-info"><strong>${escapeHTML(plt.negocio)}</strong><small>${escapeHTML(plt.nombre)} · ${escapeHTML(catName)}</small>${cat?.descripcion ? `<small>${escapeHTML(cat.descripcion)}</small>` : ""}</div>
         ${yaEsta
           ? `<span class="form-hint">Ya está en este bazar</span>`
           : `<button class="btn-primary btn-sm" onclick="usarPlantillaDesdePicker('${plt.id}')">➕ Agregar</button>`}
+        <button class="btn-danger btn-sm" onclick="eliminarPlantilla('${plt.id}')" title="Eliminar expositor guardado" aria-label="Eliminar ${escapeHTML(plt.negocio)} de los expositores guardados">🗑️</button>
       </div>`;
   }).join("");
 }

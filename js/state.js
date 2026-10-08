@@ -154,10 +154,10 @@ function createFloor(id, name, tables = [], bgImage = null, backgroundOpacity = 
 const DEFAULT_STATE = {
   // Catálogo de categorías compartido entre todos los bazares.
   categorias: [
-    { id: "cat-1", nombre: "Artesanías",   emoji: "🎨", color: "#0d9488" },
-    { id: "cat-2", nombre: "Gastronomía",  emoji: "🥐", color: "#e11d48" },
-    { id: "cat-3", nombre: "Moda y Textil",emoji: "👗", color: "#8b5cf6" },
-    { id: "cat-4", nombre: "Hogar y Salud",emoji: "🌿", color: "#10b981" }
+    { id: "cat-1", nombre: "Artesanías",   emoji: "🎨", color: "#0d9488", descripcion: "Productos hechos a mano, arte y piezas artesanales." },
+    { id: "cat-2", nombre: "Gastronomía",  emoji: "🥐", color: "#e11d48", descripcion: "Alimentos, bebidas y productos gastronómicos." },
+    { id: "cat-3", nombre: "Moda y Textil",emoji: "👗", color: "#8b5cf6", descripcion: "Ropa, accesorios, calzado y productos textiles." },
+    { id: "cat-4", nombre: "Hogar y Salud",emoji: "🌿", color: "#10b981", descripcion: "Artículos para el hogar, bienestar, cuidado personal y salud." }
   ],
 
   // Plantillas de expositores guardados (reutilizables entre bazares).
@@ -200,6 +200,9 @@ function loadState() {
 function migrateState(parsed) {
   if (!parsed.expositorPlantillas) parsed.expositorPlantillas = [];
   if (!Array.isArray(parsed.categorias)) parsed.categorias = JSON.parse(JSON.stringify(DEFAULT_STATE.categorias));
+  parsed.categorias.forEach((category) => {
+    if (category.descripcion === undefined) category.descripcion = "";
+  });
   if (!["cards", "table"].includes(parsed.expositorView)) parsed.expositorView = "cards";
   if (!["previo", "post"].includes(parsed.tareasFase)) parsed.tareasFase = "previo";
   if (!["mobiliario", "gastos"].includes(parsed.costosSubTab)) parsed.costosSubTab = "mobiliario";
@@ -218,6 +221,7 @@ function migrateState(parsed) {
     if (!Array.isArray(bz.floors) || bz.floors.length === 0) {
       bz.floors = [createFloor(`${bz.id}-floor-1`, "Planta baja", bz.tables || [], bz.bgImage || null, bz.mapConfig.backgroundOpacity)];
     }
+    if (!Array.isArray(bz.expositores)) bz.expositores = [];
     bz.floors.forEach((floor, index) => {
       if (!floor.id) floor.id = `${bz.id}-floor-${index + 1}`;
       if (!floor.name) floor.name = `Piso ${index + 1}`;
@@ -266,6 +270,7 @@ function migrateState(parsed) {
 
     // Migrar expositores: agregar adelanto y fechaLimitePago si no existen
     (bz.expositores || []).forEach((exp) => {
+      if (exp.ubicacion === undefined) exp.ubicacion = "";
       if (exp.adelanto           === undefined) exp.adelanto           = 0;
       if (exp.fechaLimitePago    === undefined) exp.fechaLimitePago    = "";
       if (!exp.publicationStatus) exp.publicationStatus = "pendiente";
@@ -273,7 +278,29 @@ function migrateState(parsed) {
       if (exp.mesasCantidad === undefined) exp.mesasCantidad = 1;
       if (exp.mesasCantidadOtro === undefined) exp.mesasCantidadOtro = "";
       if (exp.areaEncargada === undefined) exp.areaEncargada = "";
+      if (exp.encargadoId === undefined) exp.encargadoId = "";
       if (!Array.isArray(exp.historial)) exp.historial = [];
+    });
+    const mapTables = (bz.floors || []).flatMap((floor) => floor.tables || []);
+    bz.expositores.forEach((exp) => {
+      const oldIds = new Set(Array.isArray(exp.tableIds) ? exp.tableIds : []);
+      if (exp.tableId) oldIds.add(exp.tableId);
+      if (exp.ubicacion && !oldIds.size) {
+        exp.ubicacion.split(",").map((name) => name.trim().toLowerCase()).forEach((name) => {
+          const match = mapTables.find((table) => table.name.trim().toLowerCase() === name);
+          if (match) oldIds.add(match.id);
+        });
+      }
+      oldIds.forEach((tableId) => {
+        const table = mapTables.find((item) => item.id === tableId);
+        if (table && (!table.exhibitorId || table.exhibitorId === exp.id)) table.exhibitorId = exp.id;
+      });
+    });
+    bz.expositores.forEach((exp) => {
+      const assignedTables = mapTables.filter((table) => table.exhibitorId === exp.id);
+      exp.tableIds = assignedTables.map((table) => table.id);
+      exp.tableId = exp.tableIds[0] || "";
+      if (assignedTables.length) exp.ubicacion = assignedTables.map((table) => table.name).join(", ");
     });
     (bz.minuteByMinute || []).forEach((row) => {
       if (row.area === undefined) row.area = "";

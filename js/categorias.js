@@ -18,7 +18,10 @@ function renderCategorias() {
     return `
       <div class="expositor-card" style="border-left: 5px solid ${cat.color};">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <div class="card-name">${cat.emoji} ${escapeHTML(cat.nombre)}</div>
+          <div>
+            <div class="card-name">${cat.emoji} ${escapeHTML(cat.nombre)}</div>
+            ${cat.descripcion ? `<div class="card-contact" style="margin-top:4px;">${escapeHTML(cat.descripcion)}</div>` : ""}
+          </div>
           <span class="card-category" style="background:${cat.color}20; color:${cat.color};">${total} en total</span>
         </div>
         <div class="card-actions" style="border-top:none;margin-top:14px;padding-top:0;">

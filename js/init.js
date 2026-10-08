@@ -30,6 +30,8 @@ window.submitAppDialog               = submitAppDialog;
 window.cancelAppDialog               = cancelAppDialog;
 window.handleFotoUpload              = handleFotoUpload;
 window.saveExpositorHandler          = saveExpositorHandler;
+window.updateExpositorAreaStaff      = updateExpositorAreaStaff;
+window.updateExpositorTableSelection = updateExpositorTableSelection;
 window.togglePaymentStatus           = togglePaymentStatus;
 window.deleteExpositor               = deleteExpositor;
 window.openModalCategoria            = openModalCategoria;
@@ -68,6 +70,7 @@ window.saveZoneEdit                   = saveZoneEdit;
 window.deleteZoneFromModal            = deleteZoneFromModal;
 window.exportZonesJSON               = exportZonesJSON;
 window.clearAllZones                 = clearAllZones;
+window.confirmDeleteZone             = confirmDeleteZone;
 window.exportarMapaPDF               = exportarMapaPDF;
 window.updateMapScale                = updateMapScale;
 window.handleFloorPlanUpload         = handleFloorPlanUpload;
@@ -210,11 +213,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const label = e.target.closest(".nav-group-label");
     if (label) { toggleNavGroup(label.parentElement); return; }
     if (!e.target.closest(".nav-group")) {
-      document.querySelectorAll(".nav-group.open").forEach((g) => g.classList.remove("open"));
+      closeNavGroups();
     }
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") document.querySelectorAll(".nav-group.open").forEach((g) => g.classList.remove("open"));
+    if (e.key === "Escape") closeNavGroups();
   });
   window.toggleNavGroup = toggleNavGroup;
   window.syncTopNav = syncTopNav;

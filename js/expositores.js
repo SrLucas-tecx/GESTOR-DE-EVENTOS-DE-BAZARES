@@ -64,7 +64,8 @@ function renderExpositores() {
           </div>
           <div class="card-info">
             <div class="card-name" title="${escapeHTML(exp.negocio)}">${escapeHTML(exp.negocio)}</div>
-            <span class="card-category">${escapeHTML(catName)}</span>
+            <span class="card-category" title="${escapeHTML(cat?.descripcion || "")}">${escapeHTML(catName)}</span>
+            ${cat?.descripcion ? `<small class="form-hint">${escapeHTML(cat.descripcion)}</small>` : ""}
             <div class="card-contact">${escapeHTML(exp.nombre)}</div>
           </div>
         </div>
@@ -80,13 +81,14 @@ function renderExpositores() {
         <div class="card-meta">
           <div class="card-meta-item">
             <div class="card-meta-label">Ubicación</div>
-            <div class="card-meta-value">${escapeHTML(exp.ubicacion)}</div>
+            <div class="card-meta-value">${escapeHTML(getExpositorLocation(exp))}</div>
           </div>
           <div class="card-meta-item">
             <div class="card-meta-label">Mesas solicitadas</div>
             <div class="card-meta-value">${escapeHTML(exp.mesasCantidad === "otro" ? exp.mesasCantidadOtro : exp.mesasCantidad || "1")} mesa(s)</div>
           </div>
-          ${exp.areaEncargada ? `<div class="card-meta-item"><div class="card-meta-label">Área encargada</div><div class="card-meta-value">${escapeHTML(exp.areaEncargada)}</div></div>` : ""}
+          ${exp.areaEncargada ? `<div class="card-meta-item"><div class="card-meta-label">Área encargada</div><div class="card-meta-value">${escapeHTML(getExpositorAreaName(exp))}</div></div>` : ""}
+          ${exp.encargadoId ? `<div class="card-meta-item"><div class="card-meta-label">Persona encargada</div><div class="card-meta-value">${escapeHTML(getExpositorResponsibleName(exp))}</div></div>` : ""}
           <div class="card-meta-item">
             <div class="card-meta-label">Costo Total</div>
             <div class="card-meta-value">${formatCurrency(exp.costo)}</div>
@@ -157,7 +159,7 @@ function renderExpositoresTabla(list) {
           <small style="color:var(--color-text-muted);">${escapeHTML(exp.nombre)}</small>
         </td>
         <td>${escapeHTML(catName)}</td>
-        <td>${escapeHTML(exp.ubicacion)}</td>
+        <td>${escapeHTML(getExpositorLocation(exp))}</td>
         <td>${formatCurrency(exp.costo)}</td>
         <td style="color:${saldo > 0 ? "var(--color-unpaid)" : "var(--color-paid)"};">${formatCurrency(saldo)}</td>
         <td><span class="paid-badge ${exp.pagado ? "paid" : "unpaid"}">${exp.pagado ? "✅ Pagado" : "⏳ Pendiente"}</span></td>
