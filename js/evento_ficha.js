@@ -126,6 +126,7 @@ function setPanelChecklistTab(tab) {
     const content = document.getElementById(`panel-content-${name}`);
     const active = name === tab;
     if (button) {
+      button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
       button.tabIndex = active ? 0 : -1;
     }

@@ -1189,12 +1189,12 @@
      [EDITABLE: agrega campos al form y a saveExpositorHandler() en Core.js]
 -->
 <div id="modal-expositor" class="modal-overlay">
-  <div class="modal-box modal-box-wide">
+  <div class="modal-box modal-box-wide expositor-wizard-modal">
     <div class="modal-header">
       <h2 class="modal-title" id="modal-exp-title">Nuevo Expositor</h2>
-      <button class="modal-close" onclick="closeModal('modal-expositor')">✕</button>
+      <button type="button" class="modal-close" aria-label="Cerrar" onclick="closeModal('modal-expositor')">✕</button>
     </div>
-    <form id="form-expositor" onsubmit="saveExpositorHandler(event)">
+    <form id="form-expositor" novalidate onsubmit="saveExpositorHandler(event, syncExpositorFormData())">
       <input type="hidden" id="exp-id">
       <div class="modal-body">
         <div class="form-group">
@@ -1211,171 +1211,198 @@
           <input type="hidden" id="exp-foto-base64">
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="exp-nombre">Nombre Completo *</label>
-            <input type="text" id="exp-nombre" class="form-input" required placeholder="Ej. Ana García">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="exp-negocio">Nombre del Negocio / Marca *</label>
-            <input type="text" id="exp-negocio" class="form-input" required placeholder="Ej. Joyería Artesanal">
-          </div>
-        </div>
+        <ol class="exp-wizard-steps" aria-label="Progreso del registro">
+          <li class="exp-wizard-step is-current" data-wizard-indicator="1" aria-current="step">
+            <span>1</span><small>Identidad</small>
+          </li>
+          <li class="exp-wizard-step" data-wizard-indicator="2">
+            <span>2</span><small>Logística</small>
+          </li>
+          <li class="exp-wizard-step" data-wizard-indicator="3">
+            <span>3</span><small>Costos y pagos</small>
+          </li>
+          <li class="exp-wizard-step" data-wizard-indicator="4">
+            <span>4</span><small>Resumen</small>
+          </li>
+        </ol>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="exp-categoria">Categoría</label>
-            <select id="exp-categoria" class="form-select"></select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="exp-mesas-cantidad">Mesas compradas / solicitadas</label>
-            <select id="exp-mesas-cantidad" class="form-select" onchange="toggleOtherTableCount()">
-              <option value="1">1 mesa</option>
-              <option value="2">2 mesas</option>
-              <option value="3">3 mesas</option>
-              <option value="4">4 mesas</option>
-              <option value="5">5 mesas</option>
-              <option value="otro">Otro</option>
-            </select>
-            <input type="number" id="exp-mesas-otro" class="form-input" min="1" step="1" oninput="updateExpositorTableSelection()"
-                   placeholder="Cantidad de mesas" style="display:none;margin-top:8px;">
-            <p class="form-hint">La cantidad es opcional; si se deja vacía, se considera 1 mesa. Solo se pueden asignar hasta esta cantidad.</p>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="exp-sillas-por-mesa">Sillas por mesa</label>
-            <input type="number" id="exp-sillas-por-mesa" class="form-input" min="0" step="1" value="2"
-                   oninput="updateExpositorChairPreview()">
-            <p class="form-hint">Ajustable para este expositor. No modifica el costo ni el pago.</p>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Sillas asignadas</label>
-            <div id="exp-sillas-total" class="form-input" aria-live="polite" aria-readonly="true">2</div>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Mesas asignadas en el plano (opcional)</label>
-            <div id="exp-ubicacion" class="form-input exp-table-picker">
-              <span class="form-hint">Selecciona las mesas que pidió este expositor.</span>
+        <section class="exp-wizard-panel" data-wizard-step="1" aria-labelledby="exp-step-title-1">
+          <h3 class="exp-wizard-title" id="exp-step-title-1" tabindex="-1">Identidad y contacto</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="exp-nombre">Nombre Completo *</label>
+              <input type="text" id="exp-nombre" class="form-input" required placeholder="Ej. Ana García">
             </div>
-            <p class="form-hint" id="exp-table-assignment-hint" aria-live="polite">Por asignar.</p>
+            <div class="form-group">
+              <label class="form-label" for="exp-negocio">Nombre del Negocio / Marca *</label>
+              <input type="text" id="exp-negocio" class="form-input" required placeholder="Ej. Joyería Artesanal">
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label" for="exp-area-encargada">Área encargada</label>
-            <select id="exp-area-encargada" class="form-select" onchange="updateExpositorAreaStaff()">
-              <option value="">Por asignar</option>
-            </select>
-            <label class="form-label" for="exp-encargado" style="margin-top:10px;">Persona encargada</label>
-            <select id="exp-encargado" class="form-select" disabled>
-              <option value="">Primero elige un área</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="exp-tel">Teléfono</label>
-            <input type="tel" id="exp-tel" class="form-input" placeholder="Ej. 55-1234-5678">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="exp-categoria">Categoría</label>
+              <select id="exp-categoria" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="exp-tel">Teléfono</label>
+              <input type="tel" id="exp-tel" class="form-input" placeholder="Ej. 55-1234-5678">
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label" for="exp-email">Correo Electrónico</label>
             <input type="email" id="exp-email" class="form-input" placeholder="correo@ejemplo.com">
           </div>
-        </div>
+        </section>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="exp-costo-base">Costo base de mesas (MXN) *</label>
-            <input type="number" id="exp-costo-base" class="form-input" required min="0" step="0.01" placeholder="450"
-                   oninput="updateExpositorCostPreview()">
-            <p class="form-hint">El costo final suma automáticamente las sillas extra.</p>
+        <section class="exp-wizard-panel" data-wizard-step="2" aria-labelledby="exp-step-title-2" hidden>
+          <h3 class="exp-wizard-title" id="exp-step-title-2" tabindex="-1">Detalles logísticos</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="exp-mesas-cantidad">Mesas compradas / solicitadas *</label>
+              <select id="exp-mesas-cantidad" class="form-select" required onchange="toggleOtherTableCount()">
+                <option value="1">1 mesa</option>
+                <option value="2">2 mesas</option>
+                <option value="3">3 mesas</option>
+                <option value="4">4 mesas</option>
+                <option value="5">5 mesas</option>
+                <option value="otro">Otro</option>
+              </select>
+              <input type="number" id="exp-mesas-otro" class="form-input" min="1" step="1" oninput="updateExpositorTableSelection()"
+                     placeholder="Cantidad de mesas" style="display:none;margin-top:8px;">
+              <p class="form-hint">Selecciona cuántas mesas solicitó. Solo se pueden asignar hasta esta cantidad.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="exp-sillas-por-mesa">Sillas por mesa</label>
+              <input type="number" id="exp-sillas-por-mesa" class="form-input" min="0" step="1" value="2"
+                     oninput="updateExpositorChairPreview()">
+              <p class="form-hint">Ajustable para este expositor. No modifica el costo ni el pago.</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Sillas asignadas</label>
+              <div id="exp-sillas-total" class="form-input" aria-live="polite" aria-readonly="true">2</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mesas asignadas en el plano (opcional)</label>
+              <div id="exp-ubicacion" class="form-input exp-table-picker">
+                <span class="form-hint">Selecciona las mesas que pidió este expositor.</span>
+              </div>
+              <p class="form-hint" id="exp-table-assignment-hint" aria-live="polite">Por asignar.</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="exp-area-encargada">Área encargada</label>
+              <select id="exp-area-encargada" class="form-select" onchange="updateExpositorAreaStaff()">
+                <option value="">Por asignar</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="exp-encargado">Persona encargada</label>
+              <select id="exp-encargado" class="form-select" disabled>
+                <option value="">Primero elige un área</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="exp-wizard-panel" data-wizard-step="3" aria-labelledby="exp-step-title-3" hidden>
+          <h3 class="exp-wizard-title" id="exp-step-title-3" tabindex="-1">Costos y pagos</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="exp-costo-base">Costo base de mesas (MXN) *</label>
+              <input type="number" id="exp-costo-base" class="form-input" required min="0" step="0.01" placeholder="450"
+                     oninput="updateExpositorCostPreview()">
+              <p class="form-hint">El costo final suma automáticamente las sillas extra.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Estatus del Pago</label>
+              <div class="form-switch">
+                <span class="switch-label">¿Ha pagado la reserva completa?</span>
+                <label class="switch" aria-label="¿Ha pagado la reserva completa?">
+                  <input type="checkbox" id="exp-pagado" onchange="updateExpositorPaymentFields()">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Estatus del Pago</label>
+            <label class="form-label">¿Requiere sillas extra?</label>
             <div class="form-switch">
-              <span class="switch-label">¿Ha pagado la reserva completa?</span>
-              <label class="switch" aria-label="¿Ha pagado la reserva completa?">
-                <input type="checkbox" id="exp-pagado" onchange="updateExpositorPaymentFields()">
+              <span class="switch-label">Agregar sillas adicionales a las incluidas por mesa</span>
+              <label class="switch" aria-label="¿Requiere sillas extra?">
+                <input type="checkbox" id="exp-sillas-extra-enabled" onchange="updateExpositorExtraChairFields()">
                 <span class="slider"></span>
               </label>
             </div>
           </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">¿Requiere sillas extra?</label>
-          <div class="form-switch">
-            <span class="switch-label">Agregar sillas adicionales a las incluidas por mesa</span>
-            <label class="switch" aria-label="¿Requiere sillas extra?">
-              <input type="checkbox" id="exp-sillas-extra-enabled" onchange="updateExpositorExtraChairFields()">
-              <span class="slider"></span>
-            </label>
+          <div class="form-row exp-conditional is-collapsed" id="exp-sillas-extra-details" hidden inert>
+            <div class="form-group">
+              <label class="form-label" for="exp-sillas-extra-cantidad">Cantidad de sillas extra</label>
+              <input type="number" id="exp-sillas-extra-cantidad" class="form-input" min="1" step="1"
+                     oninput="updateExpositorCostPreview()">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="exp-costo-silla-extra">Precio global por silla extra (MXN)</label>
+              <input type="number" id="exp-costo-silla-extra" class="form-input" min="0" step="0.01" readonly
+                     aria-describedby="exp-chair-price-hint">
+              <p class="form-hint" id="exp-chair-price-hint">El precio se configura en Costos del Evento → Mobiliario y se comparte con todos los expositores.</p>
+            </div>
           </div>
-        </div>
-        <div class="form-row exp-conditional is-collapsed" id="exp-sillas-extra-details" hidden inert>
+          <p class="form-hint">La cantidad y el costo de sillas extra son opcionales. Si falta alguno, no se sumarán sillas extra al costo.</p>
           <div class="form-group">
-            <label class="form-label" for="exp-sillas-extra-cantidad">Cantidad de sillas extra</label>
-            <input type="number" id="exp-sillas-extra-cantidad" class="form-input" min="1" step="1"
-                   oninput="updateExpositorCostPreview()">
+            <label class="form-label" for="exp-costo">Costo final del expositor (MXN)</label>
+            <input type="number" id="exp-costo" class="form-input" readonly aria-readonly="true">
+            <p class="form-hint" id="exp-sillas-extra-total" aria-live="polite">Sin cargo de sillas extra.</p>
           </div>
-          <div class="form-group">
-            <label class="form-label" for="exp-costo-silla-extra">Precio global por silla extra (MXN)</label>
-            <input type="number" id="exp-costo-silla-extra" class="form-input" min="0" step="0.01" readonly
-                   aria-describedby="exp-chair-price-hint">
-            <p class="form-hint" id="exp-chair-price-hint">El precio se configura en Costos del Evento → Mobiliario y se comparte con todos los expositores.</p>
+          <div class="form-row exp-payment-details exp-conditional is-collapsed" id="exp-payment-details" hidden inert>
+            <div class="form-group">
+              <label class="form-label" for="exp-adelanto">Adelanto Entregado (MXN)</label>
+              <input type="number" id="exp-adelanto" class="form-input" min="0" step="0.01" value="0"
+                     placeholder="0" oninput="updateExpositorPaymentPreview()">
+              <p class="form-hint">Monto parcial ya recibido.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="exp-fecha-limite">Fecha Límite de Pago</label>
+              <input type="date" id="exp-fecha-limite" class="form-input">
+              <p class="form-hint">Opcional. Aparece en la tarjeta y en el comprobante PDF.</p>
+            </div>
           </div>
-        </div>
-        <p class="form-hint">La cantidad y el costo de sillas extra son opcionales. Si falta alguno, no se sumarán sillas extra al costo.</p>
-        <div class="form-group">
-          <label class="form-label" for="exp-costo">Costo final del expositor (MXN)</label>
-          <input type="number" id="exp-costo" class="form-input" readonly aria-readonly="true">
-          <p class="form-hint" id="exp-sillas-extra-total" aria-live="polite">Sin cargo de sillas extra.</p>
-        </div>
+          <div id="exp-payment-balance" class="exp-payment-balance exp-conditional is-collapsed" aria-live="polite" hidden inert></div>
+          <div id="exp-payment-paid-badge" class="exp-payment-paid-badge exp-conditional is-collapsed" role="status" hidden inert>
+            ✓ Pago liquidado en su totalidad ($0.00 pendiente)
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="exp-descuento">Descuento Aplicado (MXN)</label>
+              <input type="number" id="exp-descuento" class="form-input" min="0" step="0.01" value="0"
+                     oninput="updateExpositorPaymentFields()">
+              <p class="form-hint">Se descuenta del costo antes de calcular el saldo.</p>
+            </div>
+            <div class="form-group exp-conditional is-collapsed" id="exp-credit-note-wrap" hidden inert>
+              <label class="form-label" for="exp-notas-credito">Nota de Crédito / Motivo</label>
+              <input type="text" id="exp-notas-credito" class="form-input" placeholder="Ej. Descuento por pronto pago">
+            </div>
+          </div>
+        </section>
 
-        <div class="form-row exp-payment-details exp-conditional is-collapsed" id="exp-payment-details" hidden inert>
+        <section class="exp-wizard-panel" data-wizard-step="4" aria-labelledby="exp-step-title-4" hidden>
+          <h3 class="exp-wizard-title" id="exp-step-title-4" tabindex="-1">Resumen y notas</h3>
+          <div id="exp-wizard-summary" class="exp-wizard-summary" aria-live="polite"></div>
           <div class="form-group">
-            <label class="form-label" for="exp-adelanto">Adelanto Entregado (MXN)</label>
-            <input type="number" id="exp-adelanto" class="form-input" min="0" step="0.01" value="0"
-                   placeholder="0" oninput="updateExpositorPaymentPreview()">
-            <p class="form-hint">Monto parcial ya recibido.</p>
+            <label class="form-label" for="exp-notas">Notas Adicionales</label>
+            <textarea id="exp-notas" class="form-textarea"
+                      placeholder="Detalles de productos, redes sociales, electricidad y otras necesidades..."></textarea>
           </div>
-          <div class="form-group">
-            <label class="form-label" for="exp-fecha-limite">Fecha Límite de Pago</label>
-            <input type="date" id="exp-fecha-limite" class="form-input">
-            <p class="form-hint">Opcional. Aparece en la tarjeta y en el comprobante PDF.</p>
-          </div>
-        </div>
-        <div id="exp-payment-balance" class="exp-payment-balance exp-conditional is-collapsed" aria-live="polite" hidden inert></div>
-        <div id="exp-payment-paid-badge" class="exp-payment-paid-badge exp-conditional is-collapsed" role="status" hidden inert>
-          ✓ Pago liquidado en su totalidad ($0.00 pendiente)
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="exp-descuento">Descuento Aplicado (MXN)</label>
-            <input type="number" id="exp-descuento" class="form-input" min="0" step="0.01" value="0"
-                   oninput="updateExpositorPaymentFields()">
-            <p class="form-hint">Se descuenta del costo antes de calcular el saldo.</p>
-          </div>
-          <div class="form-group exp-conditional is-collapsed" id="exp-credit-note-wrap" hidden inert>
-            <label class="form-label" for="exp-notas-credito">Nota de Crédito / Motivo</label>
-            <input type="text" id="exp-notas-credito" class="form-input" placeholder="Ej. Descuento por pronto pago">
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="exp-notas">Notas Adicionales</label>
-          <textarea id="exp-notas" class="form-textarea"
-                    placeholder="Notas sobre luz, sombreado, necesidades especiales..."></textarea>
-        </div>
-        <div id="expositor-custom-metrics" class="custom-metrics-fields"></div>
-
+          <div id="expositor-custom-metrics" class="custom-metrics-fields"></div>
+        </section>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" onclick="closeModal('modal-expositor')">Cancelar</button>
-        <button type="submit" class="btn-primary">Guardar Registro</button>
+      <div class="modal-footer exp-wizard-footer">
+        <button type="button" class="btn-secondary" id="exp-wizard-cancel" onclick="closeModal('modal-expositor')">Cancelar</button>
+        <button type="button" class="btn-secondary" id="exp-wizard-previous" onclick="previousExpositorStep()" hidden>Anterior</button>
+        <button type="button" class="btn-primary" id="exp-wizard-next" onclick="nextExpositorStep()">Siguiente: Detalles Logísticos</button>
+        <button type="submit" class="btn-primary" id="exp-wizard-submit" hidden>Guardar Registro</button>
       </div>
     </form>
   </div>

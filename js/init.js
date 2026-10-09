@@ -22,6 +22,9 @@ window.setFilterCategory             = setFilterCategory;
 window.setFilterStatus               = setFilterStatus;
 window.openModalExpositor            = openModalExpositor;
 window.openModalExpositorForCurrentCategory = openModalExpositorForCurrentCategory;
+window.prepareExpositorWizard        = prepareExpositorWizard;
+window.nextExpositorStep             = nextExpositorStep;
+window.previousExpositorStep         = previousExpositorStep;
 window.closeModal                    = closeModal;
 window.appAlert                      = appAlert;
 window.appConfirm                    = appConfirm;
@@ -195,6 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
     overlay.addEventListener("click", (e) => {
       if (e.target !== overlay) return;
       if (overlay.id === "modal-app-dialog") cancelAppDialog();
+      else if (overlay.id === "modal-expositor") closeModal(overlay.id);
       else overlay.classList.remove("open");
     });
   });

@@ -12,7 +12,7 @@ function renderExpositores() {
   const bz = getActiveBazaar();
   syncExpositorViewButtons();
 
-  let list = bz.expositores.filter((exp) => {
+  const list = [...bz.expositores].reverse().filter((exp) => {
     const q = AppState.searchQuery;
     const matchQ = !q || exp.nombre.toLowerCase().includes(q) ||
                    exp.negocio.toLowerCase().includes(q) || exp.ubicacion.toLowerCase().includes(q);

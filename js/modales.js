@@ -6,6 +6,13 @@
 
 // 13. MODALES Y FORMULARIO DE EXPOSITOR
 // ==========================================
+let formData = {};
+let currentStep = 1;
+let _expositorFormInitialSnapshot = "";
+let _expositorCloseConfirmationPending = false;
+window.formData = formData;
+window.currentStep = currentStep;
+
 function openModal(id) {
   const el = document.getElementById(id);
   if (el) el.classList.add("open");
@@ -13,7 +20,141 @@ function openModal(id) {
 
 function closeModal(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.remove("open");
+  if (!el) return;
+  if (id === "modal-expositor" && el.classList.contains("open")) {
+    syncExpositorFormData();
+    if (JSON.stringify(formData) !== _expositorFormInitialSnapshot) {
+      if (_expositorCloseConfirmationPending) return;
+      _expositorCloseConfirmationPending = true;
+      appConfirm("Hay cambios sin guardar. ¿Quieres descartarlos?", "Descartar cambios", "Descartar")
+        .then((confirmed) => {
+          _expositorCloseConfirmationPending = false;
+          if (confirmed) finishCloseExpositorModal(el);
+        });
+      return;
+    }
+  }
+  el.classList.remove("open");
+  if (id === "modal-expositor") setExpositorWizardStep(1);
+}
+
+function finishCloseExpositorModal(modal = document.getElementById("modal-expositor")) {
+  modal?.classList.remove("open");
+  setExpositorWizardStep(1);
+}
+
+function syncExpositorFormData() {
+  const form = document.getElementById("form-expositor");
+  if (!form) return formData;
+  const fields = {};
+  [...form.querySelectorAll("input:not([type='file']), select, textarea")].forEach((control) => {
+    if (control.classList.contains("exp-table-option")) return;
+    if (!control.id && !control.name) return;
+    const key = control.id || control.name;
+    fields[key] = control.type === "checkbox" ? control.checked : control.value;
+  });
+  formData = {
+    ...fields,
+    tableIds: [...form.querySelectorAll("#exp-ubicacion .exp-table-option:checked")].map((checkbox) => checkbox.value),
+    sillasAsignadas: document.getElementById("exp-sillas-total")?.textContent || ""
+  };
+  window.formData = formData;
+  renderExpositorWizardSummary();
+  return formData;
+}
+
+function prepareExpositorWizard() {
+  const form = document.getElementById("form-expositor");
+  if (!form) return;
+  if (form.dataset.wizardInitialized !== "true") {
+    const sync = () => syncExpositorFormData();
+    form.addEventListener("input", sync);
+    form.addEventListener("change", sync);
+    form.dataset.wizardInitialized = "true";
+  }
+  setExpositorWizardStep(1);
+  syncExpositorFormData();
+  _expositorFormInitialSnapshot = JSON.stringify(formData);
+  document.querySelector(".expositor-wizard-modal")?.scrollTo({ top: 0 });
+}
+
+function setExpositorWizardStep(step) {
+  if (!Number.isInteger(step) || step < 1 || step > 4) return;
+  currentStep = step;
+  window.currentStep = currentStep;
+  document.querySelectorAll("#form-expositor [data-wizard-step]").forEach((panel) => {
+    panel.hidden = Number(panel.dataset.wizardStep) !== step;
+  });
+  document.querySelectorAll("#form-expositor [data-wizard-indicator]").forEach((indicator) => {
+    const indicatorStep = Number(indicator.dataset.wizardIndicator);
+    indicator.classList.toggle("is-current", indicatorStep === step);
+    indicator.classList.toggle("is-complete", indicatorStep < step);
+    if (indicatorStep === step) indicator.setAttribute("aria-current", "step");
+    else indicator.removeAttribute("aria-current");
+  });
+  const cancel = document.getElementById("exp-wizard-cancel");
+  const previous = document.getElementById("exp-wizard-previous");
+  const next = document.getElementById("exp-wizard-next");
+  const submit = document.getElementById("exp-wizard-submit");
+  if (cancel) cancel.hidden = step !== 1;
+  if (previous) previous.hidden = step === 1;
+  if (next) {
+    next.hidden = step === 4;
+    next.textContent = [
+      "",
+      "Siguiente: Detalles Logísticos",
+      "Siguiente: Costos y Pagos",
+      "Siguiente: Notas y Confirmación"
+    ][step];
+  }
+  if (submit) submit.hidden = step !== 4;
+}
+
+function validateExpositorStep(step) {
+  const panel = document.querySelector(`#form-expositor [data-wizard-step="${step}"]`);
+  if (!panel) return false;
+  const invalidControl = [...panel.querySelectorAll("input, select, textarea")]
+    .find((control) => !control.checkValidity());
+  if (invalidControl) {
+    invalidControl.reportValidity();
+    return false;
+  }
+  return true;
+}
+
+function nextExpositorStep() {
+  if (!validateExpositorStep(currentStep)) return;
+  syncExpositorFormData();
+  setExpositorWizardStep(Math.min(4, currentStep + 1));
+  document.querySelector(`#form-expositor [data-wizard-step="${currentStep}"] .exp-wizard-title`)?.focus();
+  document.querySelector(".expositor-wizard-modal")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function previousExpositorStep() {
+  setExpositorWizardStep(Math.max(1, currentStep - 1));
+  syncExpositorFormData();
+  document.querySelector(`#form-expositor [data-wizard-step="${currentStep}"] .exp-wizard-title`)?.focus();
+  document.querySelector(".expositor-wizard-modal")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderExpositorWizardSummary() {
+  const box = document.getElementById("exp-wizard-summary");
+  if (!box) return;
+  const name = formData["exp-nombre"] || "Sin nombre";
+  const business = formData["exp-negocio"] || "Sin marca";
+  const chairs = formData.sillasAsignadas || document.getElementById("exp-sillas-total")?.textContent || "0";
+  const tableCount = formData["exp-mesas-cantidad"] === "otro"
+    ? formData["exp-mesas-otro"] || "0"
+    : formData["exp-mesas-cantidad"] || "1";
+  const total = Math.max(0, Number(formData["exp-costo"]) || 0);
+  const discount = Math.max(0, Number(formData["exp-descuento"]) || 0);
+  const advance = Math.max(0, Number(formData["exp-adelanto"]) || 0);
+  const balance = formData["exp-pagado"] ? 0 : Math.max(0, total - discount - advance);
+  box.innerHTML = `
+    <div><span>Nombre</span><strong>${escapeHTML(String(name))}</strong></div>
+    <div><span>Marca</span><strong>${escapeHTML(String(business))}</strong></div>
+    <div><span>Mesas / sillas</span><strong>${escapeHTML(String(tableCount))} / ${escapeHTML(String(chairs))}</strong></div>
+    <div><span>Saldo pendiente</span><strong>${formatCurrency(balance)}</strong></div>`;
 }
 
 function openModalExpositor(id = null, categoryId = null) {
@@ -37,7 +178,6 @@ function openModalExpositor(id = null, categoryId = null) {
       document.getElementById("exp-categoria").value     = exp.categoria;
       document.getElementById("exp-mesas-cantidad").value = exp.mesasCantidad || "1";
       document.getElementById("exp-mesas-otro").value = exp.mesasCantidadOtro || "";
-      toggleOtherTableCount();
       document.getElementById("exp-tel").value           = exp.tel || "";
       document.getElementById("exp-email").value         = exp.email || "";
       document.getElementById("exp-costo-base").value    = Math.max(0, Number(exp.costoBase ?? (Number(exp.costo || 0) - Number(exp.costoExtraSillas || 0))));
@@ -65,9 +205,11 @@ function openModalExpositor(id = null, categoryId = null) {
     }
   }
   populateExpositorAssignmentSelects(bz, exp);
+  toggleOtherTableCount();
   updateExpositorExtraChairFields();
   updateExpositorCostPreview();
   updateExpositorPaymentFields();
+  prepareExpositorWizard();
   openModal("modal-expositor");
 }
 
@@ -329,7 +471,7 @@ function toggleOtherTableCount() {
   if (!select || !input) return;
   const custom = select.value === "otro";
   input.style.display = custom ? "block" : "none";
-  input.required = false;
+  input.required = custom;
   if (!custom) input.value = "";   // un valor inválido oculto bloqueaba el envío en silencio
   updateExpositorTableSelection();
 }
@@ -366,6 +508,7 @@ function handleFotoUpload(e) {
       document.getElementById("exp-foto-base64").value = b64;
       const box = document.getElementById("avatar-preview-box");
       if (box) box.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      syncExpositorFormData();
     };
     img.onerror = () => showToast("No se pudo leer la imagen", "error");
     img.src = evt.target.result;
@@ -373,8 +516,13 @@ function handleFotoUpload(e) {
   reader.readAsDataURL(file);
 }
 
-async function saveExpositorHandler(e) {
+async function saveExpositorHandler(e, submittedFormData = null) {
   e.preventDefault();
+  if (currentStep < 4) {
+    nextExpositorStep();
+    return;
+  }
+  const data = submittedFormData || syncExpositorFormData();
   const bz = getActiveBazaar();
   const id = document.getElementById("exp-id").value;
   const existing = id ? bz.expositores.find((x) => x.id === id) : null;
@@ -382,11 +530,10 @@ async function saveExpositorHandler(e) {
     showToast("No se encontró el expositor que intentas editar", "error");
     return;
   }
-  const tableIds = [...new Set([...document.querySelectorAll("#exp-ubicacion .exp-table-option:checked")]
-    .map((checkbox) => checkbox.value))];
+  const tableIds = [...new Set(data.tableIds)];
   const requestedTableCount = getExpositorRequestedTableCount({
-    mesasCantidad: document.getElementById("exp-mesas-cantidad").value,
-    mesasCantidadOtro: document.getElementById("exp-mesas-otro").value
+    mesasCantidad: data["exp-mesas-cantidad"],
+    mesasCantidadOtro: data["exp-mesas-otro"]
   });
   if (!Number.isSafeInteger(requestedTableCount) || requestedTableCount < 1) {
     showToast("La cantidad de mesas compradas debe ser un número entero válido.", "error");
@@ -396,17 +543,16 @@ async function saveExpositorHandler(e) {
     showToast(`No puedes asignar más de ${requestedTableCount} mesa(s) a este expositor.`, "error");
     return;
   }
-  const chairsPerTable = Math.floor(Number(document.getElementById("exp-sillas-por-mesa").value));
+  const chairsPerTable = Math.floor(Number(data["exp-sillas-por-mesa"]));
   const chairCount = requestedTableCount * chairsPerTable;
   if (!Number.isSafeInteger(chairsPerTable) || chairsPerTable < 0 || !Number.isSafeInteger(chairCount)) {
     showToast("Revisa la cantidad de sillas por mesa; debe ser un número entero válido.", "error");
     return;
   }
-  const baseCost = Number(document.getElementById("exp-costo-base").value);
-  const hasExtraChairs = document.getElementById("exp-sillas-extra-enabled").checked;
-  const extraCountInput = document.getElementById("exp-sillas-extra-cantidad");
-  const hasExtraChairDetails = hasExtraChairs && extraCountInput.value !== "";
-  const extraChairCount = hasExtraChairDetails ? Number(extraCountInput.value) : 0;
+  const baseCost = Number(data["exp-costo-base"]);
+  const hasExtraChairs = data["exp-sillas-extra-enabled"];
+  const hasExtraChairDetails = hasExtraChairs && data["exp-sillas-extra-cantidad"] !== "";
+  const extraChairCount = hasExtraChairDetails ? Number(data["exp-sillas-extra-cantidad"]) : 0;
   const extraChairUnitCost = Math.max(0, Number(bz.costsConfig.chairExtraUnitPrice) || 0);
   const extraChairCost = extraChairCount * extraChairUnitCost;
   const finalCost = Math.round((baseCost + extraChairCost) * 100) / 100;
@@ -426,11 +572,11 @@ async function saveExpositorHandler(e) {
   const conflictingTables = tableIds.map((tableId) => allTables.find((table) => table.id === tableId))
     .filter((table) => table.exhibitorId && table.exhibitorId !== id);
   if (conflictingTables.length && !await appConfirm(
-    `${conflictingTables.map((table) => table.name).join(", ")} ya tienen otro expositor. Se moverán a ${document.getElementById("exp-negocio").value.trim() || "este expositor"}. ¿Continuar?`,
+    `${conflictingTables.map((table) => table.name).join(", ")} ya tienen otro expositor. Se moverán a ${String(data["exp-negocio"]).trim() || "este expositor"}. ¿Continuar?`,
     "Reasignar mesas",
     "Reasignar"
   )) return;
-  let areaRoleId = document.getElementById("exp-area-encargada").value;
+  let areaRoleId = data["exp-area-encargada"];
   let areaRole = bz.roles.find((role) => role.id === areaRoleId);
   if (areaRoleId === "__legacy_area") {
     const legacyArea = existing?.areaEncargada?.trim() || "";
@@ -444,14 +590,14 @@ async function saveExpositorHandler(e) {
   const expData = {
     ...(existing || {}),   // conserva campos que el formulario no maneja
     id:             id || "exp-" + Date.now(),
-    nombre:         document.getElementById("exp-nombre").value.trim(),
-    negocio:        document.getElementById("exp-negocio").value.trim(),
-    categoria:      document.getElementById("exp-categoria").value,
+    nombre:         String(data["exp-nombre"]).trim(),
+    negocio:        String(data["exp-negocio"]).trim(),
+    categoria:      data["exp-categoria"],
     ubicacion:      existing?.ubicacion || "",
     tableId:        "",
     tableIds:       [],
-    mesasCantidad:  document.getElementById("exp-mesas-cantidad").value,
-    mesasCantidadOtro: document.getElementById("exp-mesas-otro").value.trim(),
+    mesasCantidad:  data["exp-mesas-cantidad"],
+    mesasCantidadOtro: String(data["exp-mesas-otro"]).trim(),
     sillasPorMesa: chairsPerTable,
     sillasIncluidas: chairCount,
     sillasExtraCantidad: extraChairCount,
@@ -461,17 +607,17 @@ async function saveExpositorHandler(e) {
     costoExtraSillas: Math.round(extraChairCost * 100) / 100,
     areaRolId:      areaRoleId,
     areaEncargada:  areaRole?.nombre || "",
-    encargadoId:   document.getElementById("exp-encargado").value,
-    tel:            document.getElementById("exp-tel").value.trim(),
-    email:          document.getElementById("exp-email").value.trim(),
+    encargadoId:   data["exp-encargado"],
+    tel:            String(data["exp-tel"]).trim(),
+    email:          String(data["exp-email"]).trim(),
     costo:          finalCost,
-    adelanto:       Number(document.getElementById("exp-adelanto").value || 0),
-    descuento:      Math.max(0, Number(document.getElementById("exp-descuento").value || 0)),
-    notaCredito:    document.getElementById("exp-notas-credito").value.trim(),
-    fechaLimitePago: document.getElementById("exp-fecha-limite").value || "",
-    pagado:         document.getElementById("exp-pagado").checked,
-    notas:          document.getElementById("exp-notas").value.trim(),
-    foto:           document.getElementById("exp-foto-base64").value,
+    adelanto:       Number(data["exp-adelanto"] || 0),
+    descuento:      Math.max(0, Number(data["exp-descuento"] || 0)),
+    notaCredito:    String(data["exp-notas-credito"]).trim(),
+    fechaLimitePago: data["exp-fecha-limite"] || "",
+    pagado:         data["exp-pagado"],
+    notas:          String(data["exp-notas"]).trim(),
+    foto:           data["exp-foto-base64"],
     publicationStatus: existing?.publicationStatus || "pendiente",
     banned:         existing?.banned || false,
     checklist:      existing ? existing.checklist : defaultChecklistItems(),
@@ -521,6 +667,7 @@ async function saveExpositorHandler(e) {
     return;
   }
   renderAll();
+  _expositorFormInitialSnapshot = JSON.stringify(syncExpositorFormData());
   closeModal("modal-expositor");
   const savedMessage = id ? "✅ Expositor actualizado" : "✅ Expositor registrado";
   showToast(hasExtraChairs && !hasExtraChairDetails

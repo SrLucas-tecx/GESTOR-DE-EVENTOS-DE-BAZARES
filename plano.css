@@ -395,11 +395,10 @@ body.dark .panel-kpi-negative .panel-kpi-value { color: #fca5a5; }
 .panel-block-heading p { margin-top: var(--space-1); color: var(--color-text-muted); font-size: var(--fs-sm); }
 .panel-block-heading .link-inline, .panel-checklist-actions .link-inline { white-space: nowrap; }
 .panel-work-tabs { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
-.panel-work-tab { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--color-text-muted); font: 700 var(--fs-sm) var(--font-body); cursor: pointer; }
-.panel-work-tab[aria-selected="true"] { border-bottom-color: var(--color-accent); color: var(--color-text); }
+.panel-work-tab { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 0; border-bottom: 3px solid transparent; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: transparent; color: var(--color-text-muted); font: 700 var(--fs-sm) var(--font-body); cursor: pointer; transition: background-color var(--transition), color var(--transition), border-color var(--transition); }
+.panel-work-tab:hover { background: var(--color-accent-soft); color: var(--color-accent); }
+.panel-work-tab[aria-selected="true"], .panel-work-tab.active { border-bottom-color: var(--color-accent); background: var(--color-accent-soft); color: var(--color-accent); }
 .panel-work-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: var(--radius-sm); }
-.panel-work-tab.has-overdue, .panel-work-tab.has-overdue[aria-selected="true"] { border-bottom-color: #dc2626; color: #b91c1c; }
-body.dark .panel-work-tab.has-overdue, body.dark .panel-work-tab.has-overdue[aria-selected="true"] { border-bottom-color: #f87171; color: #fecaca; }
 .panel-tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.25rem; height: 1.25rem; padding: 0 .3rem; border-radius: var(--radius-full); background: #dc2626; color: #fff; font-size: var(--fs-xs); font-weight: 800; line-height: 1; }
 .panel-work-tab-content[hidden] { display: none; }
 .panel-work-tab-content .panel-alert-list { min-height: 2rem; }

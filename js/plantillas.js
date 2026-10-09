@@ -102,11 +102,19 @@ function usarPlantilla(pltId) {
   document.getElementById("exp-email").value         = plt.email || "";
   document.getElementById("exp-notas").value         = plt.notas || "";
 
+  const bz = getActiveBazaar();
+  document.getElementById("exp-sillas-por-mesa").value = bz.costsConfig.chairsPerTable ?? 2;
+  document.getElementById("exp-costo-silla-extra").value = bz.costsConfig.chairExtraUnitPrice || 0;
   const box = document.getElementById("avatar-preview-box");
   if (box && plt.foto) box.innerHTML = `<img src="${plt.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
   else if (box) box.innerHTML = "📷";
 
+  populateExpositorAssignmentSelects(bz);
+  toggleOtherTableCount();
+  updateExpositorExtraChairFields();
+  updateExpositorCostPreview();
   updateExpositorPaymentFields();
+  prepareExpositorWizard();
   openModal("modal-expositor");
 }
 
