@@ -231,7 +231,7 @@ function openBackupExport() {
   document.getElementById("backup-menu")?.classList.remove("open");
   const select = document.getElementById("be-bazar");
   if (!select) return;
-  select.innerHTML = Object.values(AppState.bazaars).map((bz) =>
+  select.innerHTML = getBazaarsNewestFirst().map((bz) =>
     `<option value="${bz.id}" ${bz.id === AppState.currentBazaarId ? "selected" : ""}>${escapeHTML(bz.name)}</option>`
   ).join("");
   renderBackupExportSections();
@@ -343,7 +343,7 @@ function backupPrepararImportacion(parsed) {
   const active = getActiveBazaar();
   const destSelect = document.getElementById("bi-dest");
   destSelect.innerHTML =
-    Object.values(AppState.bazaars).map((bz) =>
+    getBazaarsNewestFirst().map((bz) =>
       `<option value="${bz.id}" ${bz.id === active?.id ? "selected" : ""}>${bz.id === active?.id ? "Bazar activo — " : ""}${escapeHTML(bz.name)}</option>`).join("") +
     `<option value="__new__">➕ Crear un bazar nuevo con estos datos</option>`;
 

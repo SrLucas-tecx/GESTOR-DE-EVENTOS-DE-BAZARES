@@ -11,7 +11,7 @@ function renderBazaarSelector() {
   updateNavBazaarLabel();
   const sel = document.getElementById("bazaar-select-global");
   if (!sel) return;
-  sel.innerHTML = Object.values(AppState.bazaars)
+  sel.innerHTML = getBazaarsNewestFirst()
     .map((bz) => `<option value="${bz.id}" ${bz.id === AppState.currentBazaarId ? "selected" : ""}>${escapeHTML(bz.name)}</option>`)
     .join("");
 }
@@ -279,7 +279,7 @@ async function createBazaar() {
   if (!name?.trim()) return;
   const id = "bazaar-" + Date.now();
   AppState.bazaars[id] = {
-    id, name: name.trim(),
+    id, name: name.trim(), createdAt: Date.now(),
     bgImage: null, logoImage: null, mapConfig: defaultMapConfig(),
     expositores: [], tables: [],
     costsConfig: emptyCostsConfig(),
@@ -307,7 +307,7 @@ async function deleteBazaarById(bazaarId) {
   if (!await appConfirm(`¿Eliminar permanentemente el bazar "${bz.name}"? Esta acción no se puede deshacer.${aviso}`, "Eliminar bazar", "Eliminar")) return;
   const wasActive = bazaarId === AppState.currentBazaarId;
   delete AppState.bazaars[bazaarId];
-  const remaining = Object.keys(AppState.bazaars);
+  const remaining = getBazaarsNewestFirst().map((bazaar) => bazaar.id);
   // Solo cambia el bazar activo si el eliminado ERA el activo.
   if (wasActive) AppState.currentBazaarId = remaining[0] || null;
   // Sin bazares la app no crea uno vacío: muestra el estado "sin bazar" en Inicio.
@@ -324,7 +324,7 @@ async function deleteBazaarById(bazaarId) {
 function renderBazaresTabla() {
   const tbody = document.getElementById("bazares-table-body");
   if (!tbody) return;
-  const bazList = Object.values(AppState.bazaars);
+  const bazList = getBazaarsNewestFirst();
   if (bazList.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin bazares registrados. Crea el primero con "+ Nuevo Bazar".</td></tr>`;
     return;
@@ -365,7 +365,7 @@ function renderBazaresTabla() {
 function renderBazaarHome() {
   const container = document.getElementById("bazaar-home-grid");
   if (!container) return;
-  const bazaars = Object.values(AppState.bazaars || {});
+  const bazaars = getBazaarsNewestFirst();
   if (!bazaars.length) {
     container.innerHTML = `<div class="catalog-empty"><span class="catalog-empty-icon">🏪</span><h3>Aún no hay bazares</h3><p>Crea un bazar para empezar a organizar tu evento.</p><button class="btn-primary" style="margin-top:16px;" onclick="createBazaar()">+ Crear mi primer bazar</button></div>`;
     return;
@@ -538,6 +538,7 @@ async function duplicarBazaar() {
 
   copy.id = newId;
   copy.name = name.trim();
+  copy.createdAt = Date.now();
   copy.tables = [];
   (copy.floors || []).forEach((floor, index) => {
     const newFloorId = `${newId}-floor-${index + 1}`;
@@ -570,7 +571,7 @@ const GLOBAL_TABS = ["inicio", "bazares", "comparar", "categorias", "plantillas"
 function updateNavBazaarLabel() {
   const sel = document.getElementById("nav-bazaar-select");
   if (!sel) return;
-  sel.innerHTML = Object.values(AppState.bazaars)
+  sel.innerHTML = getBazaarsNewestFirst()
     .map((bz) => `<option value="${bz.id}" ${bz.id === AppState.currentBazaarId ? "selected" : ""}>${escapeHTML(bz.name)}</option>`)
     .join("") + `<option value="__new__">➕ Crear bazar nuevo…</option>`;
 }

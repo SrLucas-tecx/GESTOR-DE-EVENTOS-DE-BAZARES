@@ -111,7 +111,7 @@ function renderComparaBazares() {
   }
   if (!activeBazaar || !selector || !content) return;
 
-  const otherBazaars = Object.values(AppState.bazaars).filter((bazaar) => bazaar.id !== activeBazaar.id);
+  const otherBazaars = getBazaarsNewestFirst().filter((bazaar) => bazaar.id !== activeBazaar.id);
   const previousSelection = selector.value;
   selector.innerHTML = otherBazaars.length
     ? otherBazaars.map((bazaar) => `<option value="${bazaar.id}">${escapeHTML(bazaar.name)}</option>`).join("")

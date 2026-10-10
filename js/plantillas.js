@@ -41,7 +41,7 @@ function renderPlantillas() {
   const container = document.getElementById("plantillas-grid");
   if (!container) return;
   const list = AppState.expositorPlantillas;
-  const bazaarOptions = Object.values(AppState.bazaars)
+  const bazaarOptions = getBazaarsNewestFirst()
     .map((bz) => `<option value="${bz.id}" ${bz.id === AppState.currentBazaarId ? "selected" : ""}>${escapeHTML(bz.name)}</option>`)
     .join("");
 

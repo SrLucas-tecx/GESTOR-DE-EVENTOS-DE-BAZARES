@@ -221,6 +221,18 @@ const DEFAULT_STATE = {
 
 let AppState = loadState();
 
+function getBazaarsNewestFirst(bazaars = Object.values(AppState.bazaars || {})) {
+  const creationTime = (bazaar) => {
+    const savedTime = Number(bazaar.createdAt);
+    if (Number.isFinite(savedTime) && savedTime > 0) return savedTime;
+    const savedDate = Date.parse(bazaar.createdAt);
+    if (Number.isFinite(savedDate) && savedDate > 0) return savedDate;
+    const idTimestamp = /^bazaar-(\d+)$/.exec(String(bazaar.id || ""))?.[1];
+    return Number(idTimestamp) || 0;
+  };
+  return [...bazaars].sort((a, b) => creationTime(b) - creationTime(a));
+}
+
 function cloneDefaultState() {
   return JSON.parse(JSON.stringify(DEFAULT_STATE));
 }
@@ -253,6 +265,12 @@ function migrateState(parsed) {
   if (!["mobiliario", "gastos"].includes(parsed.costosSubTab)) parsed.costosSubTab = "mobiliario";
 
   Object.values(parsed.bazaars || {}).forEach((bz) => {
+    const createdAt = Number(bz.createdAt);
+    const createdDate = Date.parse(bz.createdAt);
+    if ((!Number.isFinite(createdAt) || createdAt <= 0) && (!Number.isFinite(createdDate) || createdDate <= 0)) {
+      const idTimestamp = /^bazaar-(\d+)$/.exec(String(bz.id || ""))?.[1];
+      if (idTimestamp) bz.createdAt = Number(idTimestamp);
+    }
     if (!bz.invitados)   bz.invitados   = [];
     if (!bz.minuteByMinute) bz.minuteByMinute = emptyMinuteByMinute();
     if (!bz.customMetrics) bz.customMetrics = emptyCustomMetrics();
