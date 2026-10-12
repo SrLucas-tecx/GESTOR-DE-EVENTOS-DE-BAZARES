@@ -39,6 +39,108 @@ function responsableOptionsHTML(selectedId, bz = getActiveBazaar()) {
 }
 
 // ==========================================
+// ROL + RESPONSABLE (dos selects encadenados)
+// Se guarda: responsableId (persona) y areaRolId (solo cuando aún no hay persona).
+// Con persona elegida, el rol se deduce de ella, así que si cambia su rol se actualiza solo.
+// ==========================================
+const ROL_NINGUNO = "__none";
+
+function getItemRol(item, bz = getActiveBazaar()) {
+  const persona = getResponsable(item?.responsableId, bz);
+  if (persona) return persona.rolId || ROL_NINGUNO;
+  return item?.areaRolId || "";
+}
+function getItemRolNombre(item, bz = getActiveBazaar()) {
+  return getRolNombre(getItemRol(item, bz), bz);
+}
+/** Para exportar: la persona, o el área si todavía no hay persona. */
+function getItemResponsableTexto(item, bz = getActiveBazaar()) {
+  return getResponsableNombre(item?.responsableId, bz) || getItemRolNombre(item, bz);
+}
+
+function rolOptionsHTML(selectedRol, bz = getActiveBazaar()) {
+  const roles = bz?.roles || [];
+  const hayPersonasSinRol = (bz?.responsables || []).some((r) => !r.rolId) || selectedRol === ROL_NINGUNO;
+  return `<option value="">-- Rol / área --</option>` +
+    roles.map((r) => `<option value="${escapeHTML(r.id)}" ${r.id === selectedRol ? "selected" : ""}>${escapeHTML(r.nombre)}</option>`).join("") +
+    (hayPersonasSinRol ? `<option value="${ROL_NINGUNO}" ${selectedRol === ROL_NINGUNO ? "selected" : ""}>Sin rol</option>` : "");
+}
+
+function personaOptionsHTML(rolId, selectedId, bz = getActiveBazaar()) {
+  if (!rolId) return `<option value="">Elige un rol primero</option>`;
+  const gente = (bz?.responsables || [])
+    .filter((p) => (rolId === ROL_NINGUNO ? !p.rolId : p.rolId === rolId))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  if (!gente.length) return `<option value="">No hay personas en este rol</option>`;
+  return `<option value="">-- Sin asignar --</option>` +
+    gente.map((p) => `<option value="${escapeHTML(p.id)}" ${p.id === selectedId ? "selected" : ""}>${escapeHTML(p.nombre)}</option>`).join("");
+}
+
+const RESP_KINDS = {
+  tarea:  { key: "tareas",         render: () => renderTareas() },
+  compra: { key: "compras",        render: () => renderCompras() },
+  minuto: { key: "minuteByMinute", render: () => renderMinuteByMinute() },
+};
+
+function _respItem(kind, id, bz) {
+  return (bz?.[RESP_KINDS[kind]?.key] || []).find((x) => x.id === id) || null;
+}
+
+/** Celda de tabla: Rol arriba, Persona abajo. */
+function responsableCellHTML(kind, item, bz = getActiveBazaar()) {
+  const rol = getItemRol(item, bz);
+  const id = escapeHTML(item.id);
+  return `<div class="resp-split">
+    <select class="form-select" aria-label="Rol o área" onchange="setItemRol('${kind}','${id}',this.value)">${rolOptionsHTML(rol, bz)}</select>
+    <select class="form-select" aria-label="Persona responsable" ${rol ? "" : "disabled"} onchange="setItemPersona('${kind}','${id}',this.value)">${personaOptionsHTML(rol, item.responsableId, bz)}</select>
+  </div>`;
+}
+
+function setItemRol(kind, id, rolId) {
+  const bz = getActiveBazaar();
+  const item = _respItem(kind, id, bz);
+  if (!item) return;
+  const persona = getResponsable(item.responsableId, bz);
+  if (persona && (persona.rolId || ROL_NINGUNO) !== rolId) item.responsableId = "";
+  item.areaRolId = rolId;
+  if (kind === "minuto") item.area = getItemRolNombre(item, bz);
+  saveState();
+  RESP_KINDS[kind].render();
+}
+
+function setItemPersona(kind, id, personaId) {
+  const bz = getActiveBazaar();
+  const item = _respItem(kind, id, bz);
+  if (!item) return;
+  const rol = getItemRol(item, bz);
+  item.responsableId = personaId;
+  item.areaRolId = personaId ? "" : rol;   // si se quita la persona, se conserva el rol
+  if (kind === "minuto") item.area = getItemRolNombre(item, bz);
+  saveState();
+  RESP_KINDS[kind].render();
+}
+
+// ── Ventanas de alta (tarea / compra / actividad): prefijos "tarea", "compra", "act" ──
+function fillModalResponsable(prefix, bz = getActiveBazaar()) {
+  const rol = document.getElementById(`${prefix}-rol`);
+  const persona = document.getElementById(`${prefix}-responsable`);
+  if (rol) rol.innerHTML = rolOptionsHTML("", bz);
+  if (persona) { persona.innerHTML = personaOptionsHTML("", "", bz); persona.disabled = true; }
+}
+function refreshModalPersona(prefix) {
+  const rol = document.getElementById(`${prefix}-rol`)?.value || "";
+  const persona = document.getElementById(`${prefix}-responsable`);
+  if (!persona) return;
+  persona.innerHTML = personaOptionsHTML(rol, "", getActiveBazaar());
+  persona.disabled = !rol;
+}
+function readModalResponsable(prefix) {
+  const rol = document.getElementById(`${prefix}-rol`)?.value || "";
+  const personaId = document.getElementById(`${prefix}-responsable`)?.value || "";
+  return { responsableId: personaId, areaRolId: personaId ? "" : rol };
+}
+
+// ==========================================
 // RENDER: PÁGINA STAFF
 // ==========================================
 function renderResponsables() {
@@ -204,6 +306,7 @@ async function deleteRol(id) {
   if (!await appConfirm(mensaje, "Eliminar rol")) return;
   bz.roles = bz.roles.filter((r) => r.id !== id);
   bz.responsables.forEach((r) => { if (r.rolId === id) r.rolId = ""; });
+  [bz.tareas, bz.compras, bz.minuteByMinute].forEach((list) => (list || []).forEach((x) => { if (x.areaRolId === id) x.areaRolId = ""; }));
   bz.expositores.forEach((exp) => {
     if (exp.areaRolId === id || (!exp.areaRolId && exp.areaEncargada === roleName)) {
       exp.areaRolId = "";
@@ -279,6 +382,8 @@ function saveResponsableHandler(e) {
 async function deleteResponsable(id) {
   const bz = getActiveBazaar();
   if (!await appConfirm("¿Eliminar este responsable? Las tareas, compras y actividades que tenía asignadas quedarán sin responsable.", "Eliminar responsable")) return;
+  // Antes de quitar a la persona, se conserva su rol en lo que tenía asignado.
+  [bz.tareas, bz.compras, bz.minuteByMinute].forEach((list) => (list || []).forEach((x) => { if (x.responsableId === id) x.areaRolId = getItemRol(x, bz); }));
   bz.responsables = bz.responsables.filter((r) => r.id !== id);
   bz.tareas.forEach((t) => { if (t.responsableId === id) t.responsableId = ""; });
   bz.compras.forEach((c) => { if (c.responsableId === id) c.responsableId = ""; });

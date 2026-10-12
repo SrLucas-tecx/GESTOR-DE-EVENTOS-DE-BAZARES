@@ -61,6 +61,74 @@ function switchTab(tabId) {
   syncTopNav();
 }
 
+const NOTE_PREVIEW_MAX_LENGTH = 10;
+let noteEditorContext = null;
+
+function notePreviewHTML(note, type, id) {
+  const text = String(note || "").trim();
+  const characters = Array.from(text);
+  const preview = characters.length > NOTE_PREVIEW_MAX_LENGTH
+    ? `${characters.slice(0, NOTE_PREVIEW_MAX_LENGTH - 1).join("").trimEnd()}…`
+    : text;
+  const label = preview || "＋ Nota";
+  const title = text ? "Abrir y editar nota" : "Agregar nota";
+  return `<button class="note-preview btn-secondary btn-sm ${text ? "" : "is-empty"}" type="button"
+    onclick="openNoteEditor('${type}',${escapeHTML(JSON.stringify(String(id)))})" title="${title}">${escapeHTML(label)}</button>`;
+}
+
+// Cada tipo de nota: dónde vive la lista, qué campo guarda el texto y cómo repintar.
+const NOTE_TYPES = {
+  invitado:  { list: (bz) => bz.invitados || [],               field: "notas",       label: "Nota del expositor",       render: () => renderInvitados() },
+  expositor: { list: (bz) => bz.expositores || [],             field: "notas",       label: "Nota del expositor",       render: () => renderExpositores() },
+  actividad: { list: (bz) => bz.minuteByMinute || [],          field: "notes",       label: "Nota de la actividad",     render: () => renderMinuteByMinute() },
+  compra:    { list: (bz) => bz.compras || [],                 field: "descripcion", label: "Descripción del artículo", render: () => renderCompras() },
+  tarea:     { list: (bz) => bz.tareas || [],                  field: "descripcion", label: "Descripción de la tarea",  render: () => renderTareas() },
+  gasto:     { list: (bz) => bz.costsConfig?.extraCosts || [], field: "comment",     label: "Comentario del gasto",     render: () => renderCostosUI() },
+};
+
+function openNoteEditor(type, id) {
+  const bazaar = getActiveBazaar();
+  const cfg = NOTE_TYPES[type];
+  if (!bazaar || !cfg) return;
+  const item = cfg.list(bazaar).find((entry) => entry.id === id);
+  if (!item) {
+    showToast("No se encontró el elemento asociado a esta nota.");
+    return;
+  }
+  noteEditorContext = { type, id };
+  document.getElementById("modal-nota-title").textContent = cfg.label;
+  document.getElementById("note-editor-content").value = item[cfg.field] ?? "";
+  openModal("modal-nota");
+  setTimeout(() => document.getElementById("note-editor-content").focus(), 0);
+}
+
+function saveNoteHandler(event) {
+  event.preventDefault();
+  if (!noteEditorContext) return;
+  const bazaar = getActiveBazaar();
+  const cfg = NOTE_TYPES[noteEditorContext.type];
+  if (!bazaar || !cfg) return;
+  const item = cfg.list(bazaar).find((entry) => entry.id === noteEditorContext.id);
+  if (!item) {
+    showToast("No se pudo guardar: ya no existe el elemento asociado.");
+    closeModal("modal-nota");
+    noteEditorContext = null;
+    return;
+  }
+  item[cfg.field] = document.getElementById("note-editor-content").value.trim();
+  // Una compra enviada a Costos del Evento comparte su descripción como comentario del gasto.
+  if (noteEditorContext.type === "compra" && item.presupuestoId) {
+    const gasto = bazaar.costsConfig.extraCosts.find((g) => g.id === item.presupuestoId);
+    if (gasto) gasto.comment = item.descripcion;
+  }
+  saveState();
+  cfg.render();
+  if (noteEditorContext.type === "compra") renderCostosUI();
+  closeModal("modal-nota");
+  noteEditorContext = null;
+  showToast("✅ Nota guardada");
+}
+
 // Barra superior: marca el grupo con la página activa y cierra menús abiertos.
 function syncTopNav() {
   document.querySelectorAll(".nav-group").forEach((g) => {

@@ -92,6 +92,8 @@ function setExpositorWizardStep(step) {
     if (indicatorStep === step) indicator.setAttribute("aria-current", "step");
     else indicator.removeAttribute("aria-current");
   });
+  const photo = document.getElementById("exp-photo-group");
+  if (photo) photo.hidden = step !== 1;   // la foto solo se muestra en el paso 1 (Identidad)
   const cancel = document.getElementById("exp-wizard-cancel");
   const previous = document.getElementById("exp-wizard-previous");
   const next = document.getElementById("exp-wizard-next");
@@ -340,7 +342,7 @@ function populateExpositorAssignmentSelects(bz, exp = null) {
     : roles.find((role) => role.nombre.trim().toLowerCase() === (exp?.areaEncargada || "").trim().toLowerCase())?.id || "";
   const legacyArea = exp?.areaEncargada?.trim() || "";
   const selectedRoleExists = roles.some((role) => role.id === selectedRoleId);
-  areaSelect.innerHTML = `<option value="">Por asignar</option>` + roles.map((role) =>
+  areaSelect.innerHTML = `<option value="">Selecciona un área de Staff</option>` + roles.map((role) =>
     `<option value="${escapeHTML(role.id)}" ${role.id === selectedRoleId ? "selected" : ""}>${escapeHTML(role.nombre)}</option>`
   ).join("");
   if (legacyArea && !selectedRoleExists && !roles.some((role) => role.nombre.trim().toLowerCase() === legacyArea.toLowerCase())) {
@@ -447,9 +449,9 @@ function updateExpositorAreaStaff() {
   const people = role ? bz.responsables.filter((person) => person.rolId === role.id) : [];
   personSelect.disabled = !role || people.length === 0;
   personSelect.innerHTML = !role
-    ? `<option value="">Elige un área primero</option>`
+    ? `<option value="">Elige un área de Staff primero</option>`
     : people.length
-      ? `<option value="">Elegir persona encargada</option>${people.map((person) =>
+      ? `<option value="">Elegir persona de ${escapeHTML(role.nombre)}</option>${people.map((person) =>
         `<option value="${escapeHTML(person.id)}">${escapeHTML(person.nombre)}</option>`
       ).join("")}`
       : `<option value="">No hay personas asignadas a esta área</option>`;

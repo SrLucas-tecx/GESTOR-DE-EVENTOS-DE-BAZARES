@@ -78,7 +78,7 @@ function renderMinuteByMinute() {
   if (!container || !bz) return;
   const rows = bz.minuteByMinute || (bz.minuteByMinute = []);
   if (!rows.length) {
-    container.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin actividades programadas.</td></tr>`;
+    container.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:24px;">Sin actividades programadas.</td></tr>`;
     return;
   }
   container.innerHTML = rows.map((row) => {
@@ -95,9 +95,9 @@ function renderMinuteByMinute() {
       </td>
       <td><input class="form-input" value="${escapeHTML(row.activity)}" onchange="updateMinuteRow('${row.id}','activity',this.value)"></td>
       <td><input class="form-input" value="${escapeHTML(row.lugar || "")}" placeholder="Ej. Auditorio" onchange="updateMinuteRow('${row.id}','lugar',this.value)"></td>
-      <td><select class="form-select" aria-label="Área encargada" onchange="updateMinuteRow('${row.id}','area',this.value)">${minuteAreaOptionsHTML(row.area)}</select></td>
-      <td><select class="form-select minute-responsable-select" aria-label="Responsable" onchange="updateMinuteRow('${row.id}','responsableId',this.value)">${responsableOptionsHTML(row.responsableId, bz)}</select></td>
-      <td><input class="form-input" value="${escapeHTML(row.notes)}" onchange="updateMinuteRow('${row.id}','notes',this.value)"></td>
+      <td>${responsableCellHTML("minuto", row, bz)}</td>
+      
+      <td>${notePreviewHTML(row.notes, "actividad", row.id)}</td>
       <td><button class="btn-danger btn-sm" onclick="deleteMinuteRow('${row.id}')">🗑️</button></td>
     </tr>`;
   }).join("");
@@ -109,8 +109,7 @@ function addMinuteRow() {
   if (!bz) return;
   ensureEventoFields(bz);
   document.getElementById("form-actividad").reset();
-  document.getElementById("act-responsable").innerHTML = responsableOptionsHTML("", bz);
-  document.getElementById("act-area").innerHTML = minuteAreaOptionsHTML("");
+  fillModalResponsable("act", bz);
   openModal("modal-actividad");
   setTimeout(() => document.getElementById("act-actividad")?.focus(), 50);
 }
@@ -120,14 +119,15 @@ function saveActividadHandler(e) {
   const bz = getActiveBazaar();
   if (!bz) return;
   if (!Array.isArray(bz.minuteByMinute)) bz.minuteByMinute = [];
+  const respAct = readModalResponsable("act");
   bz.minuteByMinute.push({
     id: `minute-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     time: document.getElementById("act-inicio").value,
     horaFin: document.getElementById("act-fin").value,
     activity: document.getElementById("act-actividad").value.trim(),
     lugar: document.getElementById("act-lugar").value.trim(),
-    area: document.getElementById("act-area").value,
-    responsableId: document.getElementById("act-responsable").value,
+    ...respAct,
+    area: getItemRolNombre(respAct, bz),
     notes: document.getElementById("act-notas").value.trim()
   });
   saveState();
@@ -161,7 +161,7 @@ function exportarMinutoAMinutoCSV() {
   if (!bz) return;
   const rows = minuteRowsForExport();
   const quote = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
-  const csv = [["Hora inicio", "Hora fin", "Duración", "Actividad", "Lugar", "Área encargada", "Responsable", "Notas"], ...rows.map((row) => [row.time, row.horaFin, minuteDuration(row.time, row.horaFin), row.activity, row.lugar, row.area, getResponsableNombre(row.responsableId, bz), row.notes])]
+  const csv = [["Hora inicio", "Hora fin", "Duración", "Actividad", "Lugar", "Área encargada", "Responsable", "Notas"], ...rows.map((row) => [row.time, row.horaFin, minuteDuration(row.time, row.horaFin), row.activity, row.lugar, getItemRolNombre(row, bz), getResponsableNombre(row.responsableId, bz), row.notes])]
     .map((row) => row.map(quote).join(";")).join("\n");
   const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
   const link = document.createElement("a");
@@ -208,7 +208,7 @@ function exportarMinutoAMinutoPDF() {
     <table style="width:100%;table-layout:fixed;font-size:12px;border-collapse:collapse;">
       <colgroup><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:19%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:15%"></colgroup>
       <thead><tr>${["Inicio", "Fin", "Duración", "Actividad", "Lugar", "Área", "Responsable", "Notas"].map((label) => `<th style="text-align:left;background:#ccfbf1;color:#0f766e;padding:9px;border-bottom:2px solid #0d9488;">${label}</th>`).join("")}</tr></thead>
-      <tbody>${rows.length ? rows.map((row, index) => `<tr style="${index % 2 ? "background:#f8fafc;" : ""}page-break-inside:avoid;">${[row.time, row.horaFin, minuteDuration(row.time, row.horaFin), row.activity, row.lugar, row.area, getResponsableNombre(row.responsableId, bz), row.notes].map((value) => `<td style="padding:9px;border-bottom:1px solid #e2e8f0;vertical-align:top;word-wrap:break-word;">${escapeHTML(value || "—")}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="8" style="padding:18px;text-align:center;color:#64748b;">Sin actividades programadas.</td></tr>`}</tbody>
+      <tbody>${rows.length ? rows.map((row, index) => `<tr style="${index % 2 ? "background:#f8fafc;" : ""}page-break-inside:avoid;">${[row.time, row.horaFin, minuteDuration(row.time, row.horaFin), row.activity, row.lugar, getItemRolNombre(row, bz), getResponsableNombre(row.responsableId, bz), row.notes].map((value) => `<td style="padding:9px;border-bottom:1px solid #e2e8f0;vertical-align:top;word-wrap:break-word;">${escapeHTML(value || "—")}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="8" style="padding:18px;text-align:center;color:#64748b;">Sin actividades programadas.</td></tr>`}</tbody>
     </table>
     <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;text-align:center;">Documento generado por BAZARIX</div>`;
   document.body.appendChild(wrapper);

@@ -78,8 +78,8 @@ function renderTareas() {
       <td><input type="checkbox" ${t.hecho ? "checked" : ""} onchange="toggleTarea('${t.id}')" aria-label="Tarea lista" style="accent-color:var(--color-accent);width:18px;height:18px;"></td>
       <td>${index + 1}</td>
       <td><input class="form-input" value="${escapeHTML(t.actividad)}" placeholder="Ej. Apartar auditorio" style="${t.hecho ? "text-decoration:line-through;opacity:.7;" : ""}" oninput="debouncedUpdateTarea('${t.id}','actividad',this.value)"></td>
-      <td><input class="form-input" value="${escapeHTML(t.descripcion)}" oninput="debouncedUpdateTarea('${t.id}','descripcion',this.value)"></td>
-      <td><select class="form-select" onchange="updateTarea('${t.id}','responsableId',this.value)">${responsableOptionsHTML(t.responsableId, bz)}</select></td>
+      <td>${notePreviewHTML(t.descripcion, "tarea", t.id)}</td>
+      <td>${responsableCellHTML("tarea", t, bz)}</td>
       <td>
         <input class="form-input" type="date" value="${escapeHTML(t.fecha)}" onchange="updateTarea('${t.id}','fecha',this.value)">
         ${_tareaVencida(t) ? `<div style="font-size:var(--fs-xs);font-weight:800;color:var(--color-danger);margin-top:2px;">⚠️ Vencida</div>` : ""}
@@ -96,7 +96,7 @@ function addTarea() {
   ensureEventoFields(bz);
   document.getElementById("form-tarea").reset();
   document.getElementById("tarea-fase").value = TAREAS_FASES[AppState.tareasFase] ? AppState.tareasFase : "previo";
-  document.getElementById("tarea-responsable").innerHTML = responsableOptionsHTML("", bz);
+  fillModalResponsable("tarea", bz);
   toggleTareaAvance();
   openModal("modal-tarea");
   setTimeout(() => document.getElementById("tarea-actividad")?.focus(), 50);
@@ -118,7 +118,7 @@ function saveTareaHandler(e) {
     fase,
     actividad: document.getElementById("tarea-actividad").value.trim(),
     descripcion: document.getElementById("tarea-descripcion").value.trim(),
-    responsableId: document.getElementById("tarea-responsable").value,
+    ...readModalResponsable("tarea"),
     fecha: document.getElementById("tarea-fecha").value,
     avance: fase === "previo" ? document.getElementById("tarea-avance").value.trim() : "",
     hecho: false

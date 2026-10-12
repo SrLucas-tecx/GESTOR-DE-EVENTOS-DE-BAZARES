@@ -47,8 +47,8 @@ function renderCompras() {
       <td><input type="checkbox" ${c.comprado ? "checked" : ""} onchange="toggleCompra('${c.id}')" aria-label="Comprado" style="accent-color:var(--color-accent);width:18px;height:18px;"></td>
       <td>${index + 1}</td>
       <td><input class="form-input" value="${escapeHTML(c.articulo)}" placeholder="Ej. Caja de dulces" style="${c.comprado ? "text-decoration:line-through;opacity:.7;" : ""}" oninput="debouncedUpdateCompra('${c.id}','articulo',this.value)"></td>
-      <td><input class="form-input" value="${escapeHTML(c.descripcion)}" oninput="debouncedUpdateCompra('${c.id}','descripcion',this.value)"></td>
-      <td><select class="form-select" onchange="updateCompra('${c.id}','responsableId',this.value)">${responsableOptionsHTML(c.responsableId, bz)}</select></td>
+      <td>${notePreviewHTML(c.descripcion, "compra", c.id)}</td>
+      <td>${responsableCellHTML("compra", c, bz)}</td>
       <td><input class="form-input" type="date" value="${escapeHTML(c.fecha)}" onchange="updateCompra('${c.id}','fecha',this.value)"></td>
       <td><input class="form-input" type="number" min="0" step="1" value="${Number(c.cantidad || 0)}" style="min-width:70px;" onchange="updateCompra('${c.id}','cantidad',this.value)"></td>
       <td style="font-weight:700;white-space:nowrap;">${formatCurrency(_compraUnit(c))}</td>
@@ -58,11 +58,11 @@ function renderCompras() {
       </label></td>
       <td><input class="form-input" type="number" min="0" step="0.01" value="${Number(c.costoTotal || 0)}" style="min-width:100px;" onchange="updateCompra('${c.id}','costoTotal',this.value)" aria-label="Costo total de ${escapeHTML(c.articulo || "este artículo")}"></td>
       <td>
-        <button class="btn-secondary btn-sm" onclick="enviarCompraAPresupuesto('${c.id}')"
+        <button class="btn-secondary btn-sm btn-costos" onclick="enviarCompraAPresupuesto('${c.id}')"
           title="${enPresupuesto ? "Quitar de Costos del Evento" : "Agregar a Costos del Evento"}"
           aria-label="${enPresupuesto ? "Quitar de Costos del Evento" : "Agregar a Costos del Evento"}"
           aria-pressed="${enPresupuesto}">
-          ${enPresupuesto ? "✅ En Costos del Evento" : "➕ Agregar a costos"}
+          ${enPresupuesto ? "✅ En costos" : "➕ A costos"}
         </button>
       </td>
       <td><button class="btn-danger btn-sm" onclick="deleteCompra('${c.id}')" title="Eliminar">🗑️</button></td>
@@ -78,7 +78,7 @@ function addCompra() {
   document.getElementById("form-compra").reset();
   document.getElementById("compra-iva-incluido").checked = true;
   updateCompraUnitHint();
-  document.getElementById("compra-responsable").innerHTML = responsableOptionsHTML("", bz);
+  fillModalResponsable("compra", bz);
   openModal("modal-compra");
   setTimeout(() => document.getElementById("compra-articulo")?.focus(), 50);
 }
@@ -91,7 +91,7 @@ function saveCompraHandler(e) {
     id: `compra-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
     articulo: document.getElementById("compra-articulo").value.trim(),
     descripcion: document.getElementById("compra-descripcion").value.trim(),
-    responsableId: document.getElementById("compra-responsable").value,
+    ...readModalResponsable("compra"),
     fecha: document.getElementById("compra-fecha").value,
     cantidad: Math.max(0, Number(document.getElementById("compra-cantidad").value) || 0),
     costoTotal: Math.max(0, Number(document.getElementById("compra-costo-total").value) || 0),

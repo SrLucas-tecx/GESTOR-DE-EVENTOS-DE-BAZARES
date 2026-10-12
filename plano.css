@@ -511,3 +511,26 @@ body.dark .panel-progress-item:nth-child(3) .panel-progress-fill { background: #
   background: var(--color-accent-soft);
 }
 .costos-conjunto-box .form-hint { margin: 0 0 var(--space-3); }
+
+/* ═══ SPRINTS: logística del expositor, Rol + Responsable, notas rápidas y acciones ═══ */
+/* Paso 2 del modal de expositor: dos columnas sin hueco */
+.exp-logistics-grid { align-items: start; }
+.exp-logistics-col { min-width: 0; }
+.exp-logistics-col .exp-table-picker { min-height: 12rem; max-height: 22rem; align-content: start; }
+/* Notas adicionales más grandes */
+.exp-notes-textarea { min-height: 11rem; line-height: 1.5; }
+
+/* Rol arriba, persona abajo (Tareas, Compras, Minuto a Minuto) */
+.resp-split { display: flex; flex-direction: column; gap: .35rem; min-width: 11rem; }
+.resp-split .form-select { padding: 7px 9px; }
+.resp-split .form-select:disabled { opacity: .6; cursor: not-allowed; }
+.note-preview { min-width: 5rem; }
+
+/* Acciones: botón principal + cuadrícula de iconos del mismo tamaño */
+.row-actions { display: flex; flex-direction: column; gap: .4rem; min-width: 10.5rem; }
+.row-action-main { width: 100%; min-height: 2.2rem; }
+.row-actions-icons { display: grid; grid-template-columns: repeat(4, minmax(2.2rem, 1fr)); gap: .35rem; }
+.row-actions-icons .btn-sm { display: inline-flex; align-items: center; justify-content: center; min-height: 2.2rem; padding: 0 .4rem; white-space: nowrap; }
+.row-actions-icons .row-icon-wide { grid-column: span 2; }
+.expositor-directory-table { min-width: 60rem; }
+.btn-costos { white-space: nowrap; }

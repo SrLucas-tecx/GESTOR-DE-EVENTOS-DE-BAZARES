@@ -36,7 +36,7 @@ function renderInvitados() {
     <tr>
       <td><strong>${escapeHTML(inv.nombre)}</strong></td>
       <td>${exp ? escapeHTML(exp.negocio) : "<span style=\"color:var(--color-text-muted)\">Sin vincular</span>"}</td>
-      <td>${escapeHTML(inv.notas || "—")}</td>
+      <td>${notePreviewHTML(inv.notas, "invitado", inv.id)}</td>
       <td>
         <label class="switch" style="transform:scale(0.85);display:inline-block;">
           <input type="checkbox" ${inv.confirmado ? "checked" : ""} onchange="toggleInvConfirmado('${inv.id}')">

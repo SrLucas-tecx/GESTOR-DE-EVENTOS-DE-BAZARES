@@ -108,7 +108,7 @@ function renderExpositores() {
         <div class="card-contact exp-contact">
           <span title="${escapeHTML(exp.tel || "")}">📞 ${escapeHTML(exp.tel || "N/A")}</span>
           <span title="${escapeHTML(exp.email || "")}">✉️ ${escapeHTML(exp.email || "N/A")}</span>
-          <span class="exp-notes ${exp.notas ? "" : "is-muted"}">📝 ${exp.notas ? `<em>${escapeHTML(exp.notas)}</em>` : "Sin notas"}</span>
+          <span class="exp-notes">📝 ${notePreviewHTML(exp.notas, "expositor", exp.id)}</span>
         </div>
 
         <div class="card-actions">
@@ -165,15 +165,19 @@ function renderExpositoresTabla(list) {
         <td style="color:${saldo > 0 ? "var(--color-unpaid)" : "var(--color-paid)"};">${formatCurrency(saldo)}</td>
         <td><span class="paid-badge ${exp.pagado ? "paid" : "unpaid"}">${exp.pagado ? "✅ Pagado" : "⏳ Pendiente"}</span></td>
         <td><button class="publication-status status-${escapeHTML(status)}" onclick="cyclePublicationStatus('${exp.id}')">📣 ${publicationStatusLabel(status)}</button></td>
-        <td style="white-space:nowrap;">
-          <button class="btn-secondary btn-sm" onclick="togglePaymentStatus('${exp.id}')">${exp.pagado ? "Pend." : "Pagado"}</button>
-          <button class="btn-secondary btn-sm" onclick="openModalExpositor('${exp.id}')" title="Editar">✏️</button>
-          <button class="btn-secondary btn-sm" onclick="openExpositorChecklist('${exp.id}')" title="Checklist">☑️ ${doneCount}/${checklist.length}</button>
-          <button class="btn-secondary btn-sm" onclick="generatePDFInvoice('${exp.id}')" title="Recibo">📄</button>
-          <button class="btn-secondary btn-sm" onclick="openHistorial('${exp.id}')" title="Ver historial de cambios" aria-label="Ver historial de cambios">🕘</button>
-          <button class="btn-secondary btn-sm" onclick="guardarComoPlantilla('${exp.id}')" title="Guardar expositor como plantilla" aria-label="Guardar expositor como plantilla">💾</button>
-          <button class="${exp.banned ? "btn-secondary" : "btn-danger"} btn-sm" onclick="toggleExpositorBan('${exp.id}')" title="${exp.banned ? "Quitar baneo" : "Banear"}">${exp.banned ? "✅" : "🚫"}</button>
-          <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')" title="Eliminar expositor" aria-label="Eliminar expositor">🗑️</button>
+        <td class="row-actions-cell">
+          <div class="row-actions">
+            <button class="btn-secondary btn-sm row-action-main" onclick="togglePaymentStatus('${exp.id}')" title="${exp.pagado ? "Marcar como pendiente" : "Marcar como pagado"}">${exp.pagado ? "Pendiente" : "Pagado"}</button>
+            <div class="row-actions-icons">
+              <button class="btn-secondary btn-sm" onclick="openModalExpositor('${exp.id}')" title="Editar" aria-label="Editar expositor">✏️</button>
+              <button class="btn-secondary btn-sm row-icon-wide" onclick="openExpositorChecklist('${exp.id}')" title="Checklist" aria-label="Checklist">☑️ ${doneCount}/${checklist.length}</button>
+              <button class="btn-secondary btn-sm" onclick="generatePDFInvoice('${exp.id}')" title="Recibo" aria-label="Recibo en PDF">📄</button>
+              <button class="btn-secondary btn-sm" onclick="openHistorial('${exp.id}')" title="Ver historial de cambios" aria-label="Ver historial de cambios">🕘</button>
+              <button class="btn-secondary btn-sm" onclick="guardarComoPlantilla('${exp.id}')" title="Guardar expositor como plantilla" aria-label="Guardar expositor como plantilla">💾</button>
+              <button class="${exp.banned ? "btn-secondary" : "btn-danger"} btn-sm" onclick="toggleExpositorBan('${exp.id}')" title="${exp.banned ? "Quitar baneo" : "Banear"}" aria-label="${exp.banned ? "Quitar baneo" : "Banear"}">${exp.banned ? "✅" : "🚫"}</button>
+              <button class="btn-danger btn-sm" onclick="deleteExpositor('${exp.id}')" title="Eliminar expositor" aria-label="Eliminar expositor">🗑️</button>
+            </div>
+          </div>
         </td>
       </tr>`;
   }).join("");

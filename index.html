@@ -854,7 +854,7 @@
         <div class="payments-table-wrap">
           <table class="payments-table minute-table" style="min-width:1000px;">
             <thead>
-              <tr><th style="width:1%;"></th><th>#</th><th>Actividad</th><th>Descripción</th><th>Responsable</th><th>Fecha de entrega</th><th id="tareas-avance-th">Avances</th><th>Acciones</th></tr>
+              <tr><th style="width:1%;"></th><th>#</th><th>Actividad</th><th>Descripción</th><th>Rol y responsable</th><th>Fecha de entrega</th><th id="tareas-avance-th">Avances</th><th>Acciones</th></tr>
             </thead>
             <tbody id="tareas-list"></tbody>
           </table>
@@ -885,7 +885,7 @@
         <div class="payments-table-wrap">
           <table class="payments-table minute-table" style="min-width:1320px;">
             <thead>
-              <tr><th style="width:1%;"></th><th>Número</th><th>Artículo</th><th>Descripción</th><th>Responsable</th><th>Fecha de entrega</th><th>Cantidad</th><th>Costo unitario</th><th>¿IVA incluido?</th><th>Costo total</th><th>Presupuesto de costos</th><th>Acciones</th></tr>
+              <tr><th style="width:1%;"></th><th>Número</th><th>Artículo</th><th>Descripción</th><th>Rol y responsable</th><th>Fecha de entrega</th><th>Cantidad</th><th>Costo unitario</th><th>¿IVA incluido?</th><th>Costo total</th><th>Presupuesto de costos</th><th>Acciones</th></tr>
             </thead>
             <tbody id="compras-list"></tbody>
           </table>
@@ -911,7 +911,7 @@
         <div class="payments-table-wrap">
           <table class="payments-table minute-table" style="min-width:1100px;">
             <thead>
-              <tr><th>Hora inicio</th><th>Hora fin</th><th>Duración</th><th>Actividad</th><th>Lugar</th><th>Área encargada</th><th>Responsable</th><th>Notas / descripción</th><th>Acciones</th></tr>
+              <tr><th>Hora inicio</th><th>Hora fin</th><th>Duración</th><th>Actividad</th><th>Lugar</th><th>Rol y responsable</th><th>Notas / descripción</th><th>Acciones</th></tr>
             </thead>
             <tbody id="minute-by-minute-list"></tbody>
           </table>
@@ -1197,7 +1197,7 @@
     <form id="form-expositor" novalidate onsubmit="saveExpositorHandler(event, syncExpositorFormData())">
       <input type="hidden" id="exp-id">
       <div class="modal-body">
-        <div class="form-group">
+        <div class="form-group" id="exp-photo-group">
           <label class="form-label" for="exp-foto-file">Foto de Perfil / Logotipo</label>
           <div class="avatar-upload-area"
                role="button" tabindex="0" aria-label="Seleccionar foto de perfil o logotipo"
@@ -1278,31 +1278,34 @@
               <p class="form-hint">Ajustable para este expositor. No modifica el costo ni el pago.</p>
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Sillas asignadas</label>
-              <div id="exp-sillas-total" class="form-input" aria-live="polite" aria-readonly="true">2</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Mesas asignadas en el plano (opcional)</label>
-              <div id="exp-ubicacion" class="form-input exp-table-picker">
-                <span class="form-hint">Selecciona las mesas que pidió este expositor.</span>
+          <div class="form-row exp-logistics-grid">
+            <div class="exp-logistics-col">
+              <div class="form-group">
+                <label class="form-label">Sillas asignadas</label>
+                <div id="exp-sillas-total" class="form-input" aria-live="polite" aria-readonly="true">2</div>
               </div>
-              <p class="form-hint" id="exp-table-assignment-hint" aria-live="polite">Por asignar.</p>
+              <div class="form-group">
+                <label class="form-label" for="exp-area-encargada">Área encargada (rol de Staff)</label>
+                <select id="exp-area-encargada" class="form-select" onchange="updateExpositorAreaStaff()">
+                  <option value="">Selecciona un área de Staff</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="exp-encargado">Persona encargada del área</label>
+                <select id="exp-encargado" class="form-select" disabled>
+                  <option value="">Primero elige un área</option>
+                </select>
+              </div>
+              <p class="form-hint">Las áreas se configuran en Staff. La persona encargada se filtra según el área seleccionada.</p>
             </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="exp-area-encargada">Área encargada</label>
-              <select id="exp-area-encargada" class="form-select" onchange="updateExpositorAreaStaff()">
-                <option value="">Por asignar</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="exp-encargado">Persona encargada</label>
-              <select id="exp-encargado" class="form-select" disabled>
-                <option value="">Primero elige un área</option>
-              </select>
+            <div class="exp-logistics-col">
+              <div class="form-group">
+                <label class="form-label">Mesas asignadas en el plano (opcional)</label>
+                <div id="exp-ubicacion" class="form-input exp-table-picker">
+                  <span class="form-hint">Selecciona las mesas que pidió este expositor.</span>
+                </div>
+                <p class="form-hint" id="exp-table-assignment-hint" aria-live="polite">Por asignar.</p>
+              </div>
             </div>
           </div>
         </section>
@@ -1392,7 +1395,7 @@
           <div id="exp-wizard-summary" class="exp-wizard-summary" aria-live="polite"></div>
           <div class="form-group">
             <label class="form-label" for="exp-notas">Notas Adicionales</label>
-            <textarea id="exp-notas" class="form-textarea"
+            <textarea id="exp-notas" class="form-textarea exp-notes-textarea" rows="7"
                       placeholder="Detalles de productos, redes sociales, electricidad y otras necesidades..."></textarea>
           </div>
           <div id="expositor-custom-metrics" class="custom-metrics-fields"></div>
@@ -1697,6 +1700,28 @@
 </div>
 <!-- / #MODAL CHECKLIST -->
 
+<!-- # MODAL: VER Y EDITAR NOTA -->
+<div id="modal-nota" class="modal-overlay">
+  <div class="modal-box note-modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-nota-title">Nota</h2>
+      <button class="modal-close" type="button" onclick="closeModal('modal-nota')" aria-label="Cerrar">✕</button>
+    </div>
+    <form onsubmit="saveNoteHandler(event)">
+      <div class="modal-body">
+        <label class="form-label" for="note-editor-content">Información completa</label>
+        <textarea id="note-editor-content" class="form-textarea note-editor"
+          placeholder="Escribe los detalles importantes..."></textarea>
+        <p class="form-hint">Puedes agregar o editar la información aquí. Se mostrará resumida en la lista.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('modal-nota')">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar nota</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!-- / #MODAL VER Y EDITAR NOTA -->
 
 <!-- # MODAL: AGREGAR INVITADO -->
 <div id="modal-invitado" class="modal-overlay">
@@ -2014,7 +2039,8 @@
         <div class="form-group"><label class="form-label" for="tarea-actividad">Actividad *</label><input type="text" id="tarea-actividad" class="form-input" required placeholder="Ej. Apartar auditorio"></div>
         <div class="form-group"><label class="form-label" for="tarea-descripcion">Descripción</label><textarea id="tarea-descripcion" class="form-textarea" placeholder="Detalles de la tarea"></textarea></div>
         <div class="form-row">
-        <div class="form-group"><label class="form-label" for="tarea-responsable">Responsable</label><select id="tarea-responsable" class="form-select" ></select></div>
+        <div class="form-group"><label class="form-label" for="tarea-rol">Rol / área</label><select id="tarea-rol" class="form-select" onchange="refreshModalPersona('tarea')"></select></div>
+        <div class="form-group"><label class="form-label" for="tarea-responsable">Responsable</label><select id="tarea-responsable" class="form-select"></select></div>
           <div class="form-group" id="tarea-avance-group"><label class="form-label" for="tarea-avance">Avances</label><input type="text" id="tarea-avance" class="form-input" placeholder="Estado / avances"></div>
         </div>
       </div>
@@ -2037,7 +2063,8 @@
         <div class="form-group"><label class="form-label" for="compra-articulo">Artículo *</label><input type="text" id="compra-articulo" class="form-input" required placeholder="Ej. Caja de dulces"></div>
         <div class="form-group"><label class="form-label" for="compra-descripcion">Descripción</label><input type="text" id="compra-descripcion" class="form-input" placeholder="Marca, tamaño, notas…"></div>
         <div class="form-row">
-        <div class="form-group"><label class="form-label" for="compra-responsable">Responsable</label><select id="compra-responsable" class="form-select" ></select></div>
+        <div class="form-group"><label class="form-label" for="compra-rol">Rol / área</label><select id="compra-rol" class="form-select" onchange="refreshModalPersona('compra')"></select></div>
+        <div class="form-group"><label class="form-label" for="compra-responsable">Responsable</label><select id="compra-responsable" class="form-select"></select></div>
         <div class="form-group"><label class="form-label" for="compra-fecha">Fecha de entrega</label><input type="date" id="compra-fecha" class="form-input" ></div>
         </div>
         <div class="form-row">
@@ -2076,7 +2103,7 @@
         <div class="form-group"><label class="form-label" for="act-actividad">Actividad *</label><input type="text" id="act-actividad" class="form-input" required placeholder="Ej. Apertura de puertas"></div>
         <div class="form-row">
         <div class="form-group"><label class="form-label" for="act-lugar">Lugar</label><input type="text" id="act-lugar" class="form-input" placeholder="Ej. Auditorio"></div>
-        <div class="form-group"><label class="form-label" for="act-area">Área encargada</label><select id="act-area" class="form-select"></select></div>
+        <div class="form-group"><label class="form-label" for="act-rol">Rol / área encargada</label><select id="act-rol" class="form-select" onchange="refreshModalPersona('act')"></select></div>
         </div>
         <div class="form-group"><label class="form-label" for="act-responsable">Responsable</label><select id="act-responsable" class="form-select" ></select></div>
         <div class="form-group"><label class="form-label" for="act-notas">Notas / descripción</label><textarea id="act-notas" class="form-textarea" placeholder="Detalles de la actividad"></textarea></div>

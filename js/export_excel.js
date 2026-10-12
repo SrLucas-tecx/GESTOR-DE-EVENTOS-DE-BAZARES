@@ -283,7 +283,7 @@ async function exportarPlanEventoXLSX() {
     _xlFicha(wb, bz);
 
     const tareaRow = (t, i, conAvance) => {
-      const base = [i + 1, t.actividad, t.descripcion, getResponsableNombre(t.responsableId, bz), _xlDate(t.fecha)];
+      const base = [i + 1, t.actividad, t.descripcion, getItemResponsableTexto(t, bz), _xlDate(t.fecha)];
       return conAvance ? [...base, t.avance, t.hecho ? "✔" : ""] : [...base, t.hecho ? "✔" : ""];
     };
     _xlTableSheet(wb, "Previo", bz,
@@ -295,7 +295,7 @@ async function exportarPlanEventoXLSX() {
     _xlTableSheet(wb, "Durante", bz,
       ["#", "Actividad", "Descripción", "Lugar", "Responsable", "Duración", "Hora inicio", "Hora fin", "Área encargada"],
       [6, 30, 40, 18, 20, 12, 12, 12, 20],
-      durante.map((r, i) => [i + 1, r.activity, r.notes, r.lugar || "", getResponsableNombre(r.responsableId, bz), minuteDuration(r.time, r.horaFin), r.time, r.horaFin || "", r.area]));
+      durante.map((r, i) => [i + 1, r.activity, r.notes, r.lugar || "", getResponsableNombre(r.responsableId, bz), minuteDuration(r.time, r.horaFin), r.time, r.horaFin || "", getItemRolNombre(r, bz)]));
 
     _xlTableSheet(wb, "Post", bz,
       ["#", "Actividad", "Descripción", "Responsable", "Fecha de entrega", "Listo"],
@@ -305,7 +305,7 @@ async function exportarPlanEventoXLSX() {
     _xlTableSheet(wb, "Lista de compras", bz,
       ["#", "Artículo", "Descripción", "Responsable", "Fecha de entrega", "Cantidad", "Costo unitario", "IVA incluido", "Total", "Comprado"],
       [6, 28, 36, 20, 16, 10, 14, 12, 14, 10],
-      bz.compras.map((c, i) => [i + 1, c.articulo, c.descripcion, getResponsableNombre(c.responsableId, bz), _xlDate(c.fecha), Number(c.cantidad || 0), Number(c.costoUnit || 0), c.ivaIncluido ? "Sí" : "No", Number(c.costoTotal || 0), c.comprado ? "✔" : ""]),
+      bz.compras.map((c, i) => [i + 1, c.articulo, c.descripcion, getItemResponsableTexto(c, bz), _xlDate(c.fecha), Number(c.cantidad || 0), Number(c.costoUnit || 0), c.ivaIncluido ? "Sí" : "No", Number(c.costoTotal || 0), c.comprado ? "✔" : ""]),
       { dateCols: [4], moneyCols: [6, 8] });
 
     _xlPresupuesto(wb, bz);

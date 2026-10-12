@@ -276,7 +276,7 @@ function _extraCostsTableHTML(cfg) {
     return `
       <tr>
         <td><input type="text" class="form-input" value="${escapeHTML(c.name)}" placeholder="Concepto" aria-label="Concepto" oninput="debouncedUpdateExtraCost('${c.id}','name',this.value)"></td>
-        <td><input type="text" class="form-input" value="${escapeHTML(c.comment || "")}" placeholder="Comentario (opcional)" aria-label="Comentario" oninput="debouncedUpdateExtraCost('${c.id}','comment',this.value)"></td>
+        <td>${notePreviewHTML(c.comment, "gasto", c.id)}</td>
         <td><input type="number" class="form-input costos-num" min="0" step="0.01" value="${cost}" aria-label="Costo total" onchange="updateExtraCost('${c.id}','cost',this.value)"></td>
         <td><input type="number" class="form-input costos-num" min="1" step="1" value="${qty}" aria-label="Cantidad" onchange="updateExtraCost('${c.id}','qty',this.value)"></td>
         <td class="costos-total costos-unit" title="Costo total ÷ cantidad">${formatCurrency(unit)}</td>

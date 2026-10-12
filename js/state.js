@@ -119,6 +119,7 @@ function ensureEventoFields(bz) {
     if (t.fase !== "previo" && t.fase !== "post") t.fase = "previo";
     ["actividad", "descripcion", "fecha", "avance"].forEach((k) => { if (t[k] === undefined) t[k] = ""; });
     if (t.responsableId === undefined) t.responsableId = t.responsable ? responsableIdFromTexto(t.responsable) : "";
+    if (t.areaRolId === undefined) t.areaRolId = "";
     t.hecho = Boolean(t.hecho);
   });
 
@@ -127,6 +128,7 @@ function ensureEventoFields(bz) {
     if (!c.id) c.id = `compra-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
     ["articulo", "descripcion", "fecha", "presupuestoId"].forEach((k) => { if (c[k] === undefined) c[k] = ""; });
     if (c.responsableId === undefined) c.responsableId = c.responsable ? responsableIdFromTexto(c.responsable) : "";
+    if (c.areaRolId === undefined) c.areaRolId = "";
     if (!Number.isFinite(Number(c.cantidad))) c.cantidad = 1;
     if (!Number.isFinite(Number(c.costoTotal))) {
       c.costoTotal = Number(c.cantidad || 0) * Number(c.costoUnit || 0);
@@ -167,6 +169,10 @@ function ensureEventoFields(bz) {
     if (row.lugar === undefined) row.lugar = "";
     if (row.horaFin === undefined) row.horaFin = "";
     if (row.responsableId === undefined) row.responsableId = row.responsible ? responsableIdFromTexto(row.responsible) : "";
+    if (row.areaRolId === undefined) {
+      const rolIgual = bz.roles.find((r) => r.nombre.trim().toLowerCase() === String(row.area || "").trim().toLowerCase());
+      row.areaRolId = rolIgual ? rolIgual.id : "";
+    }
   });
 }
 
