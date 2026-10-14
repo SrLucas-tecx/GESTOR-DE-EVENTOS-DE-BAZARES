@@ -19,9 +19,10 @@ function updateCharts() {
 
   const ctxCat = document.getElementById("chart-categorias");
   if (ctxCat) {
-    const labels = AppState.categorias.map((c) => `${c.emoji} ${c.nombre}`);
-    const data   = AppState.categorias.map((c) => bz.expositores.filter((e) => e.categoria === c.id).length);
-    const colors = AppState.categorias.map((c) => c.color);
+    const categories = getCategoriasPrincipales();
+    const labels = categories.map((c) => `${c.emoji} ${c.nombre}`);
+    const data   = categories.map((c) => bz.expositores.filter((e) => e.categoria === c.id).length);
+    const colors = categories.map((c) => c.color);
     if (chartCategoriesInstance) chartCategoriesInstance.destroy();
     chartCategoriesInstance = new Chart(ctxCat, {
       type: "doughnut",

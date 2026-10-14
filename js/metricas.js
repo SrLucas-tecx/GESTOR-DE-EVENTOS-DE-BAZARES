@@ -18,7 +18,7 @@ function calcTicketPromedio(bz = getActiveBazaar()) {
 /** Desglose de ingresos por categoría */
 function calcResumenPorCategoria(bz = getActiveBazaar()) {
   if (!bz) return [];
-  return AppState.categorias.map((cat) => {
+  return getCategoriasPrincipales().map((cat) => {
     const exps    = bz.expositores.filter((e) => e.categoria === cat.id);
     const total   = exps.reduce((s, e) => s + Number(e.costo || 0), 0);
     const cobrado = exps.filter((e) => e.pagado).reduce((s, e) => s + Number(e.costo || 0), 0);

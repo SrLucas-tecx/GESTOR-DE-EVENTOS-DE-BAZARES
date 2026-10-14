@@ -254,17 +254,17 @@ function _xlStaff(wb, bz) {
 function _xlExpositores(wb, bz) {
   const catName = (id) => AppState.categorias.find((c) => c.id === id)?.nombre || "Sin categoría";
   _xlTableSheet(wb, "Expositores", bz,
-    ["Negocio", "Titular", "Categoría", "Ubicación", "Mesas compradas", "Sillas asignadas", "Sillas extra", "Costo por silla extra", "Cargo sillas extra", "Costo base", "Costo final", "Adelanto", "Saldo", "Pagado", "Fecha límite de pago"],
-    [26, 22, 18, 18, 14, 14, 12, 18, 16, 14, 14, 14, 14, 10, 18],
+    ["Negocio", "Titular", "Categoría", "Características", "Ubicación", "Mesas compradas", "Sillas asignadas", "Sillas extra", "Costo por silla extra", "Cargo sillas extra", "Costo base", "Costo final", "Adelanto", "Saldo", "Pagado", "Fecha límite de pago"],
+    [26, 22, 18, 28, 18, 14, 14, 12, 18, 16, 14, 14, 14, 14, 10, 18],
     bz.expositores.map((e) => [
-      e.negocio, e.nombre, catName(e.categoria), e.ubicacion,
+      e.negocio, e.nombre, catName(e.categoria), getExpositorCaracteristicas(e).map((c) => c.nombre).join(", "), e.ubicacion,
       Number(e.mesasCantidad === "otro" ? e.mesasCantidadOtro : e.mesasCantidad || 1),
       Number(e.sillasCantidad || 0), Number(e.sillasExtraCantidad || 0),
       Number(e.costoSillaExtra || 0), Number(e.costoExtraSillas || 0),
       Number(e.costoBase ?? e.costo ?? 0), Number(e.costo || 0), Number(e.adelanto || 0), getExpositorPendingBalance(e),
       e.pagado ? "Sí" : "No", _xlDate(e.fechaLimitePago),
     ]),
-    { moneyCols: [7, 8, 9, 10, 11, 12], dateCols: [14] });
+    { moneyCols: [8, 9, 10, 11, 12, 13], dateCols: [15] });
 }
 
 async function exportarPlanEventoXLSX() {

@@ -1,5 +1,5 @@
 /**
- * BAZARIX — backup.js (v4.1)
+ * BAZARIX — backup.js (v4.2)
  * Exportar un bazar completo o solo las secciones elegidas, e importar
  * con dos modos: COMBINAR (agrega/actualiza por id) o REEMPLAZAR.
  *
@@ -8,6 +8,11 @@
  *
  * También sabe leer los respaldos completos antiguos (todo el AppState):
  * en ese caso el usuario elige de cuál bazar del archivo importar.
+ *
+ * Novedades v4.2:
+ *  - Catálogo global "caracteristicas" (antes subcategorías): sección propia al exportar/importar.
+ *  - Los archivos viejos con subcategorías (categorias con tipo "subcategoria" y expositor.subcategoria)
+ *    se convierten solos a características.
  *
  * Novedades v4.1:
  *  - Sección "staff" (roles + responsables): tareas, compras, agenda y expositores apuntan a ellos por id.
@@ -48,6 +53,8 @@ const BACKUP_SECTIONS = [
     count: (d) => `${d.floors.length} piso(s) · ${d.floors.reduce((s, f) => s + (f.tables || []).length, 0)} mesa(s)` },
   { key: "categorias",    scope: "global", label: "Categorías",       desc: "Las usan los expositores de todos los bazares",
     count: (d) => `${d.length} categoría(s)` },
+  { key: "caracteristicas", scope: "global", label: "Características", desc: "Etiquetas extra del negocio; las usan los expositores de todos los bazares",
+    count: (d) => `${d.length} característica(s)` },
   { key: "plantillas",    scope: "global", label: "Expositores guardados (plantillas)", desc: "Reutilizables entre bazares",
     count: (d) => `${d.length} plantilla(s)` },
 ];
@@ -67,6 +74,35 @@ function backupSectionValid(key, data) {
   if (key === "general" || key === "costos" || key === "ficha") return _bkIsObj(data);
   if (key === "plano") return _bkIsObj(data) && Array.isArray(data.floors);
   return Array.isArray(data);
+}
+
+/** Datos de una sección global (compartida entre bazares). */
+function _bkGlobalData(key) {
+  return key === "categorias" ? AppState.categorias
+    : key === "caracteristicas" ? (AppState.caracteristicas || [])
+    : AppState.expositorPlantillas;
+}
+const _BK_GLOBAL_TARGET = { categorias: "categorias", caracteristicas: "caracteristicas", plantillas: "expositorPlantillas" };
+
+/** Archivos viejos: separa las subcategorías (tipo "subcategoria") del catálogo de categorías. */
+function _bkSepararCatalogos(categorias, caracteristicas) {
+  if (!Array.isArray(categorias)) return { categorias, caracteristicas };
+  const viejas = categorias.filter((c) => c && c.tipo === "subcategoria");
+  const nuevas = Array.isArray(caracteristicas) ? caracteristicas.slice() : [];
+  viejas.forEach((c) => {
+    if (!nuevas.some((x) => x && x.id === c.id)) {
+      nuevas.push({ id: c.id, nombre: c.nombre, emoji: c.emoji, color: c.color, descripcion: c.descripcion });
+    }
+  });
+  const limpias = categorias.filter((c) => !(c && c.tipo === "subcategoria"))
+    .map((c) => { const { tipo, parentId, tieneSubcategorias, ...resto } = c || {}; return resto; });
+  return { categorias: limpias, caracteristicas: (viejas.length || Array.isArray(caracteristicas)) ? nuevas : caracteristicas };
+}
+
+/** Lista de ids de características de un registro (acepta el campo viejo "subcategoria"). */
+function _bkCaracteristicasDe(r) {
+  const lista = Array.isArray(r.caracteristicas) ? r.caracteristicas : (r.subcategoria ? [r.subcategoria] : []);
+  return [...new Set(lista.map((v) => String(v ?? "").trim()).filter(Boolean))];
 }
 
 /** Extrae de un bazar las secciones que se pueden exportar. */
@@ -160,6 +196,10 @@ const _BK_NORM = {
     ...c, id: _bkId(c.id, "cat"), nombre: _bkT(c.nombre) || "Sin nombre",
     emoji: _bkT(c.emoji) || "📦", color: _bkHex(c.color), descripcion: _bkT(c.descripcion),
   })),
+  caracteristicas: (list) => _bkList(list, (c) => ({
+    ...c, id: _bkId(c.id, "car"), nombre: _bkT(c.nombre) || "Sin nombre",
+    emoji: _bkT(c.emoji) || "🏷️", color: _bkHex(c.color), descripcion: _bkT(c.descripcion),
+  })),
   expositores: (list) => _bkList(list, (e) => {
     const rawMesas = e.mesasCantidad === "otro" ? e.mesasCantidadOtro : e.mesasCantidad;
     const mesas = Math.max(1, Math.floor(_bkNum(rawMesas, 1)));
@@ -168,7 +208,8 @@ const _BK_NORM = {
       id: _bkId(e.id, "exp"),
       nombre: _bkT(e.nombre) || _bkT(e.negocio) || "Sin nombre",
       negocio: _bkT(e.negocio) || _bkT(e.nombre) || "Sin nombre",
-      categoria: _bkT(e.categoria), tel: _bkT(e.tel), email: _bkT(e.email),
+      categoria: _bkT(e.categoria), caracteristicas: _bkCaracteristicasDe(e),
+      tel: _bkT(e.tel), email: _bkT(e.email),
       notas: _bkT(e.notas), foto: _bkT(e.foto), notaCredito: _bkT(e.notaCredito),
       costo: Math.max(0, _bkNum(e.costo, _bkNum(e.costoBase, 0))),
       adelanto: Math.max(0, _bkNum(e.adelanto)),
@@ -181,6 +222,7 @@ const _BK_NORM = {
       checklist: Array.isArray(e.checklist) && e.checklist.length ? e.checklist : defaultChecklistItems(),
       historial: Array.isArray(e.historial) ? e.historial : [],
     };
+    delete out.subcategoria;
     if (e.costoBase !== undefined && _bkT(e.costoBase) !== "") out.costoBase = Math.max(0, _bkNum(e.costoBase));
     return out;
   }),
@@ -214,8 +256,9 @@ const _BK_NORM = {
     ...p, id: _bkId(p.id, "plt"),
     nombre: _bkT(p.nombre) || _bkT(p.negocio) || "Sin nombre",
     negocio: _bkT(p.negocio) || _bkT(p.nombre) || "Sin nombre",
-    categoria: _bkT(p.categoria), tel: _bkT(p.tel), email: _bkT(p.email), foto: _bkT(p.foto), notas: _bkT(p.notas),
-  })),
+    categoria: _bkT(p.categoria), caracteristicas: _bkCaracteristicasDe(p),
+    tel: _bkT(p.tel), email: _bkT(p.email), foto: _bkT(p.foto), notas: _bkT(p.notas),
+  })).map(({ subcategoria, ...resto }) => resto),
 };
 
 function backupNormalizar(key, data) {
@@ -244,9 +287,7 @@ function renderBackupExportSections() {
   if (!bz || !container) return;
   const datos = backupExtraerSecciones(bz);
   container.innerHTML = BACKUP_SECTIONS.map((sec) => {
-    const data = sec.scope === "global"
-      ? (sec.key === "categorias" ? AppState.categorias : AppState.expositorPlantillas)
-      : datos[sec.key];
+    const data = sec.scope === "global" ? _bkGlobalData(sec.key) : datos[sec.key];
     return _bkSectionRow(sec, sec.count(data), sec.key !== "plantillas", "backupExportRefresh()");
   }).join("");
   backupExportRefresh();
@@ -282,9 +323,8 @@ function ejecutarExportacionBazar() {
   const all = backupExtraerSecciones(bz);
   const datos = {};
   keys.forEach((key) => {
-    if (key === "categorias") datos.categorias = AppState.categorias;
-    else if (key === "plantillas") datos.plantillas = AppState.expositorPlantillas;
-    else datos[key] = all[key];
+    const sec = BACKUP_SECTIONS.find((item) => item.key === key);
+    datos[key] = sec.scope === "global" ? _bkGlobalData(key) : all[key];
   });
   const complete = BACKUP_SECTIONS.filter((s) => s.scope === "bazar").every((s) => keys.includes(s.key));
   const paquete = {
@@ -314,10 +354,11 @@ function backupNormalizarArchivo(parsed) {
     BACKUP_SECTIONS.filter((s) => s.scope === "bazar").forEach((s) => {
       if (parsed.datos[s.key] !== undefined) datos[s.key] = parsed.datos[s.key];
     });
+    const cat = _bkSepararCatalogos(parsed.datos.categorias, parsed.datos.caracteristicas);
     return {
       kind: "bazar", exportedAt: parsed.exportedAt, fullState: null,
       bazaars: [{ id: parsed.origen?.id || "origen", name: parsed.origen?.name || datos.general?.name || "Bazar importado", datos }],
-      globales: { categorias: parsed.datos.categorias, plantillas: parsed.datos.plantillas },
+      globales: { categorias: cat.categorias, caracteristicas: cat.caracteristicas, plantillas: parsed.datos.plantillas },
     };
   }
   const st = parsed?.data && BACKUP_APP_NAMES.includes(parsed.app) ? parsed.data : parsed;
@@ -326,7 +367,7 @@ function backupNormalizarArchivo(parsed) {
     return {
       kind: "full", exportedAt: parsed.exportedAt, fullState: st,
       bazaars: Object.entries(clone.bazaars).map(([key, bz]) => ({ id: bz.id || key, name: bz.name || key, datos: backupExtraerSecciones(bz) })),
-      globales: { categorias: clone.categorias, plantillas: clone.expositorPlantillas },
+      globales: { categorias: clone.categorias, caracteristicas: clone.caracteristicas, plantillas: clone.expositorPlantillas },
     };
   }
   return null;
@@ -420,8 +461,19 @@ function backupImportRefresh() {
     warnings.push("⚠️ Las categorías son compartidas: reemplazarlas afecta a todos tus bazares.");
   }
   if (keys.includes("expositores") && !keys.includes("categorias")) {
-    const missing = (bz?.datos.expositores || []).filter((e) => e.categoria && !AppState.categorias.some((c) => c.id === e.categoria)).length;
+    const missing = (bz?.datos.expositores || []).filter((e) =>
+      e.categoria && !AppState.categorias.some((c) => c.id === e.categoria)
+    ).length;
     if (missing > 0) warnings.push(`ℹ️ ${missing} expositor(es) usan categorías que no tienes; se verán como "Sin Categoría". Marca "Categorías" para traerlas.`);
+  }
+  if (keys.includes("expositores") && !keys.includes("caracteristicas")) {
+    const sinCatalogo = (bz?.datos.expositores || []).filter((e) =>
+      _bkCaracteristicasDe(e).some((id) => !(AppState.caracteristicas || []).some((c) => c.id === id))
+    ).length;
+    if (sinCatalogo > 0) warnings.push(`ℹ️ ${sinCatalogo} expositor(es) tienen características que no existen en tu catálogo y no se verán. Marca "Características" para traerlas.`);
+  }
+  if (keys.includes("caracteristicas") && modo === "reemplazar" && !isNew) {
+    warnings.push("⚠️ Las características son compartidas: reemplazarlas afecta a todos tus bazares.");
   }
   if (keys.includes("plano") && !keys.includes("expositores")) {
     warnings.push("ℹ️ Las mesas del plano quedarán sin expositor asignado si esos expositores no existen en el destino.");
@@ -603,7 +655,7 @@ async function ejecutarImportacion() {
       const sec = BACKUP_SECTIONS.find((s) => s.key === key);
       if (sec.scope === "global") {
         const data = backupNormalizar(key, _bi.source.globales[key]);
-        const target = key === "categorias" ? "categorias" : "expositorPlantillas";
+        const target = _BK_GLOBAL_TARGET[key];
         next[target] = modo === "reemplazar" ? _bkWithIds(data) : _bkMergeById(next[target], data);
       } else {
         _bkApplySection(dest, key, backupNormalizar(key, srcBazaar.datos[key]), modo, sameBazaar);

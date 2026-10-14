@@ -57,7 +57,7 @@ function minuteDuration(start, end) {
 }
 
 function minuteAreaOptionsHTML(selectedArea) {
-  const categories = AppState.categorias || [];
+  const categories = getCategoriasPrincipales();
   const selectedCategory = categories.find((category) =>
     category.id === selectedArea || category.nombre === selectedArea
   );

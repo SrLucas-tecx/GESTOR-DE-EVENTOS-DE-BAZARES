@@ -22,7 +22,7 @@ function switchTab(tabId) {
     inicio:       "Inicio",
     bazares:      "Mis Bazares",
     expositores:  "Directorio de Expositores",
-    categorias:   "Categorías de Productos",
+    categorias:   "Catálogos",
     finanzas:     "Control de Pagos",
     costos:       "Costos del Evento",
     mapa:         "Plano Interactivo del Bazar",
@@ -278,13 +278,11 @@ function exportarJSONCompleto() {
 function exportarCSV() {
   const bz = getActiveBazaar();
   if (!bz) return;
-  const headers = ["Nombre", "Negocio", "Categoría", "Teléfono", "Email",
+  const headers = ["Nombre", "Negocio", "Categoría", "Características", "Teléfono", "Email",
                    "Ubicación", "Mesas Solicitadas", "Área Encargada", "Costo Total", "Adelanto", "Saldo", "Fecha Límite", "Estado", "Notas"];
-  const catMap = {};
-  AppState.categorias.forEach((c) => (catMap[c.id] = `${c.emoji} ${c.nombre}`));
-
   const rows = bz.expositores.map((e) => [
-    e.nombre, e.negocio, catMap[e.categoria] || "",
+    e.nombre, e.negocio, getExpositorCategoryLabel(e),
+    getExpositorCaracteristicas(e).map((c) => c.nombre).join(", "),
     e.tel, e.email, e.ubicacion,
     e.mesasCantidad === "otro" ? e.mesasCantidadOtro : e.mesasCantidad || 1,
     e.areaEncargada || "",

@@ -56,6 +56,7 @@ function syncExpositorFormData() {
   formData = {
     ...fields,
     tableIds: [...form.querySelectorAll("#exp-ubicacion .exp-table-option:checked")].map((checkbox) => checkbox.value),
+    caracteristicas: [...form.querySelectorAll("#exp-caracteristicas-picker .exp-carac-option:checked")].map((box) => box.value),
     sillasAsignadas: document.getElementById("exp-sillas-total")?.textContent || ""
   };
   window.formData = formData;
@@ -160,9 +161,9 @@ function renderExpositorWizardSummary() {
 }
 
 function openModalExpositor(id = null, categoryId = null) {
-  populateCategoriaSelect();
   const form = document.getElementById("form-expositor");
   form.reset();
+  populateCategoriaSelect();
   document.getElementById("exp-id").value           = "";
   document.getElementById("exp-foto-base64").value  = "";
   const box = document.getElementById("avatar-preview-box");
@@ -178,6 +179,7 @@ function openModalExpositor(id = null, categoryId = null) {
       document.getElementById("exp-nombre").value        = exp.nombre;
       document.getElementById("exp-negocio").value       = exp.negocio;
       document.getElementById("exp-categoria").value     = exp.categoria;
+      
       document.getElementById("exp-mesas-cantidad").value = exp.mesasCantidad || "1";
       document.getElementById("exp-mesas-otro").value = exp.mesasCantidadOtro || "";
       document.getElementById("exp-tel").value           = exp.tel || "";
@@ -206,6 +208,7 @@ function openModalExpositor(id = null, categoryId = null) {
       document.getElementById("exp-categoria").value = categoryId;
     }
   }
+  populateExpositorCaracteristicas(exp?.caracteristicas || []);
   populateExpositorAssignmentSelects(bz, exp);
   toggleOtherTableCount();
   updateExpositorExtraChairFields();
@@ -483,10 +486,46 @@ function openModalExpositorForCurrentCategory() {
   openModalExpositor(null, categoryId);
 }
 
-function populateCategoriaSelect() {
+function populateCategoriaSelect(selectedCategoryId = "") {
   const sel = document.getElementById("exp-categoria");
   if (!sel) return;
-  sel.innerHTML = AppState.categorias.map((c) => `<option value="${c.id}">${c.emoji} ${escapeHTML(c.nombre)}</option>`).join("");
+  sel.innerHTML = `<option value="">Sin categoría</option>${AppState.categorias.map((category) =>
+    `<option value="${escapeHTML(category.id)}">${category.emoji} ${escapeHTML(category.nombre)}</option>`
+  ).join("")}`;
+  sel.value = selectedCategoryId;
+}
+
+// Características del expositor: interruptor + selector de chips (se oculta si el interruptor está apagado).
+function populateExpositorCaracteristicas(selectedIds = []) {
+  const picker = document.getElementById("exp-caracteristicas-picker");
+  const toggle = document.getElementById("exp-tiene-caracteristicas");
+  if (!picker || !toggle) return;
+  const selected = new Set(selectedIds);
+  const list = getCaracteristicas();
+  picker.innerHTML = list.length
+    ? list.map((c) => `
+        <label class="caract-chip" style="--chip-color:${escapeHTML(c.color)}" title="${escapeHTML(c.descripcion || c.nombre)}">
+          <input type="checkbox" class="exp-carac-option" value="${escapeHTML(c.id)}" ${selected.has(c.id) ? "checked" : ""}
+                 onchange="updateExpositorCaracteristicas()">
+          <span>${escapeHTML(c.emoji)} ${escapeHTML(c.nombre)}</span>
+        </label>`).join("")
+    : `<span class="form-hint">Aún no hay características. Créalas en Catálogos → Características.</span>`;
+  toggle.checked = list.some((c) => selected.has(c.id));
+  updateExpositorCaracteristicas();
+}
+
+function updateExpositorCaracteristicas() {
+  const toggle = document.getElementById("exp-tiene-caracteristicas");
+  const group = document.getElementById("exp-caracteristicas-group");
+  if (!toggle || !group) return;
+  group.hidden = !toggle.checked;
+  const boxes = [...document.querySelectorAll("#exp-caracteristicas-picker .exp-carac-option")];
+  boxes.forEach((box) => box.closest(".caract-chip")?.classList.toggle("is-selected", box.checked));
+  const count = boxes.filter((box) => box.checked).length;
+  const hint = document.getElementById("exp-caracteristicas-hint");
+  if (hint) hint.textContent = !boxes.length ? ""
+    : count ? `${count} seleccionada(s). En la tarjeta se muestran 2 y el resto en "Ver todas".`
+    : "Elige una o más características.";
 }
 
 function handleFotoUpload(e) {
@@ -541,6 +580,10 @@ async function saveExpositorHandler(e, submittedFormData = null) {
     showToast("La cantidad de mesas compradas debe ser un número entero válido.", "error");
     return;
   }
+  const selectedCategoryId = data["exp-categoria"] || "";
+  const caracteristicas = data["exp-tiene-caracteristicas"]
+    ? [...new Set(data.caracteristicas || [])].filter((cid) => getCaracteristicas().some((c) => c.id === cid))
+    : [];
   if (tableIds.length > requestedTableCount) {
     showToast(`No puedes asignar más de ${requestedTableCount} mesa(s) a este expositor.`, "error");
     return;
@@ -594,7 +637,8 @@ async function saveExpositorHandler(e, submittedFormData = null) {
     id:             id || "exp-" + Date.now(),
     nombre:         String(data["exp-nombre"]).trim(),
     negocio:        String(data["exp-negocio"]).trim(),
-    categoria:      data["exp-categoria"],
+    categoria:      selectedCategoryId,
+    caracteristicas,
     ubicacion:      existing?.ubicacion || "",
     tableId:        "",
     tableIds:       [],
@@ -760,59 +804,3 @@ async function deleteExpositor(id) {
   renderAll();
   showToast("🗑️ Expositor eliminado");
 }
-
-// ==========================================
-// 14. CATEGORÍAS — Modal
-// ==========================================
-function openModalCategoria(id = null) {
-  document.getElementById("form-categoria").reset();
-  document.getElementById("cat-id").value = "";
-  if (id) {
-    const cat = AppState.categorias.find((c) => c.id === id);
-    if (cat) {
-      document.getElementById("modal-cat-title").textContent = "Editar Categoría";
-      document.getElementById("cat-id").value    = cat.id;
-      document.getElementById("cat-emoji").value = cat.emoji;
-      document.getElementById("cat-nombre").value = cat.nombre;
-      document.getElementById("cat-color").value  = cat.color;
-      document.getElementById("cat-descripcion").value = cat.descripcion || "";
-    }
-  } else {
-    document.getElementById("modal-cat-title").textContent = "Nueva Categoría";
-  }
-  openModal("modal-categoria");
-}
-
-function saveCategoriaHandler(e) {
-  e.preventDefault();
-  const id = document.getElementById("cat-id").value;
-  const catData = {
-    id:     id || "cat-" + Date.now(),
-    emoji:  document.getElementById("cat-emoji").value.trim() || "📦",
-    nombre: document.getElementById("cat-nombre").value.trim(),
-    color:  document.getElementById("cat-color").value,
-    descripcion: document.getElementById("cat-descripcion").value.trim()
-  };
-  if (id) {
-    const idx = AppState.categorias.findIndex((c) => c.id === id);
-    if (idx !== -1) AppState.categorias[idx] = catData;
-  } else {
-    AppState.categorias.push(catData);
-  }
-  saveState();
-  renderAll();
-  closeModal("modal-categoria");
-  showToast(id ? "✅ Categoría actualizada" : "✅ Categoría creada");
-}
-
-async function deleteCategoria(id) {
-  const enUso = Object.values(AppState.bazaars).reduce((n, bz) => n + (bz.expositores || []).filter((e) => e.categoria === id).length, 0);
-  const aviso = enUso ? `\n\n${enUso} expositor(es) de tus bazares usan esta categoría y quedarán sin categoría.` : "";
-  if (!await appConfirm(`¿Eliminar esta categoría?${aviso}`, "Eliminar categoría")) return;
-  AppState.categorias = AppState.categorias.filter((c) => c.id !== id);
-  saveState();
-  renderAll();
-  showToast("🗑️ Categoría eliminada");
-}
-
-// ==========================================

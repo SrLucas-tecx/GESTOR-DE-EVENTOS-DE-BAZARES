@@ -211,6 +211,10 @@ const DEFAULT_STATE = {
     { id: "cat-4", nombre: "Hogar y Salud",emoji: "🌿", color: "#10b981", descripcion: "Artículos para el hogar, bienestar, cuidado personal y salud." }
   ],
 
+  // Características: etiquetas extra del negocio, compartidas entre bazares.
+  // [{ id, nombre, emoji, color, descripcion }]; cada expositor guarda una lista de ids.
+  caracteristicas: [],
+
   // Plantillas de expositores guardados (reutilizables entre bazares).
   // [EDITABLE: estructura de plantilla: { id, nombre, negocio, categoria, tel, email, foto, notas }]
   expositorPlantillas: [],
@@ -263,9 +267,36 @@ function loadState() {
 function migrateState(parsed) {
   if (!parsed.expositorPlantillas) parsed.expositorPlantillas = [];
   if (!Array.isArray(parsed.categorias)) parsed.categorias = JSON.parse(JSON.stringify(DEFAULT_STATE.categorias));
+  if (!Array.isArray(parsed.caracteristicas)) parsed.caracteristicas = [];
+  // Migración: las antiguas "subcategorías" pasan a ser Características (catálogo aparte, sin categoría padre).
+  parsed.categorias.filter((c) => c.tipo === "subcategoria").forEach((old) => {
+    if (!parsed.caracteristicas.some((x) => x.id === old.id)) {
+      parsed.caracteristicas.push({
+        id: old.id, nombre: old.nombre || "Característica", emoji: old.emoji || "🏷️",
+        color: old.color || "#0d9488", descripcion: old.descripcion || ""
+      });
+    }
+  });
+  parsed.categorias = parsed.categorias.filter((c) => c.tipo !== "subcategoria");
   parsed.categorias.forEach((category) => {
     if (category.descripcion === undefined) category.descripcion = "";
+    delete category.tipo; delete category.parentId; delete category.tieneSubcategorias;
   });
+  parsed.caracteristicas.forEach((item) => {
+    if (!item.id) item.id = `car-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    if (!item.nombre) item.nombre = "Característica";
+    if (!item.emoji) item.emoji = "🏷️";
+    if (!item.color) item.color = "#0d9488";
+    if (item.descripcion === undefined) item.descripcion = "";
+  });
+  // Expositores y plantillas: "subcategoria" (texto) -> "caracteristicas" (lista de ids).
+  const migrarCaracteristicas = (item) => {
+    const previas = Array.isArray(item.caracteristicas) ? item.caracteristicas : (item.subcategoria ? [item.subcategoria] : []);
+    item.caracteristicas = [...new Set(previas)];
+    delete item.subcategoria;
+  };
+  (parsed.expositorPlantillas || []).forEach(migrarCaracteristicas);
+  Object.values(parsed.bazaars || {}).forEach((bz) => (bz.expositores || []).forEach(migrarCaracteristicas));
   if (!["cards", "table"].includes(parsed.expositorView)) parsed.expositorView = "cards";
   if (!["previo", "post"].includes(parsed.tareasFase)) parsed.tareasFase = "previo";
   if (!["mobiliario", "gastos"].includes(parsed.costosSubTab)) parsed.costosSubTab = "mobiliario";

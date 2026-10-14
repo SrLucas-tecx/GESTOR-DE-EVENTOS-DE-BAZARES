@@ -26,6 +26,7 @@ async function guardarComoPlantilla(expId) {
     nombre:    exp.nombre,
     negocio:   exp.negocio,
     categoria: exp.categoria,
+    caracteristicas: [...(exp.caracteristicas || [])],
     tel:       exp.tel,
     email:     exp.email,
     foto:      exp.foto,
@@ -57,7 +58,7 @@ function renderPlantillas() {
 
   container.innerHTML = list.map((plt) => {
     const cat = AppState.categorias.find((c) => c.id === plt.categoria);
-    const catName = cat ? `${cat.emoji} ${cat.nombre}` : "Sin Categoría";
+    const catName = getExpositorCategoryLabel(plt);
     return `
       <div class="expositor-card" style="border-top-color:var(--color-accent2);">
         <div class="card-top">
@@ -66,11 +67,12 @@ function renderPlantillas() {
           </div>
           <div class="card-info">
             <div class="card-name">${escapeHTML(plt.negocio)}</div>
-            <span class="card-category" title="${escapeHTML(cat?.descripcion || "")}">${escapeHTML(catName)}</span>
+            <span class="card-category" title="${escapeHTML([cat?.descripcion].filter(Boolean).join(" · "))}">${escapeHTML(catName)}</span>
             ${cat?.descripcion ? `<small class="form-hint">${escapeHTML(cat.descripcion)}</small>` : ""}
             <div class="card-contact">${escapeHTML(plt.nombre)}</div>
           </div>
         </div>
+        ${caracteristicasChipsHTML(plt, "plt")}
         <div class="card-contact" style="margin-bottom:10px;">
           📞 ${escapeHTML(plt.tel || "—")} &nbsp;·&nbsp; ✉️ ${escapeHTML(plt.email || "—")}
         </div>
@@ -89,15 +91,16 @@ function usarPlantilla(pltId) {
   const plt = AppState.expositorPlantillas.find((p) => p.id === pltId);
   if (!plt) return;
 
-  populateCategoriaSelect();
   const form = document.getElementById("form-expositor");
   form.reset();
+  populateCategoriaSelect();
   document.getElementById("exp-id").value           = "";
   document.getElementById("exp-foto-base64").value  = plt.foto || "";
   document.getElementById("modal-exp-title").textContent = "Nuevo Expositor (desde plantilla)";
   document.getElementById("exp-nombre").value        = plt.nombre;
   document.getElementById("exp-negocio").value       = plt.negocio;
   document.getElementById("exp-categoria").value     = plt.categoria;
+  populateExpositorCaracteristicas(plt.caracteristicas || []);
   document.getElementById("exp-tel").value           = plt.tel || "";
   document.getElementById("exp-email").value         = plt.email || "";
   document.getElementById("exp-notas").value         = plt.notas || "";
@@ -161,7 +164,7 @@ function renderPickerGuardados() {
   }
   box.innerHTML = list.map((plt) => {
     const cat = AppState.categorias.find((c) => c.id === plt.categoria);
-    const catName = cat ? `${cat.emoji} ${cat.nombre}` : "Sin categoría";
+    const catName = getExpositorCategoryLabel(plt);
     const yaEsta = bz.expositores.some((e) => e.negocio === plt.negocio && e.nombre === plt.nombre);
     return `
       <div class="picker-row">

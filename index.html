@@ -209,14 +209,21 @@
       <section id="sec-categorias" class="page-section">
         <div class="section-header" style="justify-content:space-between;">
           <div>
-            <h2 class="section-title">Gestión de Categorías</h2>
+            <h2 class="section-title">Catálogos</h2>
             <p style="font-size:var(--fs-sm);color:var(--color-text-muted);">
-              Clasifica a tus expositores. Las categorías se comparten entre todos los bazares.
+              <strong>Categorías:</strong> clasifican al expositor (una por expositor) y alimentan las gráficas.
+              <strong>Características:</strong> etiquetas extra del negocio (hecho a mano, vegano…); un expositor puede tener varias.
             </p>
           </div>
-          <button class="btn-primary" onclick="openModalCategoria()">+ Nueva Categoría</button>
+          <button class="btn-primary" id="category-add-btn" onclick="openModalCategoria()">+ Nueva categoría</button>
         </div>
-        <div id="categorias-grid" class="cards-grid"></div>
+        <div class="category-management-tabs" role="tablist" aria-label="Catálogo">
+          <button type="button" class="filter-chip active" id="category-tab-categoria" role="tab"
+                  aria-selected="true" onclick="setCategoriaManagementTab('categoria')">Categorías</button>
+          <button type="button" class="filter-chip" id="category-tab-caracteristica" role="tab"
+                  aria-selected="false" onclick="setCategoriaManagementTab('caracteristica')">Características</button>
+        </div>
+        <div id="categorias-grid" class="catalog-grid"></div>
       </section>
       <!-- / #SECCIÓN CATEGORÍAS -->
 
@@ -1244,13 +1251,30 @@
               <select id="exp-categoria" class="form-select"></select>
             </div>
             <div class="form-group">
+              <label class="form-label">¿Tiene características?</label>
+              <div class="form-switch">
+                <span class="switch-label">Etiquetas extra del negocio</span>
+                <label class="switch" aria-label="¿Tiene características?">
+                  <input type="checkbox" id="exp-tiene-caracteristicas" onchange="updateExpositorCaracteristicas()">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" id="exp-caracteristicas-group" hidden>
+            <label class="form-label">Características del negocio</label>
+            <div id="exp-caracteristicas-picker" class="caract-picker"></div>
+            <p class="form-hint" id="exp-caracteristicas-hint" aria-live="polite"></p>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
               <label class="form-label" for="exp-tel">Teléfono</label>
               <input type="tel" id="exp-tel" class="form-input" placeholder="Ej. 55-1234-5678">
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="exp-email">Correo Electrónico</label>
-            <input type="email" id="exp-email" class="form-input" placeholder="correo@ejemplo.com">
+            <div class="form-group">
+              <label class="form-label" for="exp-email">Correo Electrónico</label>
+              <input type="email" id="exp-email" class="form-input" placeholder="correo@ejemplo.com">
+            </div>
           </div>
         </section>
 
@@ -1413,51 +1437,66 @@
 <!-- / #MODAL EXPOSITOR -->
 
 
-<!-- # MODAL: NUEVA / EDITAR CATEGORÍA -->
+<!-- # MODAL: NUEVA / EDITAR CATEGORÍA O CARACTERÍSTICA (el tipo lo define #cat-tipo) -->
 <div id="modal-categoria" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
-      <h2 class="modal-title" id="modal-cat-title">Nueva Categoría</h2>
-      <button class="modal-close" onclick="closeModal('modal-categoria')">✕</button>
+      <h2 class="modal-title" id="modal-cat-title">Nueva categoría</h2>
+      <button type="button" class="modal-close" aria-label="Cerrar" onclick="closeModal('modal-categoria')">✕</button>
     </div>
     <form id="form-categoria" onsubmit="saveCategoriaHandler(event)">
       <input type="hidden" id="cat-id">
+      <input type="hidden" id="cat-tipo" value="categoria">
       <div class="modal-body">
+        <div class="category-type-hint" id="cat-type-hint" aria-live="polite"></div>
         <div class="form-row">
           <div class="form-group" style="flex:0 0 90px;">
-            <label class="form-label">Emoji *</label>
+            <label class="form-label" for="cat-emoji">Emoji *</label>
             <input type="text" id="cat-emoji" class="form-input" required maxlength="4"
                    placeholder="🎨" style="text-align:center;font-size:1.3rem;">
           </div>
           <div class="form-group" style="flex:1;">
-            <label class="form-label">Nombre *</label>
-            <input type="text" id="cat-nombre" class="form-input" required placeholder="Ej. Artesanías">
+            <label class="form-label" for="cat-nombre">Nombre *</label>
+            <input type="text" id="cat-nombre" class="form-input" required>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Color Distintivo *</label>
+          <label class="form-label" for="cat-color">Color distintivo *</label>
           <div style="display:flex;align-items:center;gap:12px;">
             <input type="color" id="cat-color" class="form-input"
                    style="width:60px;height:42px;padding:2px;cursor:pointer;" value="#0d9488">
-            <span style="font-size:var(--fs-xs);color:var(--color-text-muted);">
-              Identificador en plano y gráficas
-            </span>
+            <span style="font-size:var(--fs-xs);color:var(--color-text-muted);">Identificador en plano, gráficas y etiquetas</span>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="cat-descripcion">Descripción del emoji / categoría</label>
-          <textarea id="cat-descripcion" class="form-textarea" rows="2"
-                    placeholder="Ej. 🎨 representa productos hechos a mano y artesanías."></textarea>
+          <label class="form-label" for="cat-descripcion">Descripción (opcional)</label>
+          <textarea id="cat-descripcion" class="form-textarea" rows="2"></textarea>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-secondary" onclick="closeModal('modal-categoria')">Cancelar</button>
-        <button type="submit" class="btn-primary">Guardar Categoría</button>
+        <button type="submit" class="btn-primary">Guardar</button>
       </div>
     </form>
   </div>
 </div>
 <!-- / #MODAL CATEGORÍA -->
+
+<!-- # MODAL: TODAS LAS CARACTERÍSTICAS DE UN EXPOSITOR -->
+<div id="modal-caracteristicas" class="modal-overlay">
+  <div class="modal-box modal-box-wide">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-caracteristicas-title">Características</h2>
+      <button type="button" class="modal-close" aria-label="Cerrar" onclick="closeModal('modal-caracteristicas')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-caracteristicas-list" class="subcategory-popup-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" onclick="closeModal('modal-caracteristicas')">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 
 <!-- # MODAL: EDITAR PROPIEDADES DE MESA (canvas)

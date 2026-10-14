@@ -60,6 +60,12 @@ function describeExpositorChanges(before, after) {
     const catName = (id) => AppState.categorias.find((c) => c.id === id)?.nombre || "Sin categoría";
     changes.push(`Categoría: ${catName(before.categoria)} → ${catName(after.categoria)}`);
   }
+  const caracteristicasKey = (item) => [...(item.caracteristicas || [])].sort().join(",");
+  if (caracteristicasKey(before) !== caracteristicasKey(after)) {
+    const nombres = (item) => (item.caracteristicas || [])
+      .map((id) => AppState.caracteristicas.find((c) => c.id === id)?.nombre).filter(Boolean).join(", ") || "ninguna";
+    changes.push(`Características: ${nombres(before)} → ${nombres(after)}`);
+  }
 
   if (Boolean(before.pagado) !== Boolean(after.pagado)) {
     changes.push(`Pago: ${after.pagado ? "marcado como pagado" : "marcado como pendiente"}`);

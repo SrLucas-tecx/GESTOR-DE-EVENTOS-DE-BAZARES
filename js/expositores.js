@@ -55,7 +55,7 @@ function renderExpositores() {
 
   container.innerHTML = list.map((exp) => {
     const cat = AppState.categorias.find((c) => c.id === exp.categoria);
-    const catName = cat ? `${cat.emoji} ${cat.nombre}` : "Sin Categoría";
+    const catName = getExpositorCategoryLabel(exp);
     const checklist = exp.checklist || [];
     const doneCount = checklist.filter((i) => i.done).length;
     const adelanto = Number(exp.adelanto || 0);
@@ -79,7 +79,7 @@ function renderExpositores() {
           </div>
           <div class="card-info">
             <div class="card-name" title="${escapeHTML(exp.negocio)}">${escapeHTML(exp.negocio)}</div>
-            <span class="card-category" title="${escapeHTML(cat?.descripcion || "")}">${escapeHTML(catName)}</span>
+            <span class="card-category" title="${escapeHTML([cat?.descripcion].filter(Boolean).join(" · "))}">${escapeHTML(catName)}</span>
             <div class="card-contact">${escapeHTML(exp.nombre)}</div>
           </div>
         </div>
@@ -93,6 +93,8 @@ function renderExpositores() {
           </button>
           ${exp.banned ? `<span class="banned-badge">🚫 Expositor baneado</span>` : ""}
         </div>
+
+        ${caracteristicasChipsHTML(exp)}
 
         <div class="card-meta">
           ${meta("Ubicación", escapeHTML(getExpositorLocation(exp)))}
@@ -147,8 +149,7 @@ function syncExpositorViewButtons() {
 
 function renderExpositoresTabla(list) {
   const rows = list.map((exp) => {
-    const cat = AppState.categorias.find((c) => c.id === exp.categoria);
-    const catName = cat ? `${cat.emoji} ${cat.nombre}` : "Sin Categoría";
+    const catName = getExpositorCategoryLabel(exp);
     const saldo = getExpositorPendingBalance(exp);
     const checklist = exp.checklist || [];
     const doneCount = checklist.filter((i) => i.done).length;
@@ -159,7 +160,7 @@ function renderExpositoresTabla(list) {
           <strong>${escapeHTML(exp.negocio)}</strong>${exp.banned ? ` <span style="color:var(--color-danger);font-weight:800;font-size:var(--fs-xs);">🚫 Baneado</span>` : ""}<br>
           <small style="color:var(--color-text-muted);">${escapeHTML(exp.nombre)}</small>
         </td>
-        <td>${escapeHTML(catName)}</td>
+        <td>${escapeHTML(catName)}${caracteristicasChipsHTML(exp)}</td>
         <td>${escapeHTML(getExpositorLocation(exp))}</td>
         <td>${formatCurrency(exp.costo)}</td>
         <td style="color:${saldo > 0 ? "var(--color-unpaid)" : "var(--color-paid)"};">${formatCurrency(saldo)}</td>

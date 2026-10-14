@@ -534,3 +534,52 @@ body.dark .panel-progress-item:nth-child(3) .panel-progress-fill { background: #
 .row-actions-icons .row-icon-wide { grid-column: span 2; }
 .expositor-directory-table { min-width: 60rem; }
 .btn-costos { white-space: nowrap; }
+
+
+/* ═══ CATÁLOGOS: categorías y características (compactos, sin espacios muertos) ═══ */
+.catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: var(--space-4); align-items: start; }
+.catalog-card {
+  display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4);
+  background: var(--color-surface); border: 1.5px solid var(--color-border);
+  border-left: 5px solid var(--cat-color, var(--color-accent));
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+}
+.catalog-card-head { display: flex; align-items: flex-start; gap: var(--space-3); }
+.catalog-card-emoji { font-size: 1.5rem; line-height: 1.1; }
+.catalog-card-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.catalog-card-title strong { font-family: var(--font-display); font-size: var(--fs-md); overflow-wrap: anywhere; }
+.catalog-card-title small { color: var(--color-text-muted); font-size: var(--fs-xs); }
+.catalog-card-count {
+  flex-shrink: 0; padding: 2px 10px; border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--cat-color, var(--color-accent)) 18%, transparent);
+  color: var(--color-text); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap;
+}
+.catalog-card-actions { display: flex; gap: var(--space-2); }
+.catalog-card-actions > button { flex: 1; min-height: 2.2rem; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
+
+/* Características del expositor: selector en el formulario y chips en tarjetas/tablas */
+.caract-picker {
+  display: flex; flex-wrap: wrap; gap: var(--space-2); max-height: 11rem; overflow-y: auto; padding: var(--space-2);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-alt);
+}
+.caract-chip {
+  position: relative; display: inline-flex; align-items: center; padding: .3rem .8rem;
+  border: 1.5px solid var(--chip-color, var(--color-border)); border-radius: var(--radius-full);
+  background: var(--color-surface); color: var(--color-text); font-size: var(--fs-sm); font-weight: 700;
+  cursor: pointer; transition: background-color var(--transition);
+}
+.caract-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.caract-chip:hover { background: var(--color-accent-soft); }
+.caract-chip.is-selected { background: color-mix(in srgb, var(--chip-color, var(--color-accent)) 30%, var(--color-surface)); }
+.caract-chip.is-selected::before { content: "✓"; margin-right: .35rem; font-weight: 900; }
+.caract-chip:focus-within { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.caract-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.payments-table .caract-row { margin: var(--space-1) 0 0; }
+.caract-chip-mini {
+  display: inline-flex; align-items: center; gap: .25rem; max-width: 100%; padding: 2px 10px;
+  border: 1.5px solid var(--chip-color, var(--color-border)); border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--chip-color, var(--color-accent)) 14%, transparent);
+  color: var(--color-text); font-size: var(--fs-xs); font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.caract-more { font-size: var(--fs-xs); }
