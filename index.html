@@ -929,10 +929,11 @@
             <button class="btn-primary" onclick="addMinuteRow()">+ Agregar actividad</button>
           </div>
         </div>
+        <div id="minuto-dias-tabs" class="filter-bar" hidden></div>
         <div class="payments-table-wrap">
-          <table class="payments-table minute-table" style="min-width:1100px;">
+          <table class="payments-table minute-table" style="min-width:1250px;">
             <thead>
-              <tr><th>Hora inicio</th><th>Hora fin</th><th>Duración</th><th>Actividad</th><th>Lugar</th><th>Rol y responsable</th><th>Notas / descripción</th><th>Acciones</th></tr>
+              <tr><th id="minuto-dia-th" hidden>Día</th><th>Hora inicio</th><th>Hora fin</th><th>Duración</th><th>Actividad</th><th>Lugar</th><th>Rol y responsable</th><th>Notas / descripción</th><th>Acciones</th></tr>
             </thead>
             <tbody id="minute-by-minute-list"></tbody>
           </table>
@@ -2189,6 +2190,7 @@
     </div>
     <form id="form-actividad" onsubmit="saveActividadHandler(event)">
       <div class="modal-body">
+        <div class="form-group" id="act-dia-group" hidden><label class="form-label" for="act-dia">Día</label><select id="act-dia" class="form-select"></select><p class="form-hint">«Todos los días» repite la actividad en cada día del evento.</p></div>
         <div class="form-row">
         <div class="form-group"><label class="form-label" for="act-inicio">Hora de inicio</label><input type="time" id="act-inicio" class="form-input" ></div>
         <div class="form-group"><label class="form-label" for="act-fin">Hora de fin</label><input type="time" id="act-fin" class="form-input" ></div>

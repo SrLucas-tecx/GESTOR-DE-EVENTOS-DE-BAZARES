@@ -136,6 +136,7 @@ window.toggleExpositorBan              = toggleExpositorBan;
 window.addMinuteRow                    = addMinuteRow;
 window.updateMinuteRow                 = updateMinuteRow;
 window.deleteMinuteRow                 = deleteMinuteRow;
+window.setMinutoDia                    = setMinutoDia;
 window.exportarMinutoAMinutoCSV        = exportarMinutoAMinutoCSV;
 window.exportarMinutoAMinutoPDF        = exportarMinutoAMinutoPDF;
 window.updateCharts                   = updateCharts;

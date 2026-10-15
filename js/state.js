@@ -179,6 +179,7 @@ function ensureEventoFields(bz) {
   (bz.minuteByMinute || []).forEach((row) => {
     if (row.lugar === undefined) row.lugar = "";
     if (row.horaFin === undefined) row.horaFin = "";
+    if (row.dia === undefined) row.dia = "";   // id de bz.evento.dias; "" = todos los días
     if (row.responsableId === undefined) row.responsableId = row.responsible ? responsableIdFromTexto(row.responsible) : "";
     if (row.areaRolId === undefined) {
       const rolIgual = bz.roles.find((r) => r.nombre.trim().toLowerCase() === String(row.area || "").trim().toLowerCase());
@@ -310,6 +311,7 @@ function migrateState(parsed) {
   Object.values(parsed.bazaars || {}).forEach((bz) => (bz.expositores || []).forEach(migrarCaracteristicas));
   if (!["cards", "table"].includes(parsed.expositorView)) parsed.expositorView = "cards";
   if (!["previo", "post"].includes(parsed.tareasFase)) parsed.tareasFase = "previo";
+  if (typeof parsed.minutoDia !== "string") parsed.minutoDia = "all";   // pestaña activa de Minuto a Minuto
   if (!["mobiliario", "gastos"].includes(parsed.costosSubTab)) parsed.costosSubTab = "mobiliario";
 
   Object.values(parsed.bazaars || {}).forEach((bz) => {

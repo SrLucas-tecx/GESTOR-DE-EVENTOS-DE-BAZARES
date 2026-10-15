@@ -291,11 +291,13 @@ async function exportarPlanEventoXLSX() {
       [6, 30, 40, 20, 16, 40, 8],
       tareasDeFase(bz, "previo").map((t, i) => tareaRow(t, i, true)), { dateCols: [4] });
 
-    const durante = (bz.minuteByMinute || []).slice().sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    const multiDia = bazarEsMultiDia(bz);
+    const durante = (bz.minuteByMinute || []).slice().sort((x, y) =>
+      (multiDia ? minutoDiaIndex(x, bz) - minutoDiaIndex(y, bz) : 0) || (x.time || "").localeCompare(y.time || ""));
     _xlTableSheet(wb, "Durante", bz,
-      ["#", "Actividad", "Descripción", "Lugar", "Responsable", "Duración", "Hora inicio", "Hora fin", "Área encargada"],
-      [6, 30, 40, 18, 20, 12, 12, 12, 20],
-      durante.map((r, i) => [i + 1, r.activity, r.notes, r.lugar || "", getResponsableNombre(r.responsableId, bz), minuteDuration(r.time, r.horaFin), r.time, r.horaFin || "", getItemRolNombre(r, bz)]));
+      ["#", ...(multiDia ? ["Día"] : []), "Actividad", "Descripción", "Lugar", "Responsable", "Duración", "Hora inicio", "Hora fin", "Área encargada"],
+      [6, ...(multiDia ? [16] : []), 30, 40, 18, 20, 12, 12, 12, 20],
+      durante.map((r, i) => [i + 1, ...(multiDia ? [minutoDiaLabel(r, bz)] : []), r.activity, r.notes, r.lugar || "", getResponsableNombre(r.responsableId, bz), minuteDuration(r.time, r.horaFin), r.time, r.horaFin || "", getItemRolNombre(r, bz)]));
 
     _xlTableSheet(wb, "Post", bz,
       ["#", "Actividad", "Descripción", "Responsable", "Fecha de entrega", "Listo"],

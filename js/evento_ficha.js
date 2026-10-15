@@ -320,6 +320,7 @@ function diasBadgeHTML(exp, bz = getActiveBazaar()) {
 /** Punto de limpieza al borrar un día: otras secciones (agenda, planos) se enganchan aquí. */
 function cleanupDiaRefs(bz, diaId) {
   (bz.expositores || []).forEach((e) => { e.diasParticipacion = (e.diasParticipacion || []).filter((id) => id !== diaId); });
+  bz.minuteByMinute = (bz.minuteByMinute || []).filter((row) => row.dia !== diaId);   // actividades exclusivas de ese día
 }
 
 function toggleMultiDia(on) {
@@ -365,7 +366,10 @@ async function removeDiaEvento(id) {
     return;
   }
   const dia = bz.evento.dias.find((d) => d.id === id);
-  if (!dia || !await appConfirm(`¿Eliminar "${getDiaLabel(dia, bz.evento.dias.indexOf(dia))}"? Se quitará de la participación de los expositores.`, "Eliminar día")) return;
+  const actividades = dia ? (bz.minuteByMinute || []).filter((row) => row.dia === id).length : 0;
+  if (!dia || !await appConfirm(
+    `¿Eliminar "${getDiaLabel(dia, bz.evento.dias.indexOf(dia))}"? Se quitará de la participación de los expositores${actividades ? ` y se eliminarán sus ${actividades} actividad(es) exclusivas del Minuto a Minuto` : ""}.`,
+    "Eliminar día")) return;
   bz.evento.dias = bz.evento.dias.filter((d) => d.id !== id);
   cleanupDiaRefs(bz, id);
   saveState();
