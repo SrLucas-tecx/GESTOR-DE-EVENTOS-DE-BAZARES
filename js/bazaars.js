@@ -279,7 +279,7 @@ async function createBazaar() {
   if (!name?.trim()) return;
   const id = "bazaar-" + Date.now();
   AppState.bazaars[id] = {
-    id, name: name.trim(), createdAt: Date.now(),
+    id, name: name.trim(), createdAt: Date.now(), color: "",
     bgImage: null, logoImage: null, mapConfig: defaultMapConfig(),
     expositores: [], tables: [],
     costsConfig: emptyCostsConfig(),
@@ -335,11 +335,12 @@ function renderBazaresTabla() {
     const paidCount = expositores.filter((e) => e.pagado).length;
     const invCount = (bz.invitados || []).length;
     const isActive = bz.id === AppState.currentBazaarId;
+    const color = bazaarColor(bz);
     const logoHtml = bz.logoImage
       ? `<img src="${bz.logoImage}" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:2px solid var(--color-border);">`
       : `<span style="font-size:1.4rem;">🎪</span>`;
     return `
-      <tr class="${isActive ? "active-bazaar-row" : ""}">
+      <tr class="${isActive ? "active-bazaar-row" : ""}${color ? " bz-colored" : ""}"${color ? ` style="--bz-color:${color}"` : ""}>
         <td><div style="display:flex;align-items:center;gap:10px;">
           <div class="bazar-logo-mini">${logoHtml}</div>
           <div>
@@ -355,6 +356,7 @@ function renderBazaresTabla() {
             📂 Abrir
           </button>
           <button class="btn-secondary btn-sm" onclick="openLogoUploadModal('${bz.id}')">🖼️ Logo</button>
+          <button class="btn-secondary btn-sm" onclick="openBazaarColorModal('${bz.id}')" title="Personalizar el color del bazar">🎨 Color</button>
           <button class="btn-secondary btn-sm" onclick="editarFichaBazar('${bz.id}')" title="Editar la ficha del evento: nombre, fecha, lugar…">📝 Editar ficha</button>
           <button class="btn-danger btn-sm" onclick="deleteBazaarById('${bz.id}')">🗑️ Eliminar</button>
         </div></td>
@@ -376,8 +378,9 @@ function renderBazaarHome() {
       ? `<img src="${bz.logoImage}" alt="" class="bazaar-home-logo">`
       : `<span class="bazaar-home-emoji" aria-hidden="true">🎪</span>`;
     const active = bz.id === AppState.currentBazaarId;
+    const color = bazaarColor(bz);
     return `
-      <article class="bazaar-home-card ${active ? "active" : ""}">
+      <article class="bazaar-home-card ${active ? "active" : ""}"${color ? ` style="--bz-color:${color}"` : ""}>
         <div class="bazaar-home-card-top">
           ${logo}
           ${active ? `<span class="section-count">Activo</span>` : ""}
@@ -413,6 +416,63 @@ async function renameBazaar(id) {
   renderBazaresTabla();
   renderBazaarHome();
   showToast("✅ Bazar renombrado");
+}
+
+// ==========================================
+// COLOR DEL BAZAR (personalización)
+// Se ve como franja en la fila de Mis Bazares y como acento en la tarjeta de Inicio.
+// ==========================================
+const BAZAAR_COLORS = ["#0d9488", "#f59e0b", "#8b5cf6", "#ef4444", "#10b981", "#3b82f6", "#ec4899", "#f97316"];
+let _bazaarColorDraft = "";
+
+function bazaarColor(bz) {
+  return /^#[0-9a-f]{6}$/i.test(String(bz?.color || "")) ? bz.color : "";
+}
+
+function _renderBazaarColorModal() {
+  const palette = document.getElementById("bazar-color-palette");
+  if (palette) {
+    palette.innerHTML = BAZAAR_COLORS.map((hex) =>
+      `<button type="button" class="color-swatch ${hex.toLowerCase() === _bazaarColorDraft.toLowerCase() ? "is-selected" : ""}"
+        style="background:${hex}" onclick="pickBazaarColor('${hex}')" aria-label="Color ${hex}" title="${hex}"></button>`).join("");
+  }
+  const input = document.getElementById("bazar-color-input");
+  if (input && _bazaarColorDraft) input.value = _bazaarColorDraft;
+  const preview = document.getElementById("bazar-color-preview");
+  if (preview) preview.style.setProperty("--bz-color", _bazaarColorDraft || "transparent");
+  const hint = document.getElementById("bazar-color-hint");
+  if (hint) hint.textContent = _bazaarColorDraft ? `Color elegido: ${_bazaarColorDraft}` : "Sin color: se verá con el estilo normal.";
+}
+
+function openBazaarColorModal(bazaarId) {
+  const bz = AppState.bazaars[bazaarId];
+  if (!bz) return;
+  document.getElementById("bazar-color-id").value = bazaarId;
+  document.getElementById("modal-color-bazaar-name").textContent = bz.name;
+  _bazaarColorDraft = bazaarColor(bz);
+  _renderBazaarColorModal();
+  openModal("modal-color-bazar");
+}
+
+function pickBazaarColor(hex) {
+  _bazaarColorDraft = /^#[0-9a-f]{6}$/i.test(hex) ? hex : "";
+  _renderBazaarColorModal();
+}
+
+function clearBazaarColor() {
+  _bazaarColorDraft = "";
+  _renderBazaarColorModal();
+}
+
+function saveBazaarColor() {
+  const bz = AppState.bazaars[document.getElementById("bazar-color-id").value];
+  if (!bz) return;
+  bz.color = _bazaarColorDraft;
+  saveState();
+  renderBazaresTabla();
+  renderBazaarHome();
+  closeModal("modal-color-bazar");
+  showToast(bz.color ? "🎨 Color del bazar actualizado" : "Color del bazar quitado");
 }
 
 // Upload de logo/imagen del bazar

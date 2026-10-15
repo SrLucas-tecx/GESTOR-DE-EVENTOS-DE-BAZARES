@@ -67,6 +67,15 @@ function describeExpositorChanges(before, after) {
     changes.push(`Características: ${nombres(before)} → ${nombres(after)}`);
   }
 
+  const diasKey = (item) => [...(item.diasParticipacion || [])].sort().join(",");
+  if (diasKey(before) !== diasKey(after)) {
+    const bz = getActiveBazaar();
+    const nombres = (item) => (item.diasParticipacion || [])
+      .map((id) => { const i = (bz?.evento?.dias || []).findIndex((d) => d.id === id); return i < 0 ? null : getDiaLabel(bz.evento.dias[i], i); })
+      .filter(Boolean).join(", ") || "todos";
+    changes.push(`Días de participación: ${nombres(before)} → ${nombres(after)}`);
+  }
+
   if (Boolean(before.pagado) !== Boolean(after.pagado)) {
     changes.push(`Pago: ${after.pagado ? "marcado como pagado" : "marcado como pendiente"}`);
   }

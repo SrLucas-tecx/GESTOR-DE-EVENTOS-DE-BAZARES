@@ -65,7 +65,7 @@ function emptyMinuteByMinute() {
 
 // Ficha descriptiva del evento (el nombre del evento es bz.name).
 function emptyEvento() {
-  return { fecha: "", objetivo: "", lideres: "", publico: "", asistentes: "", lugar: "", staff: "", presupuestoBase: "" };
+  return { fecha: "", objetivo: "", lideres: "", publico: "", asistentes: "", lugar: "", staff: "", presupuestoBase: "", multiDia: false, dias: [] };
 }
 
 // Roles sugeridos para un bazar nuevo (el usuario puede editarlos o borrarlos).
@@ -90,6 +90,17 @@ function ensureEventoFields(bz) {
   } else {
     bz.evento.presupuestoBase = "";
   }
+
+  // Eventos de varios días: bz.evento.multiDia + bz.evento.dias = [{ id, nombre, fecha }]
+  bz.evento.multiDia = Boolean(bz.evento.multiDia);
+  if (!Array.isArray(bz.evento.dias)) bz.evento.dias = [];
+  bz.evento.dias = bz.evento.dias.filter((d) => d && typeof d === "object");
+  bz.evento.dias.forEach((d, i) => {
+    if (!d.id) d.id = `dia-${Date.now()}-${i}`;
+    d.nombre = String(d.nombre ?? "");
+    d.fecha = String(d.fecha ?? "");
+  });
+  if (bz.color !== undefined && !/^#[0-9a-f]{6}$/i.test(String(bz.color))) bz.color = "";
 
   if (!Array.isArray(bz.roles)) bz.roles = defaultRoles();
   if (!Array.isArray(bz.responsables)) bz.responsables = [];
@@ -394,6 +405,7 @@ function migrateState(parsed) {
       if (!Number.isFinite(Number(exp.costoBase))) exp.costoBase = Math.max(0, Number(exp.costo || 0) - Number(exp.costoExtraSillas || 0));
       if (exp.areaEncargada === undefined) exp.areaEncargada = "";
       if (exp.encargadoId === undefined) exp.encargadoId = "";
+      if (!Array.isArray(exp.diasParticipacion)) exp.diasParticipacion = [];   // [] = todos los días
       if (!Array.isArray(exp.historial)) exp.historial = [];
     });
     const mapTables = (bz.floors || []).flatMap((floor) => floor.tables || []);

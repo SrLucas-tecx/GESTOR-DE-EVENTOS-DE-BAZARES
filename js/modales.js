@@ -57,6 +57,7 @@ function syncExpositorFormData() {
     ...fields,
     tableIds: [...form.querySelectorAll("#exp-ubicacion .exp-table-option:checked")].map((checkbox) => checkbox.value),
     caracteristicas: [...form.querySelectorAll("#exp-caracteristicas-picker .exp-carac-option:checked")].map((box) => box.value),
+    diasParticipacion: [...form.querySelectorAll("#exp-dias-picker .exp-dia-option:checked")].map((box) => box.value),
     sillasAsignadas: document.getElementById("exp-sillas-total")?.textContent || ""
   };
   window.formData = formData;
@@ -209,6 +210,7 @@ function openModalExpositor(id = null, categoryId = null) {
     }
   }
   populateExpositorCaracteristicas(exp?.caracteristicas || []);
+  populateExpositorDias(exp, bz);
   populateExpositorAssignmentSelects(bz, exp);
   toggleOtherTableCount();
   updateExpositorExtraChairFields();
@@ -495,6 +497,42 @@ function populateCategoriaSelect(selectedCategoryId = "") {
   sel.value = selectedCategoryId;
 }
 
+// Días de participación (solo si el bazar dura más de 1 día). Sin elegir ninguno = todos los días.
+function populateExpositorDias(exp = null, bz = getActiveBazaar()) {
+  const group = document.getElementById("exp-dias-group");
+  const toggle = document.getElementById("exp-todos-dias");
+  const picker = document.getElementById("exp-dias-picker");
+  if (!group || !toggle || !picker) return;
+  const multi = bazarEsMultiDia(bz);
+  group.hidden = !multi;
+  if (!multi) return;
+  const dias = bz.evento.dias;
+  const selected = new Set(exp?.diasParticipacion || []);
+  const validos = dias.filter((d) => selected.has(d.id));
+  toggle.checked = !(validos.length && validos.length < dias.length);
+  picker.innerHTML = dias.map((d, i) => `
+    <label class="caract-chip">
+      <input type="checkbox" class="exp-dia-option" value="${escapeHTML(d.id)}" ${selected.has(d.id) ? "checked" : ""}
+             onchange="updateExpositorDias()">
+      <span>${escapeHTML(getDiaLabel(d, i))}${formatDiaFecha(d.fecha) ? ` · ${escapeHTML(formatDiaFecha(d.fecha))}` : ""}</span>
+    </label>`).join("");
+  updateExpositorDias();
+}
+
+function updateExpositorDias() {
+  const toggle = document.getElementById("exp-todos-dias");
+  const picker = document.getElementById("exp-dias-picker");
+  const hint = document.getElementById("exp-dias-hint");
+  if (!toggle || !picker) return;
+  picker.hidden = toggle.checked;
+  const boxes = [...picker.querySelectorAll(".exp-dia-option")];
+  boxes.forEach((box) => box.closest(".caract-chip")?.classList.toggle("is-selected", box.checked));
+  const count = boxes.filter((box) => box.checked).length;
+  if (hint) hint.textContent = toggle.checked ? "Participa en todos los días del evento."
+    : count ? `${count} día(s) seleccionado(s).`
+    : "Elige los días; si no eliges ninguno, se tomará como todos los días.";
+}
+
 // Características del expositor: interruptor + selector de chips (se oculta si el interruptor está apagado).
 function populateExpositorCaracteristicas(selectedIds = []) {
   const picker = document.getElementById("exp-caracteristicas-picker");
@@ -609,6 +647,12 @@ async function saveExpositorHandler(e, submittedFormData = null) {
     showToast("Revisa el costo base y los datos de las sillas extra.", "error");
     return;
   }
+  const multiDia = bazarEsMultiDia(bz);
+  let diasParticipacion = existing?.diasParticipacion || [];   // en eventos de un día se conserva lo que ya tenía
+  if (multiDia) {
+    const validos = [...new Set(data.diasParticipacion || [])].filter((did) => bz.evento.dias.some((d) => d.id === did));
+    diasParticipacion = data["exp-todos-dias"] || !validos.length || validos.length === bz.evento.dias.length ? [] : validos;
+  }
   const allTables = (bz.floors || []).flatMap((floor) => floor.tables || []);
   if (tableIds.some((tableId) => !allTables.some((table) => table.id === tableId))) {
     showToast("No se encontró una de las mesas seleccionadas en el plano", "error");
@@ -639,6 +683,7 @@ async function saveExpositorHandler(e, submittedFormData = null) {
     negocio:        String(data["exp-negocio"]).trim(),
     categoria:      selectedCategoryId,
     caracteristicas,
+    diasParticipacion,
     ubicacion:      existing?.ubicacion || "",
     tableId:        "",
     tableIds:       [],

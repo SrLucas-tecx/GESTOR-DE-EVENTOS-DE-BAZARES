@@ -91,6 +91,7 @@ function renderExpositores() {
           <button class="publication-status status-${escapeHTML(status)}" onclick="cyclePublicationStatus('${exp.id}')">
             📣 Publicación: ${publicationStatusLabel(exp.publicationStatus)}
           </button>
+          ${diasBadgeHTML(exp, bz)}
           ${exp.banned ? `<span class="banned-badge">🚫 Expositor baneado</span>` : ""}
         </div>
 
@@ -158,7 +159,7 @@ function renderExpositoresTabla(list) {
       <tr${exp.banned ? ' style="opacity:.72;"' : ""}>
         <td>
           <strong>${escapeHTML(exp.negocio)}</strong>${exp.banned ? ` <span style="color:var(--color-danger);font-weight:800;font-size:var(--fs-xs);">🚫 Baneado</span>` : ""}<br>
-          <small style="color:var(--color-text-muted);">${escapeHTML(exp.nombre)}</small>
+          <small style="color:var(--color-text-muted);">${escapeHTML(exp.nombre)}</small>${bazarEsMultiDia() ? `<br>${diasBadgeHTML(exp)}` : ""}
         </td>
         <td>${escapeHTML(catName)}${caracteristicasChipsHTML(exp)}</td>
         <td>${escapeHTML(getExpositorLocation(exp))}</td>

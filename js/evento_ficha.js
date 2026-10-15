@@ -37,6 +37,7 @@ function renderFicha() {
     if (!el || document.activeElement === el) return; // no pisar lo que se está escribiendo
     el.value = field === "nombre" ? bz.name : (bz.evento[field] ?? "");
   });
+  renderFichaDias(bz);
   renderFichaResumen(bz);
   renderPanelMetricas(bz);
   renderFichaDatos(bz);
@@ -276,6 +277,122 @@ function renderPanelMetricas(bz = getActiveBazaar()) {
     progress("Confirmación de invitados", confirmados, invitados.length);
 }
 
+// ==========================================
+// EVENTOS DE VARIOS DÍAS
+// bz.evento.multiDia (interruptor) + bz.evento.dias [{ id, nombre, fecha }].
+// Apagar el interruptor conserva la lista de días por si se vuelve a activar.
+// ==========================================
+function bazarEsMultiDia(bz = getActiveBazaar()) {
+  return Boolean(bz?.evento?.multiDia) && (bz.evento.dias || []).length > 1;
+}
+
+function getDiaLabel(dia, index) {
+  return (dia?.nombre || "").trim() || `Día ${index + 1}`;
+}
+
+function formatDiaFecha(fecha) {
+  const d = fecha ? new Date(`${fecha}T00:00:00`) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "";
+}
+
+/** Suma n días a "YYYY-MM-DD" (cadena vacía si la fecha no es válida). */
+function _fechaMasDias(iso, n) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return "";
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + n));
+  return d.toISOString().slice(0, 10);
+}
+
+/** Texto de los días en que participa un expositor ("" si el bazar es de un solo día). */
+function getExpositorDiasLabel(exp, bz = getActiveBazaar()) {
+  if (!bazarEsMultiDia(bz)) return "";
+  const dias = bz.evento.dias;
+  const elegidos = dias.filter((d) => (exp.diasParticipacion || []).includes(d.id));
+  if (!elegidos.length || elegidos.length === dias.length) return "Todos los días";
+  return elegidos.map((d) => getDiaLabel(d, dias.indexOf(d))).join(", ");
+}
+
+function diasBadgeHTML(exp, bz = getActiveBazaar()) {
+  const label = getExpositorDiasLabel(exp, bz);
+  return label ? `<span class="dias-badge" title="Días de participación">📅 ${escapeHTML(label)}</span>` : "";
+}
+
+/** Punto de limpieza al borrar un día: otras secciones (agenda, planos) se enganchan aquí. */
+function cleanupDiaRefs(bz, diaId) {
+  (bz.expositores || []).forEach((e) => { e.diasParticipacion = (e.diasParticipacion || []).filter((id) => id !== diaId); });
+}
+
+function toggleMultiDia(on) {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  ensureEventoFields(bz);
+  if (on && bz.evento.dias.length < 2) {
+    const base = bz.evento.fecha;
+    const stamp = Date.now();
+    bz.evento.dias = [
+      { id: `dia-${stamp}-1`, nombre: "Día 1", fecha: base },
+      { id: `dia-${stamp}-2`, nombre: "Día 2", fecha: _fechaMasDias(base, 1) }
+    ];
+  }
+  bz.evento.multiDia = Boolean(on);
+  saveState();
+  renderAll();
+}
+
+function addDiaEvento() {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  ensureEventoFields(bz);
+  const dias = bz.evento.dias;
+  dias.push({ id: `dia-${Date.now()}`, nombre: `Día ${dias.length + 1}`, fecha: _fechaMasDias(dias[dias.length - 1]?.fecha, 1) });
+  saveState();
+  renderAll();
+}
+
+function updateDiaEvento(id, field, value) {
+  const dia = getActiveBazaar()?.evento?.dias.find((d) => d.id === id);
+  if (!dia || !["nombre", "fecha"].includes(field)) return;
+  dia[field] = String(value).trim();
+  saveState();
+  renderAll();
+}
+
+async function removeDiaEvento(id) {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  if (bz.evento.dias.length <= 2) {
+    showToast("Un evento de varios días necesita al menos 2 días. Apaga el interruptor si dura un solo día.", "error");
+    return;
+  }
+  const dia = bz.evento.dias.find((d) => d.id === id);
+  if (!dia || !await appConfirm(`¿Eliminar "${getDiaLabel(dia, bz.evento.dias.indexOf(dia))}"? Se quitará de la participación de los expositores.`, "Eliminar día")) return;
+  bz.evento.dias = bz.evento.dias.filter((d) => d.id !== id);
+  cleanupDiaRefs(bz, id);
+  saveState();
+  renderAll();
+  showToast("🗑️ Día eliminado");
+}
+
+function renderFichaDias(bz = getActiveBazaar()) {
+  const toggle = document.getElementById("ficha-multidia");
+  const box = document.getElementById("ficha-dias-box");
+  const list = document.getElementById("ficha-dias-list");
+  if (!toggle || !box || !list || !bz) return;
+  toggle.checked = Boolean(bz.evento.multiDia);
+  box.hidden = !bz.evento.multiDia;
+  if (!bz.evento.multiDia || list.contains(document.activeElement)) return;   // no pisar lo que se está editando
+  const dias = bz.evento.dias;
+  list.innerHTML = dias.map((d, i) => `
+    <div class="dia-row">
+      <input type="text" class="form-input" value="${escapeHTML(d.nombre)}" placeholder="Día ${i + 1}" aria-label="Nombre del día ${i + 1}"
+             onchange="updateDiaEvento('${d.id}','nombre',this.value)">
+      <input type="date" class="form-input" value="${escapeHTML(d.fecha)}" aria-label="Fecha del día ${i + 1}"
+             onchange="updateDiaEvento('${d.id}','fecha',this.value)">
+      <button type="button" class="btn-danger btn-sm" ${dias.length <= 2 ? "disabled" : ""} onclick="removeDiaEvento('${d.id}')"
+              title="Eliminar día" aria-label="Eliminar día ${i + 1}">🗑️</button>
+    </div>`).join("");
+}
+
 /** Resumen de solo lectura de la ficha (se muestra cuando el formulario está oculto). */
 function renderFichaDatos(bz = getActiveBazaar()) {
   const box = document.getElementById("ficha-datos");
@@ -287,7 +404,9 @@ function renderFichaDatos(bz = getActiveBazaar()) {
     const d = new Date(`${ev.fecha}T00:00:00`);
     fecha = Number.isNaN(d.getTime()) ? ev.fecha : d.toLocaleDateString("es-MX", { dateStyle: "long" });
   }
-  const rows = [["Fecha", fecha], ["Lugar", ev.lugar], ["Líderes", ev.lideres], ["Público", ev.publico],
+  const diasTxt = ev.multiDia && ev.dias.length > 1
+    ? ev.dias.map((d, i) => `${getDiaLabel(d, i)}${formatDiaFecha(d.fecha) ? ` (${formatDiaFecha(d.fecha)})` : ""}`).join(" · ") : "";
+  const rows = [["Fecha", fecha], ["Días", diasTxt], ["Lugar", ev.lugar], ["Líderes", ev.lideres], ["Público", ev.publico],
                 ["Asistentes esperados", ev.asistentes], ["Staff considerado", ev.staff]]
     .filter(([, v]) => v !== "" && v !== null && v !== undefined);
   box.innerHTML = `

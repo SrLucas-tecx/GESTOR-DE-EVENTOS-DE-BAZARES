@@ -711,6 +711,20 @@
             </div>
           </div>
           <div class="form-group">
+            <div class="form-switch">
+              <span class="switch-label">¿El evento dura más de 1 día?</span>
+              <label class="switch" aria-label="¿El evento dura más de 1 día?">
+                <input type="checkbox" id="ficha-multidia" onchange="toggleMultiDia(this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div id="ficha-dias-box" class="ficha-dias-box" hidden>
+            <div id="ficha-dias-list"></div>
+            <button type="button" class="btn-secondary btn-sm" onclick="addDiaEvento()">+ Agregar día</button>
+            <p class="form-hint">Pon nombre y fecha a cada día. Los expositores podrán elegir en qué días participan.</p>
+          </div>
+          <div class="form-group">
             <label class="form-label" for="ficha-objetivo">Objetivo del evento</label>
             <textarea id="ficha-objetivo" class="form-textarea" oninput="debouncedUpdateFichaField('objetivo', this.value)"></textarea>
           </div>
@@ -1302,6 +1316,18 @@
               <p class="form-hint">Ajustable para este expositor. No modifica el costo ni el pago.</p>
             </div>
           </div>
+          <div class="form-group" id="exp-dias-group" hidden>
+            <label class="form-label">Días de participación</label>
+            <div class="form-switch">
+              <span class="switch-label">Participa todos los días del evento</span>
+              <label class="switch" aria-label="Participa todos los días del evento">
+                <input type="checkbox" id="exp-todos-dias" checked onchange="updateExpositorDias()">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div id="exp-dias-picker" class="caract-picker" style="margin-top:var(--space-2);" hidden></div>
+            <p class="form-hint" id="exp-dias-hint" aria-live="polite"></p>
+          </div>
           <div class="form-row exp-logistics-grid">
             <div class="exp-logistics-col">
               <div class="form-group">
@@ -1481,6 +1507,34 @@
   </div>
 </div>
 <!-- / #MODAL CATEGORÍA -->
+
+<!-- # MODAL: COLOR DEL BAZAR -->
+<div id="modal-color-bazar" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Color del bazar — <span id="modal-color-bazaar-name"></span></h2>
+      <button type="button" class="modal-close" aria-label="Cerrar" onclick="closeModal('modal-color-bazar')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="bazar-color-id">
+      <div id="bazar-color-palette" class="color-palette"></div>
+      <div class="form-group" style="margin-top:var(--space-4);">
+        <label class="form-label" for="bazar-color-input">O elige cualquier color</label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="color" id="bazar-color-input" class="form-input" style="width:60px;height:42px;padding:2px;cursor:pointer;" value="#0d9488"
+                 oninput="pickBazaarColor(this.value)">
+          <span class="form-hint" id="bazar-color-hint" style="margin:0;"></span>
+        </div>
+      </div>
+      <div id="bazar-color-preview" class="bz-color-preview">Así se verá la marca del bazar</div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" onclick="clearBazaarColor()">Quitar color</button>
+      <button type="button" class="btn-secondary" onclick="closeModal('modal-color-bazar')">Cancelar</button>
+      <button type="button" class="btn-primary" onclick="saveBazaarColor()">Guardar color</button>
+    </div>
+  </div>
+</div>
 
 <!-- # MODAL: TODAS LAS CARACTERÍSTICAS DE UN EXPOSITOR -->
 <div id="modal-caracteristicas" class="modal-overlay">

@@ -101,6 +101,7 @@ function usarPlantilla(pltId) {
   document.getElementById("exp-negocio").value       = plt.negocio;
   document.getElementById("exp-categoria").value     = plt.categoria;
   populateExpositorCaracteristicas(plt.caracteristicas || []);
+  populateExpositorDias(null, getActiveBazaar());
   document.getElementById("exp-tel").value           = plt.tel || "";
   document.getElementById("exp-email").value         = plt.email || "";
   document.getElementById("exp-notas").value         = plt.notas || "";
