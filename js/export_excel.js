@@ -100,6 +100,7 @@ function _xlFicha(wb, bz) {
   const fields = [
     ["Nombre del evento", bz.name],
     ["Fecha del evento", _xlDate(ev.fecha) || "por definir"],
+    ...(bazarEsMultiDia(bz) ? [["Días del evento", ev.dias.map((d, i) => `${getDiaLabel(d, i)}${formatDiaFecha(d.fecha) ? ` (${formatDiaFecha(d.fecha)})` : ""}`).join(" · ")]] : []),
     ["Objetivo del evento", ev.objetivo],
     ["Líder o líderes del evento", ev.lideres],
     ["Público al que va dirigido", ev.publico],
@@ -217,7 +218,7 @@ function _xlLayout(wb, bz) {
         const width = 760;
         const height = Math.round(width * bazaarCanvas.canvas.height / bazaarCanvas.canvas.width);
         const imageId = wb.addImage({ base64: dataUrl, extension: "png" });
-        ws.getCell("B3").value = `Plano: ${floor.name}`;
+        ws.getCell("B3").value = `Plano: ${floorLabel(floor, bz)}`;
         ws.getCell("B3").font = { bold: true };
         ws.addImage(imageId, { tl: { col: 1, row: 3 }, ext: { width, height } });
         nextRow = 4 + Math.ceil(height / 20) + 2;
@@ -236,7 +237,7 @@ function _xlLayout(wb, bz) {
   (bz.floors || []).forEach((f) => (f.tables || []).forEach((t) => {
     const exp = bz.expositores.find((e) => e.id === t.exhibitorId);
     const row = ws.getRow(r++);
-    row.getCell(2).value = f.name;
+    row.getCell(2).value = floorLabel(f, bz);
     row.getCell(3).value = t.name;
     row.getCell(4).value = exp ? exp.negocio : "Mesa libre";
     _xlBodyRow(row, 2, 3);
@@ -253,18 +254,21 @@ function _xlStaff(wb, bz) {
 
 function _xlExpositores(wb, bz) {
   const catName = (id) => AppState.categorias.find((c) => c.id === id)?.nombre || "Sin categoría";
+  const multi = bazarEsMultiDia(bz);
+  const off = multi ? 1 : 0;   // en eventos de varios días se agrega la columna «Días de participación»
   _xlTableSheet(wb, "Expositores", bz,
-    ["Negocio", "Titular", "Categoría", "Características", "Ubicación", "Mesas compradas", "Sillas asignadas", "Sillas extra", "Costo por silla extra", "Cargo sillas extra", "Costo base", "Costo final", "Adelanto", "Saldo", "Pagado", "Fecha límite de pago"],
-    [26, 22, 18, 28, 18, 14, 14, 12, 18, 16, 14, 14, 14, 14, 10, 18],
+    ["Negocio", "Titular", "Categoría", "Características", ...(multi ? ["Días de participación"] : []), "Ubicación", "Mesas compradas", "Sillas asignadas", "Sillas extra", "Costo por silla extra", "Cargo sillas extra", "Costo base", "Costo final", "Adelanto", "Saldo", "Pagado", "Fecha límite de pago"],
+    [26, 22, 18, 28, ...(multi ? [22] : []), 24, 14, 14, 12, 18, 16, 14, 14, 14, 14, 10, 18],
     bz.expositores.map((e) => [
-      e.negocio, e.nombre, catName(e.categoria), getExpositorCaracteristicas(e).map((c) => c.nombre).join(", "), e.ubicacion,
+      e.negocio, e.nombre, catName(e.categoria), getExpositorCaracteristicas(e).map((c) => c.nombre).join(", "),
+      ...(multi ? [getExpositorDiasLabel(e, bz)] : []), getExpositorLocation(e, bz),
       Number(e.mesasCantidad === "otro" ? e.mesasCantidadOtro : e.mesasCantidad || 1),
       Number(e.sillasCantidad || 0), Number(e.sillasExtraCantidad || 0),
       Number(e.costoSillaExtra || 0), Number(e.costoExtraSillas || 0),
       Number(e.costoBase ?? e.costo ?? 0), Number(e.costo || 0), Number(e.adelanto || 0), getExpositorPendingBalance(e),
       e.pagado ? "Sí" : "No", _xlDate(e.fechaLimitePago),
     ]),
-    { moneyCols: [8, 9, 10, 11, 12, 13], dateCols: [15] });
+    { moneyCols: [8, 9, 10, 11, 12, 13].map((i) => i + off), dateCols: [15 + off] });
 }
 
 async function exportarPlanEventoXLSX() {

@@ -10,9 +10,12 @@
 // ==========================================
 
 /** Mesas con expositor asignado (todos los pisos) + su estado de asistencia. */
-function getDiaEventoTables(bz = getActiveBazaar()) {
+/** dia: "all" (todos los planos) o el id de un día (sus planos + los que no tienen día). */
+function getDiaEventoTables(bz = getActiveBazaar(), dia = "all") {
   const result = [];
   (bz?.floors || []).forEach((floor) => {
+    const planoDia = floorDiaId(floor, bz);
+    if (dia !== "all" && planoDia && planoDia !== dia) return;
     (floor.tables || []).forEach((table) => {
       const exp = bz.expositores.find((item) => item.id === table.exhibitorId);
       if (!exp) return;
@@ -23,11 +26,38 @@ function getDiaEventoTables(bz = getActiveBazaar()) {
   return result;
 }
 
+/** Pestaña activa de Día del Evento: un día (el de hoy si coincide) o "all". */
+function diaEventoActual(bz = getActiveBazaar()) {
+  if (!bazarEsMultiDia(bz)) return "all";
+  const guardado = AppState.diaEventoDia;
+  if (guardado === "all") return "all";
+  if (bz.evento.dias.some((d) => d.id === guardado)) return guardado;
+  const hoy = new Date().toISOString().slice(0, 10);
+  return bz.evento.dias.find((d) => d.fecha === hoy)?.id || "all";
+}
+
+function setDiaEventoDia(id) {
+  AppState.diaEventoDia = id;
+  saveState();
+  renderPanelDiaEvento();
+}
+
+function renderDiaEventoTabs(bz) {
+  const box = document.getElementById("dia-evento-tabs");
+  if (!box) return;
+  box.hidden = !bazarEsMultiDia(bz);
+  if (box.hidden) return;
+  const actual = diaEventoActual(bz);
+  const tab = (id, label) => `<button type="button" class="filter-chip ${actual === id ? "active" : ""}" onclick="setDiaEventoDia('${id}')">${escapeHTML(label)}</button>`;
+  box.innerHTML = tab("all", "Todos los días") + bz.evento.dias.map((d, i) => tab(d.id, getDiaLabel(d, i))).join("");
+}
+
 function renderPanelDiaEvento() {
   const bz = getActiveBazaar();
   if (!bz || !document.getElementById("sec-dia-evento")) return;
+  renderDiaEventoTabs(bz);
 
-  const entries  = getDiaEventoTables(bz);
+  const entries  = getDiaEventoTables(bz, diaEventoActual(bz));
   const total    = entries.length;
   const attended = entries.filter((e) => e.state === "attended").length;
   const absent   = entries.filter((e) => e.state === "absent").length;
@@ -78,7 +108,7 @@ function renderPanelDiaEvento() {
       <div style="min-width:0;">
         <strong>${escapeHTML(exp.negocio)}</strong>
         <div style="font-size:var(--fs-xs);color:var(--color-text-muted);">
-          ${escapeHTML(table.name)}${multiFloor ? ` · ${escapeHTML(floor.name)}` : ""} · ${escapeHTML(exp.nombre)}
+          ${escapeHTML(table.name)}${multiFloor ? ` · ${escapeHTML(floorLabel(floor, bz))}` : ""} · ${escapeHTML(exp.nombre)}
         </div>
         ${exp.pagado ? "" : `<div style="font-size:var(--fs-xs);font-weight:700;color:var(--color-danger);">⏳ Pago pendiente</div>`}
       </div>
@@ -159,11 +189,11 @@ function drawPresentationFrame() {
   bazaarCanvas.panY  = saved.panY;
   bazaarCanvas.render();
 
-  const entries  = getDiaEventoTables(bz);
+  const entries  = getDiaEventoTables(bz, floor ? (floorDiaId(floor, bz) || "all") : "all");
   const attended = entries.filter((e) => e.state === "attended").length;
   const title = document.getElementById("presentation-bazar-name");
   if (title) {
-    title.textContent = `${bz?.name || "BAZARIX"}${floor ? ` — ${floor.name}` : ""} · ✅ ${attended}/${entries.length} asistieron`;
+    title.textContent = `${bz?.name || "BAZARIX"}${floor ? ` — ${floorLabel(floor, bz)}` : ""} · ✅ ${attended}/${entries.length} asistieron`;
   }
 }
 
@@ -172,7 +202,7 @@ function renderPresentationFloorSelector() {
   const bz = getActiveBazaar();
   if (!selector || !bz) return;
   selector.innerHTML = (bz.floors || []).map((floor) =>
-    `<option value="${escapeHTML(floor.id)}" ${floor.id === bz.activeFloorId ? "selected" : ""}>${escapeHTML(floor.name)}</option>`
+    `<option value="${escapeHTML(floor.id)}" ${floor.id === bz.activeFloorId ? "selected" : ""}>${escapeHTML(floorLabel(floor, bz))}</option>`
   ).join("");
   selector.hidden = bz.floors.length < 2;
 }

@@ -427,6 +427,11 @@
           <div class="control-group-inline floor-controls">
             <label class="form-label" style="margin:0;">Piso:</label>
             <select id="floor-select" class="filter-select" onchange="switchFloor(this.value)" aria-label="Cambiar piso del plano"></select>
+            <button class="btn-secondary btn-sm" onclick="duplicateCurrentFloor()" title="Crear otro plano igual a este (por ejemplo, para otro día)">📋 Duplicar plano</button>
+            <span id="floor-dia-wrap" class="floor-dia-wrap" hidden>
+              <label class="form-label" for="floor-dia-select" style="margin:0;">Día del plano:</label>
+              <select id="floor-dia-select" class="filter-select" onchange="setFloorDia(this.value)" aria-label="Día al que pertenece este plano"></select>
+            </span>
             <button class="btn-secondary btn-sm" onclick="addFloor()"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Piso</button>
             <button class="btn-secondary btn-sm" onclick="renameCurrentFloor()" title="Cambiar el nombre del piso actual">✏️ Renombrar piso</button>
             <button class="btn-danger btn-sm" onclick="deleteCurrentFloor()" title="Eliminar piso actual" aria-label="Eliminar piso actual"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
@@ -956,6 +961,8 @@
             <button class="btn-primary btn-sm" onclick="enterPresentationMode()">🗺️ Mapeo del evento</button>
           </div>
         </div>
+        <!-- Pestañas por día (solo eventos de varios días) -->
+        <div id="dia-evento-tabs" class="filter-bar" hidden></div>
         <!-- Stats rápidos -->
         <div class="stats-row" style="margin-bottom:var(--space-4);">
           <div class="stat-card accent-teal">
@@ -1322,7 +1329,7 @@
             <div class="form-switch">
               <span class="switch-label">Participa todos los días del evento</span>
               <label class="switch" aria-label="Participa todos los días del evento">
-                <input type="checkbox" id="exp-todos-dias" checked onchange="updateExpositorDias()">
+                <input type="checkbox" id="exp-todos-dias" checked onchange="updateExpositorDias(true)">
                 <span class="slider"></span>
               </label>
             </div>
@@ -1508,6 +1515,36 @@
   </div>
 </div>
 <!-- / #MODAL CATEGORÍA -->
+
+<!-- # MODAL: DUPLICAR PLANO -->
+<div id="modal-duplicar-plano" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Duplicar plano</h2>
+      <button type="button" class="modal-close" aria-label="Cerrar" onclick="closeModal('modal-duplicar-plano')">✕</button>
+    </div>
+    <form id="form-duplicar-plano" onsubmit="saveDuplicarPlano(event)">
+      <div class="modal-body">
+        <p class="form-hint" id="dup-plano-origen" style="margin:0 0 12px;"></p>
+        <div class="form-group"><label class="form-label" for="dup-plano-nombre">Nombre del nuevo plano *</label><input type="text" id="dup-plano-nombre" class="form-input" required></div>
+        <div class="form-group" id="dup-plano-dia-group" hidden><label class="form-label" for="dup-plano-dia">Día del nuevo plano</label><select id="dup-plano-dia" class="form-select"></select></div>
+        <div class="form-switch" style="margin-bottom:var(--space-3);">
+          <span class="switch-label">Copiar también los expositores asignados<small class="form-hint" style="display:block;font-weight:500;">Solo los que participan ese día y sin pasar de sus mesas solicitadas.</small></span>
+          <label class="switch" aria-label="Copiar expositores asignados"><input type="checkbox" id="dup-plano-expositores" checked><span class="slider"></span></label>
+        </div>
+        <div class="form-switch">
+          <span class="switch-label">Copiar la imagen de fondo<small class="form-hint" style="display:block;font-weight:500;">Si el almacenamiento está justo, desactívalo.</small></span>
+          <label class="switch" aria-label="Copiar la imagen de fondo"><input type="checkbox" id="dup-plano-fondo" checked><span class="slider"></span></label>
+        </div>
+        <p class="form-hint">El plano nuevo es independiente: lo que cambies en uno no afecta al otro. La asistencia empieza en blanco.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('modal-duplicar-plano')">Cancelar</button>
+        <button type="submit" class="btn-primary">Duplicar plano</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- # MODAL: COLOR DEL BAZAR -->
 <div id="modal-color-bazar" class="modal-overlay">

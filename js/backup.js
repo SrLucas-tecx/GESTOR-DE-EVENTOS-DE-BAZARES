@@ -1,5 +1,5 @@
 /**
- * BAZARIX — backup.js (v4.2)
+ * BAZARIX — backup.js (v4.3)
  * Exportar un bazar completo o solo las secciones elegidas, e importar
  * con dos modos: COMBINAR (agrega/actualiza por id) o REEMPLAZAR.
  *
@@ -8,6 +8,11 @@
  *
  * También sabe leer los respaldos completos antiguos (todo el AppState):
  * en ese caso el usuario elige de cuál bazar del archivo importar.
+ *
+ * Novedades v4.3:
+ *  - Eventos de varios días: ficha.multiDia + ficha.dias, expositor.diasParticipacion,
+ *    minutoAMinuto[].dia y plano.floors[].dia (los días se referencian por id).
+ *  - Color del bazar en "Datos generales". Aviso si los datos usan días que el destino no tiene.
  *
  * Novedades v4.2:
  *  - Catálogo global "caracteristicas" (antes subcategorías): sección propia al exportar/importar.
@@ -31,10 +36,10 @@ const BACKUP_VERSION = 4;
 
 // scope "bazar": vive dentro de un bazar · scope "global": compartido entre bazares
 const BACKUP_SECTIONS = [
-  { key: "general",       scope: "bazar",  label: "Datos generales",  desc: "Nombre, logo y escala del plano",
+  { key: "general",       scope: "bazar",  label: "Datos generales",  desc: "Nombre, logo, color y escala del plano",
     count: (d) => (d?.logoImage ? "con logo" : "sin logo") },
-  { key: "ficha",         scope: "bazar",  label: "Ficha del evento", desc: "Fecha, objetivo, líderes, público, lugar y staff",
-    count: (d) => (d.fecha ? `fecha ${d.fecha}` : "sin fecha") },
+  { key: "ficha",         scope: "bazar",  label: "Ficha del evento", desc: "Fecha, días del evento, objetivo, líderes, público, lugar y staff",
+    count: (d) => `${d.fecha ? `fecha ${d.fecha}` : "sin fecha"}${d.multiDia && (d.dias || []).length > 1 ? ` · ${d.dias.length} días` : ""}` },
   { key: "staff",         scope: "bazar",  label: "Staff (roles y responsables)", desc: "Personas y áreas a las que apuntan tareas, compras, agenda y expositores",
     count: (d) => `${(d.roles || []).length} rol(es) · ${(d.responsables || []).length} persona(s)` },
   { key: "tareas",        scope: "bazar",  label: "Tareas previas y posteriores", desc: "Fases Previo y Post",
@@ -108,7 +113,7 @@ function _bkCaracteristicasDe(r) {
 /** Extrae de un bazar las secciones que se pueden exportar. */
 function backupExtraerSecciones(bz) {
   return {
-    general:       { name: bz.name, logoImage: bz.logoImage || null, mapConfig: bz.mapConfig },
+    general:       { name: bz.name, logoImage: bz.logoImage || null, color: bz.color || "", mapConfig: bz.mapConfig },
     ficha:         bz.evento || emptyEvento(),
     staff:         { roles: bz.roles || [], responsables: bz.responsables || [] },
     tareas:        bz.tareas || [],
@@ -184,6 +189,8 @@ const _BK_NORM = {
     ...f, fecha: _bkDate(f.fecha), objetivo: _bkT(f.objetivo), lideres: _bkT(f.lideres),
     publico: _bkT(f.publico), lugar: _bkT(f.lugar),
     asistentes: _bkOptNum(f.asistentes), staff: _bkOptNum(f.staff), presupuestoBase: _bkOptNum(f.presupuestoBase),
+    multiDia: _bkBool(f.multiDia),
+    dias: Array.isArray(f.dias) ? f.dias.filter(_bkIsObj).map((d) => ({ ...d, id: _bkId(d.id, "dia"), nombre: _bkT(d.nombre), fecha: _bkDate(d.fecha) })) : [],
   }),
   staff: (d) => ({
     roles: _bkList(d.roles || [], (r) => ({ ...r, id: _bkId(r.id, "rol"), nombre: _bkT(r.nombre) || "Rol", color: _bkHex(r.color) })),
@@ -221,6 +228,7 @@ const _BK_NORM = {
       publicationStatus: _BK_STATUSES.includes(_bkT(e.publicationStatus)) ? _bkT(e.publicationStatus) : "pendiente",
       checklist: Array.isArray(e.checklist) && e.checklist.length ? e.checklist : defaultChecklistItems(),
       historial: Array.isArray(e.historial) ? e.historial : [],
+      diasParticipacion: Array.isArray(e.diasParticipacion) ? [...new Set(e.diasParticipacion.map(_bkT).filter(Boolean))] : [],
     };
     delete out.subcategoria;
     if (e.costoBase !== undefined && _bkT(e.costoBase) !== "") out.costoBase = Math.max(0, _bkNum(e.costoBase));
@@ -250,7 +258,7 @@ const _BK_NORM = {
   }),
   minutoAMinuto: (list) => _bkList(list, (r) => ({
     ...r, id: _bkId(r.id, "minute"), time: _bkTime(r.time), horaFin: _bkTime(r.horaFin),
-    activity: _bkT(r.activity), lugar: _bkT(r.lugar), area: _bkT(r.area), notes: _bkT(r.notes),
+    activity: _bkT(r.activity), lugar: _bkT(r.lugar), area: _bkT(r.area), notes: _bkT(r.notes), dia: _bkT(r.dia),
   })),
   plantillas: (list) => _bkList(list, (p) => ({
     ...p, id: _bkId(p.id, "plt"),
@@ -475,11 +483,22 @@ function backupImportRefresh() {
   if (keys.includes("caracteristicas") && modo === "reemplazar" && !isNew) {
     warnings.push("⚠️ Las características son compartidas: reemplazarlas afecta a todos tus bazares.");
   }
+  if (!keys.includes("ficha")) {
+    const destBz = isNew ? null : AppState.bazaars[document.getElementById("bi-dest").value];
+    const conocidos = new Set((destBz?.evento?.dias || []).map((d) => d.id));
+    const refs = new Set();
+    if (keys.includes("expositores")) (bz?.datos.expositores || []).forEach((e) => (e.diasParticipacion || []).forEach((id) => refs.add(id)));
+    if (keys.includes("minutoAMinuto")) (bz?.datos.minutoAMinuto || []).forEach((r) => { if (r.dia) refs.add(r.dia); });
+    if (keys.includes("plano")) (bz?.datos.plano?.floors || []).forEach((f) => { if (f.dia) refs.add(f.dia); });
+    if ([...refs].some((id) => !conocidos.has(id))) {
+      warnings.push("ℹ️ Estos datos usan días del evento que el bazar destino no tiene. Marca «Ficha del evento» para traer la lista de días; sin ella se tomarán como «todos los días» o sin día.");
+    }
+  }
   if (keys.includes("plano") && !keys.includes("expositores")) {
     warnings.push("ℹ️ Las mesas del plano quedarán sin expositor asignado si esos expositores no existen en el destino.");
   }
   if (keys.includes("general") && modo === "combinar" && !isNew) {
-    warnings.push("ℹ️ En modo Combinar, Datos generales solo agrega el logo si aún no tienes uno.");
+    warnings.push("ℹ️ En modo Combinar, Datos generales solo agrega el logo y el color si aún no tienes uno.");
   }
   const staffDisponible = _bkAvailable().some(({ sec }) => sec.key === "staff");
   if (staffDisponible && !keys.includes("staff") && keys.some((k) => BACKUP_NEEDS_STAFF.includes(k))) {
@@ -549,9 +568,11 @@ function _bkApplySection(dest, key, data, modo, sameBazaar) {
       if (modo === "reemplazar") {
         if (data.name) dest.name = data.name;
         dest.logoImage = data.logoImage || null;
+        dest.color = /^#[0-9a-f]{6}$/i.test(String(data.color || "")) ? data.color : "";
         if (data.mapConfig) dest.mapConfig = _bkClone(data.mapConfig);
-      } else if (data.logoImage && !dest.logoImage) {
-        dest.logoImage = data.logoImage;
+      } else {
+        if (data.logoImage && !dest.logoImage) dest.logoImage = data.logoImage;
+        if (/^#[0-9a-f]{6}$/i.test(String(data.color || "")) && !dest.color) dest.color = data.color;
       }
       break;
     case "staff":
@@ -571,7 +592,10 @@ function _bkApplySection(dest, key, data, modo, sameBazaar) {
       if (modo === "reemplazar") dest.evento = incoming;
       else {
         dest.evento = { ...emptyEvento(), ...(dest.evento || {}) };
-        Object.keys(incoming).forEach((k) => { if (incoming[k] !== "" && incoming[k] !== null) dest.evento[k] = incoming[k]; });
+        Object.keys(incoming).forEach((k) => {
+          if (["multiDia", "dias"].includes(k) && !(incoming.multiDia && (incoming.dias || []).length > 1)) return;
+          if (incoming[k] !== "" && incoming[k] !== null) dest.evento[k] = incoming[k];
+        });
       }
       break;
     }

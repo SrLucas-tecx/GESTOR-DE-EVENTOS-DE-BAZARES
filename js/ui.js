@@ -278,12 +278,14 @@ function exportarJSONCompleto() {
 function exportarCSV() {
   const bz = getActiveBazaar();
   if (!bz) return;
-  const headers = ["Nombre", "Negocio", "Categoría", "Características", "Teléfono", "Email",
+  const multi = bazarEsMultiDia(bz);
+  const headers = ["Nombre", "Negocio", "Categoría", "Características", ...(multi ? ["Días de participación"] : []), "Teléfono", "Email",
                    "Ubicación", "Mesas Solicitadas", "Área Encargada", "Costo Total", "Adelanto", "Saldo", "Fecha Límite", "Estado", "Notas"];
   const rows = bz.expositores.map((e) => [
     e.nombre, e.negocio, getExpositorCategoryLabel(e),
     getExpositorCaracteristicas(e).map((c) => c.nombre).join(", "),
-    e.tel, e.email, e.ubicacion,
+    ...(multi ? [getExpositorDiasLabel(e, bz)] : []),
+    e.tel, e.email, getExpositorLocation(e, bz),
     e.mesasCantidad === "otro" ? e.mesasCantidadOtro : e.mesasCantidad || 1,
     e.areaEncargada || "",
     e.costo, e.adelanto || 0,

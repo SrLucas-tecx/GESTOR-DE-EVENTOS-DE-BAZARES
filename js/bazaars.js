@@ -195,12 +195,131 @@ function renderFloorSelector() {
   const select = document.getElementById("floor-select");
   const bz = getActiveBazaar();
   if (!select || !bz?.floors) return;
-  select.innerHTML = bz.floors.map((floor) =>
-    `<option value="${floor.id}" ${floor.id === bz.activeFloorId ? "selected" : ""}>${escapeHTML(floor.name)}</option>`
-  ).join("");
+  const multi = bazarEsMultiDia(bz);
+  const option = (floor) => `<option value="${floor.id}" ${floor.id === bz.activeFloorId ? "selected" : ""}>${escapeHTML(floor.name)}</option>`;
+  if (!multi) {
+    select.innerHTML = bz.floors.map(option).join("");
+  } else {   // planos agrupados por día
+    const grupos = [...bz.evento.dias.map((d, i) => ({ id: d.id, label: getDiaLabel(d, i) })), { id: "", label: "Sin día asignado" }];
+    select.innerHTML = grupos.map((g) => {
+      const lista = bz.floors.filter((floor) => floorDiaId(floor, bz) === g.id);
+      return lista.length ? `<optgroup label="${escapeHTML(g.label)}">${lista.map(option).join("")}</optgroup>` : "";
+    }).join("");
+  }
   select.disabled = bz.floors.length < 2;
+  const wrap = document.getElementById("floor-dia-wrap");
+  if (wrap) wrap.hidden = !multi;
+  const diaSelect = document.getElementById("floor-dia-select");
+  if (diaSelect && multi) {
+    diaSelect.innerHTML = `<option value="">Sin día asignado</option>` + bz.evento.dias.map((d, i) =>
+      `<option value="${escapeHTML(d.id)}">${escapeHTML(getDiaLabel(d, i))}</option>`).join("");
+    diaSelect.value = floorDiaId(getActiveFloor(bz), bz);
+  }
   const renameButton = document.querySelector('[onclick="renameCurrentFloor()"]');
   if (renameButton) renameButton.disabled = bz.floors.length === 0;
+}
+
+function setFloorDia(value) {
+  const bz = getActiveBazaar();
+  const floor = getActiveFloor(bz);
+  if (!bz || !floor) return;
+  floor.dia = bz.evento.dias.some((d) => d.id === value) ? value : "";
+  saveState();
+  renderAll();
+  showToast(floor.dia ? "📅 Día del plano actualizado" : "Plano sin día asignado");
+}
+
+// Duplicar el plano activo (mesas, elementos, zonas y fondo) como otro plano, normalmente de otro día.
+function duplicateCurrentFloor() {
+  const bz = getActiveBazaar();
+  const floor = getActiveFloor(bz);
+  if (!bz || !floor) return;
+  const multi = bazarEsMultiDia(bz);
+  const origenDia = floorDiaId(floor, bz);
+  let destino = "";
+  const group = document.getElementById("dup-plano-dia-group");
+  const select = document.getElementById("dup-plano-dia");
+  if (group) group.hidden = !multi;
+  if (multi && select) {
+    const i = bz.evento.dias.findIndex((d) => d.id === origenDia);
+    destino = i >= 0 && i + 1 < bz.evento.dias.length ? bz.evento.dias[i + 1].id : "";   // por defecto, el día siguiente
+    select.innerHTML = `<option value="">Sin día asignado</option>` + bz.evento.dias.map((d, k) =>
+      `<option value="${escapeHTML(d.id)}">${escapeHTML(getDiaLabel(d, k))}</option>`).join("");
+    select.value = destino;
+  }
+  document.getElementById("dup-plano-origen").textContent =
+    `Se copiará "${floorLabel(floor, bz)}": ${(floor.tables || []).length} mesa(s), ${(floor.elements || []).length} elemento(s) y ${(floor.zones || []).length} zona(s).`;
+  document.getElementById("dup-plano-nombre").value = destino === origenDia ? `${floor.name} (copia)` : floor.name;
+  document.getElementById("dup-plano-expositores").checked = true;
+  document.getElementById("dup-plano-fondo").checked = true;
+  openModal("modal-duplicar-plano");
+  setTimeout(() => document.getElementById("dup-plano-nombre")?.select(), 50);
+}
+
+function saveDuplicarPlano(e) {
+  e.preventDefault();
+  const bz = getActiveBazaar();
+  const source = getActiveFloor(bz);
+  const nombre = document.getElementById("dup-plano-nombre").value.trim();
+  if (!bz || !source || !nombre) return;
+  const multi = bazarEsMultiDia(bz);
+  let dia = multi ? document.getElementById("dup-plano-dia").value : "";
+  if (!bz.evento.dias.some((d) => d.id === dia)) dia = "";
+  if (bz.floors.some((f) => floorDiaId(f, bz) === dia && f.name.trim().toLowerCase() === nombre.toLowerCase())) {
+    showToast("Ya existe un plano con ese nombre en ese día. Cambia el nombre o el día.", "error");
+    return;
+  }
+  const copiarExpositores = document.getElementById("dup-plano-expositores").checked;
+  const copiarFondo = document.getElementById("dup-plano-fondo").checked;
+  const stamp = Date.now();
+  const copy = JSON.parse(JSON.stringify(source));
+  copy.id = `${bz.id}-floor-${stamp}`;
+  copy.name = nombre;
+  copy.dia = dia;
+  if (!copiarFondo) Object.assign(copy, { bgImage: null, bgScale: 1, bgScaleX: 1, bgScaleY: 1, bgRotation: 0, bgX: 0, bgY: 0 });
+  (copy.elements || []).forEach((el, i) => { el.id = `element-${stamp}-${i}`; });
+  (copy.zones || []).forEach((zone, i) => { zone.id = `zone-${stamp}-${i}`; });
+
+  // Mesas por expositor que ya existen en el día destino: el límite de mesas solicitadas es por día.
+  const conteo = {};
+  bz.floors.filter((f) => floorDiaId(f, bz) === dia).forEach((f) => (f.tables || []).forEach((t) => {
+    if (t.exhibitorId) conteo[t.exhibitorId] = (conteo[t.exhibitorId] || 0) + 1;
+  }));
+  const tocados = new Set();
+  let omitidas = 0;
+  (copy.tables || []).forEach((table, i) => {
+    table.id = `t-${stamp}-${i}`;
+    table.attended = false;
+    table.absent = false;
+    if (!table.exhibitorId) return;
+    const exp = bz.expositores.find((item) => item.id === table.exhibitorId);
+    if (copiarExpositores && exp && expositorParticipaEnDia(exp, dia, bz) && (conteo[exp.id] || 0) < getExpositorRequestedTableCount(exp)) {
+      conteo[exp.id] = (conteo[exp.id] || 0) + 1;
+      tocados.add(exp.id);
+    } else {
+      if (copiarExpositores) omitidas += 1;
+      table.exhibitorId = "";
+    }
+  });
+
+  const previousActive = bz.activeFloorId;
+  const resync = () => tocados.forEach((id) => { const exp = bz.expositores.find((item) => item.id === id); if (exp) syncExpositorTableAssignment(bz, exp); });
+  bz.floors.push(copy);
+  bz.activeFloorId = copy.id;
+  resync();
+  if (!saveState()) {   // almacenamiento lleno (el fondo duplicado pesa): se deshace la copia
+    bz.floors = bz.floors.filter((f) => f !== copy);
+    bz.activeFloorId = previousActive;
+    resync();
+    renderAll();
+    syncCanvasWithState();
+    showToast("No se pudo duplicar: el almacenamiento está lleno. Prueba sin copiar la imagen de fondo.", "error");
+    return;
+  }
+  closeModal("modal-duplicar-plano");
+  renderAll();
+  syncCanvasWithState();
+  showToast(`✅ Plano "${floorLabel(copy, bz)}" creado${omitidas ? ` · ${omitidas} mesa(s) quedaron libres (el expositor no participa ese día o ya tiene todas sus mesas)` : ""}`);
 }
 
 function switchFloor(floorId) {
@@ -236,6 +355,7 @@ async function addFloor() {
   const name = await appPrompt("Nombre del nuevo piso:", `Piso ${(bz.floors?.length || 0) + 1}`, "Agregar piso");
   if (!name?.trim()) return;
   const floor = createFloor(`${bz.id}-floor-${Date.now()}`, name.trim());
+  floor.dia = floorDiaId(getActiveFloor(bz), bz);   // el piso nuevo nace en el día que estás viendo
   if (!bz.floors) bz.floors = [];
   bz.floors.push(floor);
   bz.activeFloorId = floor.id;
@@ -252,7 +372,7 @@ async function deleteCurrentFloor() {
     return;
   }
   const floor = getActiveFloor(bz);
-  if (!floor || !await appConfirm(`¿Eliminar "${floor.name}" y sus mesas?`, "Eliminar piso")) return;
+  if (!floor || !await appConfirm(`¿Eliminar "${floorLabel(floor, bz)}" y sus mesas?`, "Eliminar piso")) return;
   (floor.tables || []).forEach((table) => removeTableFromExpositorAssignment(bz, table));
   bz.floors = bz.floors.filter((item) => item.id !== floor.id);
   bz.activeFloorId = bz.floors[0].id;

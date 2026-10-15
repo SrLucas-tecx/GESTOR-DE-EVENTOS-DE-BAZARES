@@ -609,3 +609,7 @@ html .bazaar-home-card[style*="--bz-color"] .bazaar-home-emoji { background: col
 /* ═══ MINUTO A MINUTO POR DÍA ═══ */
 .minute-table .minute-dia-cell .form-select { min-width: 9.5rem; }
 #minuto-dias-tabs { margin-bottom: var(--space-4); }
+
+/* ═══ PLANOS POR DÍA ═══ */
+.floor-dia-wrap { display: inline-flex; align-items: center; gap: var(--space-2); }
+#dia-evento-tabs { margin-bottom: var(--space-4); }

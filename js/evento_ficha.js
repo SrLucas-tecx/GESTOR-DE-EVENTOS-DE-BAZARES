@@ -317,10 +317,36 @@ function diasBadgeHTML(exp, bz = getActiveBazaar()) {
   return label ? `<span class="dias-badge" title="Días de participación">📅 ${escapeHTML(label)}</span>` : "";
 }
 
+/** Día (id) al que pertenece un plano; "" si no tiene o el bazar es de un solo día. */
+function floorDiaId(floor, bz = getActiveBazaar()) {
+  return bazarEsMultiDia(bz) && floor?.dia && bz.evento.dias.some((d) => d.id === floor.dia) ? floor.dia : "";
+}
+
+/** Nombre del plano para mostrar: "Planta baja · Día 2" en eventos de varios días. */
+function floorLabel(floor, bz = getActiveBazaar()) {
+  const id = floorDiaId(floor, bz);
+  if (!id) return floor?.name || "";
+  const i = bz.evento.dias.findIndex((d) => d.id === id);
+  return `${floor.name} · ${getDiaLabel(bz.evento.dias[i], i)}`;
+}
+
+function tableDiaId(table, bz = getActiveBazaar()) {
+  const floor = (bz?.floors || []).find((f) => (f.tables || []).some((t) => t.id === table?.id));
+  return floor ? floorDiaId(floor, bz) : "";
+}
+
+/** ¿El expositor participa en ese día? (sin día, o sin días elegidos = sí). */
+function expositorParticipaEnDia(exp, diaId, bz = getActiveBazaar()) {
+  if (!diaId) return true;
+  const elegidos = (exp.diasParticipacion || []).filter((id) => bz.evento.dias.some((d) => d.id === id));
+  return !elegidos.length || elegidos.includes(diaId);
+}
+
 /** Punto de limpieza al borrar un día: otras secciones (agenda, planos) se enganchan aquí. */
 function cleanupDiaRefs(bz, diaId) {
   (bz.expositores || []).forEach((e) => { e.diasParticipacion = (e.diasParticipacion || []).filter((id) => id !== diaId); });
   bz.minuteByMinute = (bz.minuteByMinute || []).filter((row) => row.dia !== diaId);   // actividades exclusivas de ese día
+  (bz.floors || []).forEach((floor) => { if (floor.dia === diaId) floor.dia = ""; });   // los planos se conservan, sin día
 }
 
 function toggleMultiDia(on) {
@@ -367,8 +393,9 @@ async function removeDiaEvento(id) {
   }
   const dia = bz.evento.dias.find((d) => d.id === id);
   const actividades = dia ? (bz.minuteByMinute || []).filter((row) => row.dia === id).length : 0;
+  const planos = dia ? (bz.floors || []).filter((floor) => floor.dia === id).length : 0;
   if (!dia || !await appConfirm(
-    `¿Eliminar "${getDiaLabel(dia, bz.evento.dias.indexOf(dia))}"? Se quitará de la participación de los expositores${actividades ? ` y se eliminarán sus ${actividades} actividad(es) exclusivas del Minuto a Minuto` : ""}.`,
+    `¿Eliminar "${getDiaLabel(dia, bz.evento.dias.indexOf(dia))}"? Se quitará de la participación de los expositores${actividades ? ` y se eliminarán sus ${actividades} actividad(es) exclusivas del Minuto a Minuto` : ""}.${planos ? `\n\nSus ${planos} plano(s) se conservan, pero quedarán sin día asignado.` : ""}`,
     "Eliminar día")) return;
   bz.evento.dias = bz.evento.dias.filter((d) => d.id !== id);
   cleanupDiaRefs(bz, id);

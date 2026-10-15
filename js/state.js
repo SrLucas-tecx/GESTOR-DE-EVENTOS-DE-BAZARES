@@ -211,7 +211,7 @@ function defaultMapConfig() {
 }
 
 function createFloor(id, name, tables = [], bgImage = null, backgroundOpacity = 1) {
-  return { id, name, tables, bgImage, backgroundOpacity, orientation: "landscape", bgScale: 1, bgScaleX: 1, bgScaleY: 1, bgRotation: 0, bgX: 0, bgY: 0, elements: [] };
+  return { id, name, tables, bgImage, backgroundOpacity, dia: "", orientation: "landscape", bgScale: 1, bgScaleX: 1, bgScaleY: 1, bgRotation: 0, bgX: 0, bgY: 0, elements: [] };
 }
 
 const DEFAULT_STATE = {
@@ -311,6 +311,7 @@ function migrateState(parsed) {
   Object.values(parsed.bazaars || {}).forEach((bz) => (bz.expositores || []).forEach(migrarCaracteristicas));
   if (!["cards", "table"].includes(parsed.expositorView)) parsed.expositorView = "cards";
   if (!["previo", "post"].includes(parsed.tareasFase)) parsed.tareasFase = "previo";
+  if (typeof parsed.diaEventoDia !== "string") parsed.diaEventoDia = "";   // pestaña de Día del Evento ("" = automática)
   if (typeof parsed.minutoDia !== "string") parsed.minutoDia = "all";   // pestaña activa de Minuto a Minuto
   if (!["mobiliario", "gastos"].includes(parsed.costosSubTab)) parsed.costosSubTab = "mobiliario";
 
@@ -338,6 +339,7 @@ function migrateState(parsed) {
     bz.floors.forEach((floor, index) => {
       if (!floor.id) floor.id = `${bz.id}-floor-${index + 1}`;
       if (!floor.name) floor.name = `Piso ${index + 1}`;
+      if (typeof floor.dia !== "string") floor.dia = "";   // plano de un día concreto ("" = sin día)
       if (!Array.isArray(floor.tables)) floor.tables = [];
       if (!["landscape", "portrait"].includes(floor.orientation)) floor.orientation = "landscape";
       if (floor.bgImage === undefined) floor.bgImage = null;

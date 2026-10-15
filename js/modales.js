@@ -325,13 +325,13 @@ function populateExpositorAssignmentSelects(bz, exp = null) {
       const owner = bz.expositores.find((item) => item.id === table.exhibitorId);
       const selected = selectedTableIds.includes(table.id);
       const ownedByOther = owner && owner.id !== exp?.id;
-      const ariaLabel = `${floor.name} · ${table.name}${ownedByOther ? ` · Asignada a ${owner.negocio}` : ""}`;
+      const ariaLabel = `${floorLabel(floor, bz)} · ${table.name}${ownedByOther ? ` · Asignada a ${owner.negocio}` : ""}`;
       return `<label class="exp-table-tile${ownedByOther ? " is-assigned" : ""}" title="${escapeHTML(ariaLabel)}">
-        <input type="checkbox" class="exp-table-option" value="${escapeHTML(table.id)}"
+        <input type="checkbox" class="exp-table-option" value="${escapeHTML(table.id)}" data-dia="${escapeHTML(floorDiaId(floor, bz))}"
           aria-label="${escapeHTML(ariaLabel)}" ${selected ? "checked" : ""}
           onchange="updateExpositorTableSelection(this)">
         <span class="exp-table-tile-name">${escapeHTML(table.name)}</span>
-        <span class="exp-table-tile-floor">${escapeHTML(floor.name)}</span>
+        <span class="exp-table-tile-floor">${escapeHTML(floorLabel(floor, bz))}</span>
         ${ownedByOther ? `<span class="exp-table-tile-status">Asignada</span>` : ""}
       </label>`;
     }).join("")
@@ -402,46 +402,94 @@ function updateExpositorChairPreview() {
   output.textContent = Number.isSafeInteger(totalChairs) ? String(totalChairs) : "Revisa la cantidad";
 }
 
-function renderExpositorTableAssignmentHint(exp, requested, selectedCount, totalTables) {
+/** Días en los que participa según el formulario abierto (null = todos). */
+function expositorFormDias(bz = getActiveBazaar()) {
+  if (!bazarEsMultiDia(bz)) return null;
+  const todos = document.getElementById("exp-todos-dias");
+  if (!todos || todos.checked) return null;
+  const elegidos = [...document.querySelectorAll("#exp-dias-picker .exp-dia-option:checked")].map((box) => box.value);
+  return elegidos.length && elegidos.length < bz.evento.dias.length ? new Set(elegidos) : null;
+}
+
+/** Ids de mesas del expositor que están en planos del mismo día que `tableId`. */
+function _mesasDelMismoDia(bz, ids, tableId) {
+  const dia = tableDiaId({ id: tableId }, bz);
+  return ids.filter((id) => tableDiaId({ id }, bz) === dia);
+}
+
+function renderExpositorTableAssignmentHint(exp, requested, selectedCount, totalTables, porDia = null) {
   const hint = document.getElementById("exp-table-assignment-hint");
   if (!hint) return;
-  hint.textContent = totalTables
-    ? `${selectedCount} de ${requested} mesa(s) seleccionada(s). ${selectedCount < requested ? "Puedes dejar mesas por asignar." : "Cantidad solicitada completada."}`
-    : `${requested} mesa(s) solicitada(s). La asignación en el plano es opcional y puedes hacerla después.`;
+  if (!totalTables) {
+    hint.textContent = `${requested} mesa(s) solicitada(s)${porDia ? " por día" : ""}. La asignación en el plano es opcional y puedes hacerla después.`;
+  } else if (porDia && porDia.length) {
+    hint.textContent = `${porDia.map(({ label, count }) => `${label}: ${count} de ${requested}`).join(" · ")} mesa(s). Puedes dejar mesas por asignar.`;
+  } else {
+    hint.textContent = `${selectedCount} de ${requested} mesa(s) seleccionada(s). ${selectedCount < requested ? "Puedes dejar mesas por asignar." : "Cantidad solicitada completada."}`;
+  }
 }
 
 function updateExpositorTableSelection(changedCheckbox = null) {
+  const bz = getActiveBazaar();
+  const multi = bazarEsMultiDia(bz);
   const checkboxes = [...document.querySelectorAll("#exp-ubicacion .exp-table-option")];
   const requested = getExpositorRequestedTableCount({
     mesasCantidad: document.getElementById("exp-mesas-cantidad")?.value,
     mesasCantidadOtro: document.getElementById("exp-mesas-otro")?.value
   });
-  const selected = checkboxes.filter((checkbox) => checkbox.checked);
-  if (selected.length > requested && changedCheckbox) {
-    changedCheckbox.checked = false;
-    showToast(`Este expositor solicitó ${requested} mesa(s).`, "error");
-  } else if (selected.length > requested) {
-    selected.slice(requested).forEach((checkbox) => { checkbox.checked = false; });
-    showToast(`Se ajustó la asignación al nuevo límite de ${requested} mesa(s).`);
-  }
-  const count = checkboxes.filter((checkbox) => checkbox.checked).length;
-  checkboxes.forEach((checkbox) => {
-    checkbox.disabled = !checkbox.checked && count >= requested;
-    checkbox.closest(".exp-table-tile")?.classList.toggle("is-selected", checkbox.checked);
-    checkbox.closest(".exp-table-tile")?.classList.toggle("is-disabled", checkbox.disabled);
+  const diaDe = (box) => box.dataset.dia || "";
+  const permitidos = expositorFormDias(bz);   // null = todos los días
+  const bloqueada = (box) => Boolean(permitidos && diaDe(box) && !permitidos.has(diaDe(box)));
+  let quitadas = false;
+  checkboxes.forEach((box) => { if (box.checked && bloqueada(box)) { box.checked = false; quitadas = true; } });
+  if (quitadas) showToast("Se quitaron mesas de días en los que el expositor no participa.");
+
+  // Límite de mesas solicitadas: se cuenta por día (en eventos de un día, es un solo grupo).
+  const grupos = {};
+  checkboxes.filter((box) => box.checked).forEach((box) => { (grupos[diaDe(box)] ||= []).push(box); });
+  Object.values(grupos).forEach((lista) => {
+    if (lista.length <= requested) return;
+    if (changedCheckbox && lista.includes(changedCheckbox)) {
+      changedCheckbox.checked = false;
+      showToast(`Este expositor solicitó ${requested} mesa(s)${multi ? " por día" : ""}.`, "error");
+    } else {
+      lista.slice(requested).forEach((box) => { box.checked = false; });
+      showToast(`Se ajustó la asignación al nuevo límite de ${requested} mesa(s)${multi ? " por día" : ""}.`);
+    }
+  });
+  const contar = (dia) => checkboxes.filter((box) => box.checked && diaDe(box) === dia).length;
+  checkboxes.forEach((box) => {
+    box.disabled = !box.checked && (bloqueada(box) || contar(diaDe(box)) >= requested);
+    box.closest(".exp-table-tile")?.classList.toggle("is-selected", box.checked);
+    box.closest(".exp-table-tile")?.classList.toggle("is-disabled", box.disabled);
   });
   const expId = document.getElementById("exp-id")?.value;
-  const exp = getActiveBazaar()?.expositores.find((item) => item.id === expId) || null;
-  renderExpositorTableAssignmentHint(exp, requested, count, checkboxes.length);
+  const exp = bz?.expositores.find((item) => item.id === expId) || null;
+  const claves = [...new Set(checkboxes.map(diaDe))];
+  const porDia = multi ? claves.map((dia) => {
+    const i = bz.evento.dias.findIndex((d) => d.id === dia);
+    return { label: i >= 0 ? getDiaLabel(bz.evento.dias[i], i) : "Sin día", count: contar(dia) };
+  }) : null;
+  renderExpositorTableAssignmentHint(exp, requested, checkboxes.filter((box) => box.checked).length, checkboxes.length, porDia);
   updateExpositorChairPreview();
 }
 
 function getExpositorLocation(exp, bz = getActiveBazaar()) {
   if (!exp || !bz) return "Por asignar";
   const ids = getExpositorTableIds(exp, bz);
-  const names = ids.map((id) => (bz.floors || []).flatMap((floor) => floor.tables || [])
-    .find((table) => table.id === id)?.name).filter(Boolean);
-  return names.length ? names.join(", ") : exp.ubicacion || "Por asignar";
+  const entries = (bz.floors || []).flatMap((floor) => (floor.tables || [])
+    .filter((table) => ids.includes(table.id)).map((table) => ({ name: table.name, dia: floorDiaId(floor, bz) })));
+  if (!entries.length) return exp.ubicacion || "Por asignar";
+  if (!bazarEsMultiDia(bz)) {
+    const todas = (bz.floors || []).flatMap((floor) => floor.tables || []);
+    return ids.map((id) => todas.find((table) => table.id === id)?.name).filter(Boolean).join(", ");
+  }
+  const grupos = new Map();
+  entries.forEach(({ name, dia }) => { if (!grupos.has(dia)) grupos.set(dia, []); grupos.get(dia).push(name); });
+  return [...grupos.entries()].map(([dia, nombres]) => {
+    const i = bz.evento.dias.findIndex((d) => d.id === dia);
+    return `${i >= 0 ? `${getDiaLabel(bz.evento.dias[i], i)}: ` : ""}${nombres.join(", ")}`;
+  }).join(" · ");
 }
 
 function updateExpositorAreaStaff() {
@@ -513,13 +561,13 @@ function populateExpositorDias(exp = null, bz = getActiveBazaar()) {
   picker.innerHTML = dias.map((d, i) => `
     <label class="caract-chip">
       <input type="checkbox" class="exp-dia-option" value="${escapeHTML(d.id)}" ${selected.has(d.id) ? "checked" : ""}
-             onchange="updateExpositorDias()">
+             onchange="updateExpositorDias(true)">
       <span>${escapeHTML(getDiaLabel(d, i))}${formatDiaFecha(d.fecha) ? ` · ${escapeHTML(formatDiaFecha(d.fecha))}` : ""}</span>
     </label>`).join("");
   updateExpositorDias();
 }
 
-function updateExpositorDias() {
+function updateExpositorDias(fromUser = false) {
   const toggle = document.getElementById("exp-todos-dias");
   const picker = document.getElementById("exp-dias-picker");
   const hint = document.getElementById("exp-dias-hint");
@@ -531,6 +579,7 @@ function updateExpositorDias() {
   if (hint) hint.textContent = toggle.checked ? "Participa en todos los días del evento."
     : count ? `${count} día(s) seleccionado(s).`
     : "Elige los días; si no eliges ninguno, se tomará como todos los días.";
+  if (fromUser) updateExpositorTableSelection();   // las mesas de días sin participación se desactivan
 }
 
 // Características del expositor: interruptor + selector de chips (se oculta si el interruptor está apagado).
@@ -622,8 +671,10 @@ async function saveExpositorHandler(e, submittedFormData = null) {
   const caracteristicas = data["exp-tiene-caracteristicas"]
     ? [...new Set(data.caracteristicas || [])].filter((cid) => getCaracteristicas().some((c) => c.id === cid))
     : [];
-  if (tableIds.length > requestedTableCount) {
-    showToast(`No puedes asignar más de ${requestedTableCount} mesa(s) a este expositor.`, "error");
+  const mesasPorDia = {};
+  tableIds.forEach((tid) => { const k = tableDiaId({ id: tid }, bz); mesasPorDia[k] = (mesasPorDia[k] || 0) + 1; });
+  if (Object.values(mesasPorDia).some((n) => n > requestedTableCount)) {
+    showToast(`No puedes asignar más de ${requestedTableCount} mesa(s) a este expositor${bazarEsMultiDia(bz) ? " por día" : ""}.`, "error");
     return;
   }
   const chairsPerTable = Math.floor(Number(data["exp-sillas-por-mesa"]));
@@ -803,8 +854,8 @@ function applyExpositorTableAssignments(bz, exp, tableIds) {
 async function applyExpositorTableAssignment(bz, exp, tableId) {
   const currentIds = getExpositorTableIds(exp, bz);
   const requestedCount = getExpositorRequestedTableCount(exp);
-  if (tableId && !currentIds.includes(tableId) && currentIds.length >= requestedCount) {
-    showToast(`${exp.negocio} solicitó ${requestedCount} mesa(s); no se puede asignar otra desde el plano.`, "error");
+  if (tableId && !currentIds.includes(tableId) && _mesasDelMismoDia(bz, currentIds, tableId).length >= requestedCount) {
+    showToast(`${exp.negocio} solicitó ${requestedCount} mesa(s)${bazarEsMultiDia(bz) ? " por día" : ""}; no se puede asignar otra desde el plano.`, "error");
     return false;
   }
   const owner = tableId

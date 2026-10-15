@@ -59,7 +59,9 @@ function setTableAttendance(tableId, newState) {
   t.attended = newState === "attended";
   t.absent   = newState === "absent";
   const plain = { pending: "pendiente", attended: "asistió", absent: "no asistió" };
-  if (t.exhibitorId) registrarHistorial(t.exhibitorId, `Asistencia (${t.name}): ${plain[newState]}`, bz);
+  const planoDelDia = (bz.floors || []).find((f) => (f.tables || []).includes(t));
+  const diaTxt = planoDelDia && floorDiaId(planoDelDia, bz) ? ` · ${floorLabel(planoDelDia, bz).split(" · ").pop()}` : "";
+  if (t.exhibitorId) registrarHistorial(t.exhibitorId, `Asistencia (${t.name}${diaTxt}): ${plain[newState]}`, bz);
   saveState();
   bazaarCanvas.render();
   renderChecklist();

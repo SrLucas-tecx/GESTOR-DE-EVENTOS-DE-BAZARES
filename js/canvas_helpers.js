@@ -194,7 +194,7 @@ function exportarMapaPDF() {
   }
 
   const issuedAt = new Date().toLocaleDateString("es-MX");
-  const safeName = `${bz.name}_${floor.name}`.replace(/[^a-z0-9]+/gi, "_");
+  const safeName = `${bz.name}_${floorLabel(floor, bz)}`.replace(/[^a-z0-9]+/gi, "_");
   const wrapper = document.createElement("div");
   wrapper.style.cssText = `display:block;box-sizing:border-box;width:${wrapW}px;height:${wrapH}px;overflow:hidden;padding:${pad}px;font-family:Arial,sans-serif;background:#fff;color:#1e293b;`;
   wrapper.innerHTML = `
@@ -205,7 +205,7 @@ function exportarMapaPDF() {
       </div>
       <div style="text-align:right;font-size:12px;color:#64748b;">
         <strong style="display:block;color:#0f766e;font-size:15px;">${escapeHTML(bz.name)}</strong>
-        <span>${escapeHTML(floor.name)} · ${issuedAt}</span>
+        <span>${escapeHTML(floorLabel(floor, bz))} · ${issuedAt}</span>
       </div>
     </div>
     <div style="box-sizing:border-box;width:${boxW}px;height:${boxH}px;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;background:#fff;">
@@ -413,7 +413,7 @@ function openModalTableEdit(tableId) {
   const sel = document.getElementById("edit-table-exhibitor");
   if (sel) {
     sel.innerHTML = `<option value="">-- Sin asignar (Mesa Libre) --</option>` +
-      bz.expositores.map((exp) =>
+      bz.expositores.filter((exp) => exp.id === t.exhibitorId || expositorParticipaEnDia(exp, tableDiaId(t, bz), bz)).map((exp) =>
         `<option value="${exp.id}" ${exp.id === t.exhibitorId ? "selected" : ""}>${escapeHTML(exp.negocio)} (${escapeHTML(exp.nombre)})</option>`
       ).join("");
   }
