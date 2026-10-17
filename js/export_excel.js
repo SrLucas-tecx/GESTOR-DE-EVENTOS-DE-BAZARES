@@ -235,11 +235,12 @@ function _xlLayout(wb, bz) {
   _xlHeader(headRow, 2, 3);
   let r = nextRow + 2;
   (bz.floors || []).forEach((f) => (f.tables || []).forEach((t) => {
-    const exp = bz.expositores.find((e) => e.id === t.exhibitorId);
+    const duenos = [1, 2].map((slot) => bz.expositores.find((e) => e.id === tableSlotValue(t, slot)));
+    const ocupante = t.shared ? duenos.map((d) => `½ ${d ? d.negocio : "libre"}`).join(" · ") : (duenos[0]?.negocio || "Mesa libre");
     const row = ws.getRow(r++);
     row.getCell(2).value = floorLabel(f, bz);
     row.getCell(3).value = t.name;
-    row.getCell(4).value = exp ? exp.negocio : "Mesa libre";
+    row.getCell(4).value = ocupante;
     _xlBodyRow(row, 2, 3);
   }));
 }
@@ -257,8 +258,8 @@ function _xlExpositores(wb, bz) {
   const multi = bazarEsMultiDia(bz);
   const off = multi ? 1 : 0;   // en eventos de varios días se agrega la columna «Días de participación»
   _xlTableSheet(wb, "Expositores", bz,
-    ["Negocio", "Titular", "Categoría", "Características", ...(multi ? ["Días de participación"] : []), "Ubicación", "Mesas compradas", "Sillas asignadas", "Sillas extra", "Costo por silla extra", "Cargo sillas extra", "Costo base", "Costo final", "Adelanto", "Saldo", "Pagado", "Fecha límite de pago"],
-    [26, 22, 18, 28, ...(multi ? [22] : []), 24, 14, 14, 12, 18, 16, 14, 14, 14, 14, 10, 18],
+    ["Negocio", "Titular", "Categoría", "Características", ...(multi ? ["Días de participación"] : []), "Ubicación", "Mesas compradas", "Sillas asignadas", "Sillas extra", "Costo por silla extra", "Cargo sillas extra", "Costo base", "Costo final", "Adelanto", "Saldo", "Pagado", "Fecha límite de pago", "Espacio"],
+    [26, 22, 18, 28, ...(multi ? [22] : []), 24, 14, 14, 12, 18, 16, 14, 14, 14, 14, 10, 18, 16],
     bz.expositores.map((e) => [
       e.negocio, e.nombre, catName(e.categoria), getExpositorCaracteristicas(e).map((c) => c.nombre).join(", "),
       ...(multi ? [getExpositorDiasLabel(e, bz)] : []), getExpositorLocation(e, bz),
@@ -266,7 +267,7 @@ function _xlExpositores(wb, bz) {
       Number(e.sillasCantidad || 0), Number(e.sillasExtraCantidad || 0),
       Number(e.costoSillaExtra || 0), Number(e.costoExtraSillas || 0),
       Number(e.costoBase ?? e.costo ?? 0), Number(e.costo || 0), Number(e.adelanto || 0), getExpositorPendingBalance(e),
-      e.pagado ? "Sí" : "No", _xlDate(e.fechaLimitePago),
+      e.pagado ? "Sí" : "No", _xlDate(e.fechaLimitePago), e.mesaTipo === "media" ? "Media mesa" : "Mesa completa",
     ]),
     { moneyCols: [8, 9, 10, 11, 12, 13].map((i) => i + off), dateCols: [15 + off] });
 }

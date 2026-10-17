@@ -6,6 +6,12 @@
 
 // 9. EXPOSITORES — Renderizado
 // ==========================================
+/** Apartado de color de la tarjeta: solo un chip, la tarjeta no se pinta. */
+function colorChipHTML(exp) {
+  return /^#[0-9a-f]{6}$/i.test(String(exp.color || ""))
+    ? `<span class="exp-color-chip" title="Color en el plano"><i style="background:${exp.color}"></i>Color en plano</span>` : "";
+}
+
 function renderExpositores() {
   const container = document.getElementById("expositores-grid");
   if (!container) return;
@@ -92,6 +98,7 @@ function renderExpositores() {
             📣 Publicación: ${publicationStatusLabel(exp.publicationStatus)}
           </button>
           ${diasBadgeHTML(exp, bz)}
+          ${colorChipHTML(exp)}
           ${exp.banned ? `<span class="banned-badge">🚫 Expositor baneado</span>` : ""}
         </div>
 
@@ -99,7 +106,7 @@ function renderExpositores() {
 
         <div class="card-meta">
           ${meta("Ubicación", escapeHTML(getExpositorLocation(exp)))}
-          ${meta("Mesas solicitadas", `${mesas} mesa(s)`)}
+          ${meta(exp.mesaTipo === "media" ? "Espacio solicitado" : "Mesas solicitadas", exp.mesaTipo === "media" ? "Media mesa" : `${mesas} mesa(s)`)}
           ${meta("Sillas asignadas", `${Number(exp.sillasCantidad ?? 0)} silla(s)${sillasExtra ? `<small>incluye ${sillasExtra} extra (${formatCurrency(exp.costoExtraSillas)})</small>` : ""}`)}
           ${meta("Costo total", `${formatCurrency(exp.costo)}${descuento ? `<small>Descuento −${formatCurrency(descuento)}</small>` : ""}`)}
           ${meta("Adelanto", adelanto > 0 ? `<span style="color:var(--color-paid);">${formatCurrency(adelanto)}</span>` : `<span class="is-muted">${formatCurrency(0)}</span>`)}

@@ -228,6 +228,8 @@ const _BK_NORM = {
       publicationStatus: _BK_STATUSES.includes(_bkT(e.publicationStatus)) ? _bkT(e.publicationStatus) : "pendiente",
       checklist: Array.isArray(e.checklist) && e.checklist.length ? e.checklist : defaultChecklistItems(),
       historial: Array.isArray(e.historial) ? e.historial : [],
+      mesaTipo: _bkT(e.mesaTipo) === "media" ? "media" : "completa",
+      color: /^#[0-9a-f]{6}$/i.test(_bkT(e.color)) ? _bkT(e.color) : "",
       diasParticipacion: Array.isArray(e.diasParticipacion) ? [...new Set(e.diasParticipacion.map(_bkT).filter(Boolean))] : [],
     };
     delete out.subcategoria;
@@ -630,6 +632,7 @@ function _bkSanear(dest) {
   let mesas = 0, invitados = 0;
   dest.floors.forEach((floor) => (floor.tables || []).forEach((table) => {
     if (table.exhibitorId && !ids.has(table.exhibitorId)) { table.exhibitorId = ""; mesas += 1; }
+    if (table.exhibitorId2 && !ids.has(table.exhibitorId2)) { table.exhibitorId2 = ""; mesas += 1; }
   }));
   dest.invitados.forEach((inv) => {
     if (inv.expositorId && !ids.has(inv.expositorId)) { inv.expositorId = ""; invitados += 1; }

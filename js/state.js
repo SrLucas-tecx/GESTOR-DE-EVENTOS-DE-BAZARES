@@ -49,6 +49,8 @@ function emptyCostsConfig() {
     chairsQty: 0,
     chairsTotal: 0,   // <- NUEVO: costo TOTAL
     chairsPerTable: 2,
+    tablePrice: 0,       // precio global por mesa completa (sugerido al registrar expositores)
+    halfTablePrice: 0,   // precio global por media mesa (no es la mitad de una mesa: lo fija el organizador)
     ivaEnabled: false, // IVA opcional sobre todos los egresos
     ivaRate: 16,
     extraCosts: []    // [{ id, name, comment, unit, qty, cost }]  cost = unit × qty (sin IVA)
@@ -166,6 +168,7 @@ function ensureEventoFields(bz) {
     cfg.chairExtraUnitPrice = initialPrice;
     applyGlobalChairExtraPrice(bz);
   }
+  ["tablePrice", "halfTablePrice"].forEach((k) => { cfg[k] = Math.max(0, Number(cfg[k]) || 0); });
   if (cfg.ivaEnabled === undefined) cfg.ivaEnabled = false;
   if (!Number.isFinite(Number(cfg.ivaRate))) cfg.ivaRate = 16;
   if (!Array.isArray(cfg.extraCosts)) cfg.extraCosts = [];
@@ -206,6 +209,45 @@ function applyGlobalChairExtraPrice(bz) {
   });
 }
 
+// ==========================================
+// MESAS COMPARTIDAS (media mesa)
+// table.shared = true → la mesa se divide en 2 mitades: exhibitorId (A) y exhibitorId2 (B).
+// La asistencia es por mitad: attended/absent (A) y attended2/absent2 (B).
+// ==========================================
+function normalizeTableOwners(table) {
+  table.exhibitorId = String(table.exhibitorId || "");
+  table.shared = Boolean(table.shared);
+  table.exhibitorId2 = table.shared ? String(table.exhibitorId2 || "") : "";
+  ["attended", "absent", "attended2", "absent2"].forEach((k) => { table[k] = Boolean(table[k]); });
+}
+function tableOwnerIds(table) {
+  return [table?.exhibitorId, table?.shared ? table?.exhibitorId2 : ""].filter(Boolean);
+}
+function tableSlotValue(table, slot) {
+  return Number(slot) === 2 ? (table?.shared ? table.exhibitorId2 || "" : "") : (table?.exhibitorId || "");
+}
+function tableSlotOf(table, expId) {
+  if (!expId) return 0;
+  if (table?.exhibitorId === expId) return 1;
+  return table?.shared && table.exhibitorId2 === expId ? 2 : 0;
+}
+function setTableSlot(table, slot, expId) {
+  if (Number(slot) === 2) table.exhibitorId2 = expId || ""; else table.exhibitorId = expId || "";
+}
+function resetTableSlotAttendance(table, slot) {
+  if (Number(slot) === 2) { table.attended2 = false; table.absent2 = false; } else { table.attended = false; table.absent = false; }
+}
+function tableAttendanceState(table, slot = 1) {
+  return Number(slot) === 2
+    ? (table.absent2 ? "absent" : table.attended2 ? "attended" : "pending")
+    : (table.absent ? "absent" : table.attended ? "attended" : "pending");
+}
+/** Color del expositor en el plano: el suyo, o el de su categoría. */
+function getExpositorPlanoColor(exp) {
+  if (/^#[0-9a-f]{6}$/i.test(String(exp?.color || ""))) return exp.color;
+  return AppState.categorias.find((c) => c.id === exp?.categoria)?.color || "#0284c7";
+}
+
 function defaultMapConfig() {
   return { pixelsPerMeter: 100, backgroundOpacity: 1 };
 }
@@ -217,15 +259,44 @@ function createFloor(id, name, tables = [], bgImage = null, backgroundOpacity = 
 const DEFAULT_STATE = {
   // Catálogo de categorías compartido entre todos los bazares.
   categorias: [
-    { id: "cat-1", nombre: "Artesanías",   emoji: "🎨", color: "#0d9488", descripcion: "Productos hechos a mano, arte y piezas artesanales." },
-    { id: "cat-2", nombre: "Gastronomía",  emoji: "🥐", color: "#e11d48", descripcion: "Alimentos, bebidas y productos gastronómicos." },
-    { id: "cat-3", nombre: "Moda y Textil",emoji: "👗", color: "#8b5cf6", descripcion: "Ropa, accesorios, calzado y productos textiles." },
-    { id: "cat-4", nombre: "Hogar y Salud",emoji: "🌿", color: "#10b981", descripcion: "Artículos para el hogar, bienestar, cuidado personal y salud." }
+    { id: "cat-1", nombre: "Artesanías", emoji: "🎨", color: "#0d9488", descripcion: "Productos hechos a mano, arte y piezas artesanales." },
+    { id: "cat-2", nombre: "Gastronomía", emoji: "🥐", color: "#e11d48", descripcion: "Alimentos, bebidas y productos gastronómicos." },
+    { id: "cat-3", nombre: "Moda y Textil", emoji: "👗", color: "#8b5cf6", descripcion: "Ropa, accesorios, calzado y productos textiles." },
+    { id: "cat-4", nombre: "Hogar y Salud", emoji: "🌿", color: "#10b981", descripcion: "Artículos para el hogar, bienestar, cuidado personal y salud." },
+    { id: "cat-5", nombre: "Joyería y Accesorios", emoji: "💍", color: "#db2777", descripcion: "Bisutería, joyería, relojes y accesorios." },
+    { id: "cat-6", nombre: "Arte e Ilustración", emoji: "🖼️", color: "#f97316", descripcion: "Pinturas, ilustraciones, prints y arte original." },
+    { id: "cat-7", nombre: "Papelería y Regalos", emoji: "📓", color: "#eab308", descripcion: "Libretas, agendas, tarjetas y detalles para regalar." },
+    { id: "cat-8", nombre: "Juguetes y Coleccionables", emoji: "🧸", color: "#ef4444", descripcion: "Juguetes, figuras, peluches y artículos de colección." },
+    { id: "cat-9", nombre: "Belleza y Cuidado Personal", emoji: "💄", color: "#ec4899", descripcion: "Cosméticos, skincare, perfumería y cuidado personal." },
+    { id: "cat-10", nombre: "Mascotas", emoji: "🐾", color: "#84cc16", descripcion: "Productos y accesorios para mascotas." },
+    { id: "cat-11", nombre: "Plantas y Jardín", emoji: "🪴", color: "#22c55e", descripcion: "Plantas, suculentas, macetas y jardinería." },
+    { id: "cat-12", nombre: "Música y Entretenimiento", emoji: "🎵", color: "#3b82f6", descripcion: "Música, instrumentos, videojuegos y juegos de mesa." },
+    { id: "cat-13", nombre: "Tecnología y Gadgets", emoji: "🎧", color: "#06b6d4", descripcion: "Accesorios tecnológicos, gadgets y electrónica." },
+    { id: "cat-14", nombre: "Libros y Cómics", emoji: "📚", color: "#6366f1", descripcion: "Libros, fanzines, cómics y manga." },
+    { id: "cat-15", nombre: "Anime y Cultura Pop", emoji: "🎌", color: "#a855f7", descripcion: "Mercancía de anime, series, películas y cultura pop." },
+    { id: "cat-16", nombre: "Servicios y Experiencias", emoji: "🎟️", color: "#64748b", descripcion: "Talleres, fotografía, tatuajes y otros servicios." }
   ],
 
   // Características: etiquetas extra del negocio, compartidas entre bazares.
   // [{ id, nombre, emoji, color, descripcion }]; cada expositor guarda una lista de ids.
-  caracteristicas: [],
+  caracteristicas: [
+    { id: "car-pines", nombre: "Pines", emoji: "📌", color: "#ef4444", descripcion: "Pines y botones de metal o esmalte." },
+    { id: "car-stickers", nombre: "Stickers", emoji: "🏷️", color: "#f59e0b", descripcion: "Stickers y calcomanías." },
+    { id: "car-llaveros", nombre: "Llaveros", emoji: "🔑", color: "#0d9488", descripcion: "Llaveros y colgantes." },
+    { id: "car-parches", nombre: "Parches", emoji: "🧵", color: "#8b5cf6", descripcion: "Parches bordados o termoadheribles." },
+    { id: "car-prints", nombre: "Prints y posters", emoji: "📜", color: "#3b82f6", descripcion: "Láminas, prints y posters." },
+    { id: "car-hecho-a-mano", nombre: "Hecho a mano", emoji: "🧶", color: "#db2777", descripcion: "Productos elaborados artesanalmente." },
+    { id: "car-personalizado", nombre: "Personalizado", emoji: "✏️", color: "#06b6d4", descripcion: "Se personaliza con nombre, diseño o pedido especial." },
+    { id: "car-edicion-limitada", nombre: "Edición limitada", emoji: "✨", color: "#eab308", descripcion: "Producción corta o piezas únicas." },
+    { id: "car-fan-art", nombre: "Fan art", emoji: "🎨", color: "#a855f7", descripcion: "Arte inspirado en series, anime, juegos o películas." },
+    { id: "car-vegano", nombre: "Vegano", emoji: "🌱", color: "#22c55e", descripcion: "Sin ingredientes de origen animal." },
+    { id: "car-sin-gluten", nombre: "Sin gluten", emoji: "🌾", color: "#f97316", descripcion: "Opciones sin gluten." },
+    { id: "car-eco", nombre: "Eco-friendly", emoji: "♻️", color: "#10b981", descripcion: "Materiales reciclados o sostenibles." },
+    { id: "car-local", nombre: "Producto local", emoji: "📍", color: "#e11d48", descripcion: "Elaborado localmente." },
+    { id: "car-3d", nombre: "Impresión 3D", emoji: "🖨️", color: "#6366f1", descripcion: "Piezas hechas con impresión 3D." },
+    { id: "car-tarjeta", nombre: "Acepta tarjeta", emoji: "💳", color: "#64748b", descripcion: "Cobra con tarjeta o terminal." },
+    { id: "car-pedido", nombre: "Bajo pedido", emoji: "📦", color: "#84cc16", descripcion: "Se elabora por encargo." }
+  ],
 
   // Plantillas de expositores guardados (reutilizables entre bazares).
   // [EDITABLE: estructura de plantilla: { id, nombre, negocio, categoria, tel, email, foto, notas }]
@@ -341,6 +412,7 @@ function migrateState(parsed) {
       if (!floor.name) floor.name = `Piso ${index + 1}`;
       if (typeof floor.dia !== "string") floor.dia = "";   // plano de un día concreto ("" = sin día)
       if (!Array.isArray(floor.tables)) floor.tables = [];
+      floor.tables.forEach(normalizeTableOwners);
       if (!["landscape", "portrait"].includes(floor.orientation)) floor.orientation = "landscape";
       if (floor.bgImage === undefined) floor.bgImage = null;
       if (!Number.isFinite(Number(floor.backgroundOpacity))) floor.backgroundOpacity = 1;
@@ -410,6 +482,8 @@ function migrateState(parsed) {
       if (exp.areaEncargada === undefined) exp.areaEncargada = "";
       if (exp.encargadoId === undefined) exp.encargadoId = "";
       if (!Array.isArray(exp.diasParticipacion)) exp.diasParticipacion = [];   // [] = todos los días
+      if (exp.mesaTipo !== "media") exp.mesaTipo = "completa";                  // "media" = media mesa
+      if (!/^#[0-9a-f]{6}$/i.test(String(exp.color || ""))) exp.color = "";      // color en el plano (opcional)
       if (!Array.isArray(exp.historial)) exp.historial = [];
     });
     const mapTables = (bz.floors || []).flatMap((floor) => floor.tables || []);
@@ -428,7 +502,7 @@ function migrateState(parsed) {
       });
     });
     bz.expositores.forEach((exp) => {
-      const assignedTables = mapTables.filter((table) => table.exhibitorId === exp.id);
+      const assignedTables = mapTables.filter((table) => tableSlotOf(table, exp.id) > 0);
       exp.tableIds = assignedTables.map((table) => table.id);
       exp.tableId = exp.tableIds[0] || "";
       if (assignedTables.length) exp.ubicacion = assignedTables.map((table) => table.name).join(", ");

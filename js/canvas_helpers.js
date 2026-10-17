@@ -58,11 +58,8 @@ function autoNumberTables() {
     rowNumber += 1;
     table.name = `${String.fromCodePoint(64 + Math.min(row, 26))}-${String(rowNumber).padStart(2, "0")}`;
     const bz = getActiveBazaar();
-    const exhibitor = bz.expositores.find((item) => item.id === table.exhibitorId
-      || item.tableId === table.id || (item.tableIds || []).includes(table.id));
-    if (exhibitor) {
-      syncExpositorTableAssignment(bz, exhibitor);
-    }
+    bz.expositores.filter((item) => tableSlotOf(table, item.id) || item.tableId === table.id || (item.tableIds || []).includes(table.id))
+      .forEach((item) => syncExpositorTableAssignment(bz, item));
   });
   saveState();
   bazaarCanvas.render();
@@ -325,7 +322,7 @@ function addTableToCore() {
     id, name: `Mesa ${cnt}`,
     x: 80 + ((cnt - 1) % 6) * 110,
     y: 80 + Math.floor((cnt - 1) / 6) * 80,
-    w: 90, h: 50, rotation: 0, exhibitorId: "", attended: false
+    w: 90, h: 50, rotation: 0, exhibitorId: "", exhibitorId2: "", shared: false, attended: false, absent: false, attended2: false, absent2: false
   });
   saveState(); bazaarCanvas.render(); renderChecklist();
   showToast("Mesa agregada al plano");
@@ -410,14 +407,46 @@ function openModalTableEdit(tableId) {
   document.getElementById("edit-table-label-color").value = t.labelColor || "#1e293b";
   document.getElementById("edit-table-label-size").value = t.labelFontSize || 11;
   document.getElementById("edit-table-rotation").value = Number(t.rotation) || 0;
-  const sel = document.getElementById("edit-table-exhibitor");
-  if (sel) {
-    sel.innerHTML = `<option value="">-- Sin asignar (Mesa Libre) --</option>` +
-      bz.expositores.filter((exp) => exp.id === t.exhibitorId || expositorParticipaEnDia(exp, tableDiaId(t, bz), bz)).map((exp) =>
-        `<option value="${exp.id}" ${exp.id === t.exhibitorId ? "selected" : ""}>${escapeHTML(exp.negocio)} (${escapeHTML(exp.nombre)})</option>`
-      ).join("");
-  }
+  document.getElementById("edit-table-shared").checked = Boolean(t.shared);
+  populateTableOwnerSelects(t);
   openModal("modal-editar-mesa");
+}
+
+// Expositores de la mesa: una mesa completa (uno) o compartida (hasta 2 de media mesa), con su color en el plano.
+function populateTableOwnerSelects(t, keep = false) {
+  const bz = getActiveBazaar();
+  const shared = document.getElementById("edit-table-shared").checked;
+  const dia = tableDiaId(t, bz);
+  const s1 = document.getElementById("edit-table-exhibitor");
+  const s2 = document.getElementById("edit-table-exhibitor2");
+  const v1 = keep ? s1.value : (t.exhibitorId || "");
+  const v2 = keep ? s2.value : (t.shared ? (t.exhibitorId2 || "") : "");
+  const opciones = (seleccionado, otro) => `<option value="">-- Sin asignar --</option>` + bz.expositores
+    .filter((exp) => exp.id === seleccionado || (exp.id !== otro && expositorParticipaEnDia(exp, dia, bz) && (!shared || exp.mesaTipo === "media")))
+    .map((exp) => `<option value="${escapeHTML(exp.id)}" ${exp.id === seleccionado ? "selected" : ""}>${escapeHTML(exp.negocio)} (${escapeHTML(exp.nombre)})${exp.mesaTipo === "media" ? " · ½" : ""}</option>`).join("");
+  s1.innerHTML = opciones(v1, v2);
+  s2.innerHTML = opciones(v2, v1);
+  document.getElementById("edit-table-owner2-group").hidden = !shared;
+  document.getElementById("edit-table-exhibitor-label").textContent = shared ? "Expositor de la primera media mesa" : "Expositor asignado";
+  syncTableOwnerColor(1);
+  syncTableOwnerColor(2);
+}
+
+function updateTableSharedFields() {
+  const t = findTableAnyFloor(document.getElementById("edit-table-id").value);
+  if (t) populateTableOwnerSelects(t, true);
+}
+
+function syncTableOwnerColor(slot) {
+  const bz = getActiveBazaar();
+  const select = document.getElementById(Number(slot) === 2 ? "edit-table-exhibitor2" : "edit-table-exhibitor");
+  const input = document.getElementById(Number(slot) === 2 ? "edit-table-exp2-color" : "edit-table-exp-color");
+  if (!select || !input) return;
+  const exp = bz.expositores.find((item) => item.id === select.value);
+  const color = exp ? getExpositorPlanoColor(exp) : "#cbd5e1";
+  input.disabled = !exp;
+  input.value = color;
+  input.dataset.orig = color;
 }
 
 async function saveTableEdit() {
@@ -439,11 +468,16 @@ async function saveTableEdit() {
     t.labelColor  = document.getElementById("edit-table-label-color").value || "#1e293b";
     t.labelFontSize = Math.max(8, Math.min(32, Number(document.getElementById("edit-table-label-size").value) || 11));
     t.rotation    = ((Number(document.getElementById("edit-table-rotation").value) || 0) % 360 + 360) % 360;
-    if (exhibitor) {
-      if (!await applyExpositorTableAssignment(bz, exhibitor, t.id)) return;
-    } else {
-      removeTableFromExpositorAssignment(bz, t);
-    }
+    const c1 = document.getElementById("edit-table-exp-color");
+    const c2 = document.getElementById("edit-table-exp2-color");
+    const ok = await assignTableOwners(bz, t, {
+      shared: document.getElementById("edit-table-shared").checked,
+      id1: exhibitorId,
+      id2: document.getElementById("edit-table-exhibitor2").value,
+      color1: c1 && !c1.disabled && c1.value !== c1.dataset.orig ? c1.value : null,   // solo si cambió el color
+      color2: c2 && !c2.disabled && c2.value !== c2.dataset.orig ? c2.value : null
+    });
+    if (!ok) return;
     saveState(); bazaarCanvas.render(); renderChecklist();
     renderExpositores();
     closeModal("modal-editar-mesa");

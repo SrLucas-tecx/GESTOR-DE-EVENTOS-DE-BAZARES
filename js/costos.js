@@ -76,6 +76,8 @@ function renderCostosUI() {
   });
   setVal("chairs-per-table-default", cfg.chairsPerTable);
   setVal("chair-extra-unit-price", cfg.chairExtraUnitPrice);
+  setVal("table-price-default", cfg.tablePrice);
+  setVal("half-table-price-default", cfg.halfTablePrice);
 
   // Precio conjunto
   const conjuntoToggle = get("cost-toggle-conjunto");
@@ -159,6 +161,10 @@ function updateEventCostsUI() {
   cfg.chairsPerTable = Number.isSafeInteger(chairsPerTable) && chairsPerTable >= 0 ? chairsPerTable : 2;
   const chairPrice = Number(get("chair-extra-unit-price")?.value);
   cfg.chairExtraUnitPrice = Number.isFinite(chairPrice) ? Math.round(Math.max(0, chairPrice) * 100) / 100 : 0;
+  const precioMesa = Number(get("table-price-default")?.value);
+  cfg.tablePrice = Number.isFinite(precioMesa) ? Math.round(Math.max(0, precioMesa) * 100) / 100 : 0;
+  const precioMedia = Number(get("half-table-price-default")?.value);
+  cfg.halfTablePrice = Number.isFinite(precioMedia) ? Math.round(Math.max(0, precioMedia) * 100) / 100 : 0;
   const chairPriceChanged = cfg.chairExtraUnitPrice !== previousChairPrice;
   if (chairPriceChanged) applyGlobalChairExtraPrice(bz);
 
@@ -352,4 +358,33 @@ async function desglosarMobiliario() {
 async function toggleMobiliarioConjunto(checked) {
   if (checked) agruparMobiliario();
   else if (!await desglosarMobiliario()) renderCostosUI();   // cancelado: el interruptor vuelve a su estado
+}
+
+
+/** Pone el costo base de los expositores según los precios globales (mesa completa × mesas, o media mesa). */
+async function applyGlobalTablePricesToExpositores() {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  ensureEventoFields(bz);
+  const cfg = bz.costsConfig;
+  const precioDe = (exp) => _round2(exp.mesaTipo === "media"
+    ? Number(cfg.halfTablePrice || 0)
+    : Number(cfg.tablePrice || 0) * getExpositorRequestedTableCount(exp));
+  const afectados = bz.expositores.filter((exp) => precioDe(exp) > 0 && precioDe(exp) !== _round2(exp.costoBase));
+  if (!afectados.length) {
+    showToast("No hay expositores por actualizar con los precios actuales");
+    return;
+  }
+  if (!await appConfirm(
+    `Se actualizará el costo base de ${afectados.length} expositor(es) con los precios globales de mesa y media mesa. Los descuentos, adelantos y sillas extra se conservan.`,
+    "Aplicar precios globales", "Aplicar")) return;
+  afectados.forEach((exp) => {
+    const antes = exp.costoBase;
+    exp.costoBase = precioDe(exp);
+    exp.costo = _round2(exp.costoBase + Number(exp.costoExtraSillas || 0));
+    registrarHistorial(exp.id, `Costo base: ${formatCurrency(antes)} → ${formatCurrency(exp.costoBase)} (precio global)`, bz);
+  });
+  saveState();
+  renderAll();
+  showToast(`✅ Costo base actualizado en ${afectados.length} expositor(es)`);
 }

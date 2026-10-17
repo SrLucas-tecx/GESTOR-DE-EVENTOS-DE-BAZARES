@@ -12,6 +12,19 @@ window.bazaarCanvas                 = bazaarCanvas;
 window.switchTab                     = switchTab;
 window.toggleSocialFabMenu           = toggleSocialFabMenu;
 window.toggleDarkMode                = toggleDarkMode;
+window.setThemeMode                  = setThemeMode;
+window.setThemeColor                 = setThemeColor;
+window.toggleSettingsMenu            = toggleSettingsMenu;
+window.setActiveBazaarColor          = setActiveBazaarColor;
+window.addSuggestedCatalog           = addSuggestedCatalog;
+window.updateExpositorMesaTipo       = updateExpositorMesaTipo;
+window.updateExpositorColorFields    = updateExpositorColorFields;
+window.applySuggestedBaseCost        = applySuggestedBaseCost;
+window.useGlobalBaseCost             = useGlobalBaseCost;
+window.refreshExpositorTablePicker   = refreshExpositorTablePicker;
+window.updateTableSharedFields       = updateTableSharedFields;
+window.syncTableOwnerColor           = syncTableOwnerColor;
+window.applyGlobalTablePricesToExpositores = applyGlobalTablePricesToExpositores;
 window.toggleBackupMenu              = toggleBackupMenu;
 window.exportarJSON                  = exportarJSON;
 window.exportarJSONCompleto           = exportarJSONCompleto;
@@ -221,6 +234,19 @@ document.addEventListener("DOMContentLoaded", () => {
       else if (overlay.id === "modal-expositor") closeModal(overlay.id);
       else overlay.classList.remove("open");
     });
+  });
+
+  // Cierra el engranaje ⚙️ al hacer clic fuera (composedPath: el menú se redibuja al elegir una opción)
+  document.addEventListener("click", (e) => {
+    const menu = document.getElementById("settings-menu");
+    if (!menu?.classList.contains("open")) return;
+    const path = e.composedPath ? e.composedPath() : [];
+    if (path.includes(menu) || path.includes(document.getElementById("btn-settings"))) return;
+    menu.classList.remove("open");
+    document.getElementById("btn-settings")?.setAttribute("aria-expanded", "false");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") document.getElementById("settings-menu")?.classList.remove("open");
   });
 
   // Cierra el menú de respaldo al hacer clic fuera de él

@@ -17,10 +17,11 @@ function getDiaEventoTables(bz = getActiveBazaar(), dia = "all") {
     const planoDia = floorDiaId(floor, bz);
     if (dia !== "all" && planoDia && planoDia !== dia) return;
     (floor.tables || []).forEach((table) => {
-      const exp = bz.expositores.find((item) => item.id === table.exhibitorId);
-      if (!exp) return;
-      const state = table.absent ? "absent" : table.attended ? "attended" : "pending";
-      result.push({ table, floor, exp, state });
+      [1, 2].forEach((slot) => {   // una entrada por expositor (una mesa compartida cuenta dos)
+        const exp = bz.expositores.find((item) => item.id === tableSlotValue(table, slot));
+        if (!exp) return;
+        result.push({ table, floor, exp, slot, state: tableAttendanceState(table, slot) });
+      });
     });
   });
   return result;
@@ -103,18 +104,18 @@ function renderPanelDiaEvento() {
   }
 
   const multiFloor = (bz.floors || []).length > 1;
-  list.innerHTML = pendingEntries.map(({ table, floor, exp }) => `
+  list.innerHTML = pendingEntries.map(({ table, floor, exp, slot }) => `
     <div class="card-meta-item" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
       <div style="min-width:0;">
         <strong>${escapeHTML(exp.negocio)}</strong>
         <div style="font-size:var(--fs-xs);color:var(--color-text-muted);">
-          ${escapeHTML(table.name)}${multiFloor ? ` · ${escapeHTML(floorLabel(floor, bz))}` : ""} · ${escapeHTML(exp.nombre)}
+          ${escapeHTML(table.name)}${table.shared ? " (½ mesa)" : ""}${multiFloor ? ` · ${escapeHTML(floorLabel(floor, bz))}` : ""} · ${escapeHTML(exp.nombre)}
         </div>
         ${exp.pagado ? "" : `<div style="font-size:var(--fs-xs);font-weight:700;color:var(--color-danger);">⏳ Pago pendiente</div>`}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button class="btn-primary btn-sm" onclick="setTableAttendance('${table.id}','attended')">✅ Asistió</button>
-        <button class="btn-danger btn-sm" onclick="setTableAttendance('${table.id}','absent')">❌ No asistió</button>
+        <button class="btn-primary btn-sm" onclick="setTableAttendance('${table.id}','attended',${slot})">✅ Asistió</button>
+        <button class="btn-danger btn-sm" onclick="setTableAttendance('${table.id}','absent',${slot})">❌ No asistió</button>
       </div>
     </div>`).join("");
 }

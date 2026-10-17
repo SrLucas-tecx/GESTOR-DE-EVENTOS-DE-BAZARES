@@ -145,6 +145,25 @@ function renderCategorias() {
   }).join("");
 }
 
+/** Agrega las categorías o características sugeridas que aún no existen (compara por nombre). */
+async function addSuggestedCatalog() {
+  const isCar = categoriaManagementTab === "caracteristica";
+  if (isCar && !Array.isArray(AppState.caracteristicas)) AppState.caracteristicas = [];
+  const list = isCar ? AppState.caracteristicas : AppState.categorias;
+  const faltan = (isCar ? DEFAULT_STATE.caracteristicas : DEFAULT_STATE.categorias)
+    .filter((item) => !list.some((x) => String(x.nombre).trim().toLowerCase() === item.nombre.toLowerCase()));
+  if (!faltan.length) {
+    showToast("Ya tienes todas las sugeridas");
+    return;
+  }
+  const tipo = isCar ? "características" : "categorías";
+  if (!await appConfirm(`Se agregarán ${faltan.length} ${tipo} sugeridas que aún no tienes. No se cambia ni se borra nada de lo que ya existe.`, "Agregar sugeridas", "Agregar")) return;
+  faltan.forEach((item) => list.push({ ...item, id: list.some((x) => x.id === item.id) ? `${item.id}-${Date.now()}` : item.id }));
+  saveState();
+  renderAll();
+  showToast(`✅ ${faltan.length} ${tipo} agregadas`);
+}
+
 // ==========================================
 // MODAL: crear / editar (categoría o característica)
 // ==========================================

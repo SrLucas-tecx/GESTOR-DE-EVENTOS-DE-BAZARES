@@ -61,7 +61,7 @@ function updateCharts() {
       type: "doughnut",
       data: {
         labels: ["Asistieron", "No asistieron"],
-        datasets: [{ data: total ? [asistieron, noAsist] : [0, 1], backgroundColor: ["#0d9488", "#e2e8f0"] }]
+        datasets: [{ data: total ? [asistieron, noAsist] : [0, 1], backgroundColor: [getAccentColor(), "#e2e8f0"] }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,

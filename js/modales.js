@@ -196,6 +196,9 @@ function openModalExpositor(id = null, categoryId = null) {
       document.getElementById("exp-notas-credito").value = exp.notaCredito || "";
       document.getElementById("exp-sillas-por-mesa").value = exp.sillasPorMesa ?? bz.costsConfig.chairsPerTable ?? 2;
       document.getElementById("exp-notas").value         = exp.notas || "";
+      document.getElementById("exp-mesa-tipo").value     = exp.mesaTipo === "media" ? "media" : "completa";
+      document.getElementById("exp-color-enabled").checked = Boolean(exp.color);
+      if (exp.color) document.getElementById("exp-color").value = exp.color;
       document.getElementById("exp-foto-base64").value   = exp.foto || "";
       if (exp.foto && box) box.innerHTML = `<img src="${exp.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     }
@@ -213,6 +216,9 @@ function openModalExpositor(id = null, categoryId = null) {
   populateExpositorDias(exp, bz);
   populateExpositorAssignmentSelects(bz, exp);
   toggleOtherTableCount();
+  updateExpositorColorFields();
+  updateExpositorMesaTipo(false);
+  applySuggestedBaseCost(!exp);
   updateExpositorExtraChairFields();
   updateExpositorCostPreview();
   updateExpositorPaymentFields();
@@ -308,6 +314,56 @@ function getExpositorPendingBalance(exp) {
   );
 }
 
+/** Dibuja las mesas del plano que se pueden elegir. Con «Ocultar mesas ocupadas» solo salen las disponibles. */
+function renderExpositorTablePicker(bz, exp, selectedTableIds) {
+  const tableList = document.getElementById("exp-ubicacion");
+  if (!tableList) return;
+  const tipo = document.getElementById("exp-mesa-tipo")?.value || exp?.mesaTipo || "completa";
+  const ocultar = document.getElementById("exp-ocultar-ocupadas")?.checked ?? true;
+  const tables = (bz.floors || []).flatMap((floor) => (floor.tables || []).map((table) => ({ floor, table })));
+  const legacyLocation = exp?.ubicacion?.trim() || "";
+  const hasLegacyLocation = legacyLocation && selectedTableIds.length === 0
+    && !tables.some(({ table }) => table.name.trim().toLowerCase() === legacyLocation.toLowerCase());
+  const nombre = (id) => bz.expositores.find((item) => item.id === id)?.negocio || "";
+  let ocultas = 0;
+  const tiles = tables.map(({ floor, table }) => {
+    const mine = selectedTableIds.includes(table.id) || Boolean(exp && tableSlotOf(table, exp.id));
+    const others = tableOwnerIds(table).filter((oid) => oid !== exp?.id);
+    // media mesa: mesa libre o con una mitad libre · mesa completa: mesa sin otros dueños
+    const disponible = mine || (tipo === "media" ? (table.shared ? others.length < 2 : others.length === 0) : others.length === 0);
+    if (ocultar && !disponible) { ocultas += 1; return ""; }
+    const bloqueada = !mine && (tipo === "media" ? (table.shared ? others.length >= 2 : others.length > 0) : (table.shared && others.length > 0));
+    const estado = others.length ? (table.shared ? (others.length < 2 ? "½ libre" : "Llena") : "Asignada") : (table.shared ? "Compartida" : "");
+    const ariaLabel = `${floorLabel(floor, bz)} · ${table.name}${others.length ? ` · ${others.map(nombre).join(" y ")}` : ""}`;
+    return `<label class="exp-table-tile${others.length ? " is-assigned" : ""}" title="${escapeHTML(ariaLabel)}">
+        <input type="checkbox" class="exp-table-option" value="${escapeHTML(table.id)}" data-dia="${escapeHTML(floorDiaId(floor, bz))}"
+          ${bloqueada ? 'data-bloqueada="1" disabled' : ""} aria-label="${escapeHTML(ariaLabel)}" ${mine && selectedTableIds.includes(table.id) ? "checked" : ""}
+          onchange="updateExpositorTableSelection(this)">
+        <span class="exp-table-tile-name">${escapeHTML(table.name)}</span>
+        <span class="exp-table-tile-floor">${escapeHTML(floorLabel(floor, bz))}</span>
+        ${estado ? `<span class="exp-table-tile-status">${estado}</span>` : ""}
+      </label>`;
+  });
+  tableList.innerHTML = tiles.some(Boolean)
+    ? tiles.join("")
+    : tables.length
+      ? `<span class="form-hint" style="grid-column:1/-1;">No hay mesas libres para este tipo de espacio${ocultas ? ` (${ocultas} ocupada(s) oculta(s))` : ""}. Desactiva «Ocultar mesas ocupadas» para verlas.</span>`
+      : `<span class="form-hint">No hay mesas en el plano. La asignación es opcional; puedes agregar o asignar mesas después.</span>`;
+  if (ocultas && tiles.some(Boolean)) tableList.insertAdjacentHTML("beforeend", `<p class="form-hint" style="grid-column:1/-1;margin:0;">${ocultas} mesa(s) ocupada(s) oculta(s).</p>`);
+  if (hasLegacyLocation) tableList.insertAdjacentHTML("beforeend", `<p class="form-hint" style="grid-column:1/-1;">Ubicación anterior conservada: ${escapeHTML(legacyLocation)}</p>`);
+}
+
+/** Vuelve a dibujar las mesas conservando lo marcado (al cambiar el tipo de espacio o ocultar ocupadas). */
+function refreshExpositorTablePicker() {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  const expId = document.getElementById("exp-id")?.value;
+  const exp = expId ? bz.expositores.find((item) => item.id === expId) : null;
+  const seleccion = [...document.querySelectorAll("#exp-ubicacion .exp-table-option:checked")].map((box) => box.value);
+  renderExpositorTablePicker(bz, exp, seleccion);
+  updateExpositorTableSelection();
+}
+
 function populateExpositorAssignmentSelects(bz, exp = null) {
   const tableList = document.getElementById("exp-ubicacion");
   const areaSelect = document.getElementById("exp-area-encargada");
@@ -320,26 +376,7 @@ function populateExpositorAssignmentSelects(bz, exp = null) {
   const requested = getExpositorRequestedTableCount(exp);
   const hasLegacyLocation = legacyLocation && selectedTableIds.length === 0
     && !tables.some(({ table }) => table.name.trim().toLowerCase() === legacyLocation.toLowerCase());
-  tableList.innerHTML = tables.length
-    ? tables.map(({ floor, table }) => {
-      const owner = bz.expositores.find((item) => item.id === table.exhibitorId);
-      const selected = selectedTableIds.includes(table.id);
-      const ownedByOther = owner && owner.id !== exp?.id;
-      const ariaLabel = `${floorLabel(floor, bz)} · ${table.name}${ownedByOther ? ` · Asignada a ${owner.negocio}` : ""}`;
-      return `<label class="exp-table-tile${ownedByOther ? " is-assigned" : ""}" title="${escapeHTML(ariaLabel)}">
-        <input type="checkbox" class="exp-table-option" value="${escapeHTML(table.id)}" data-dia="${escapeHTML(floorDiaId(floor, bz))}"
-          aria-label="${escapeHTML(ariaLabel)}" ${selected ? "checked" : ""}
-          onchange="updateExpositorTableSelection(this)">
-        <span class="exp-table-tile-name">${escapeHTML(table.name)}</span>
-        <span class="exp-table-tile-floor">${escapeHTML(floorLabel(floor, bz))}</span>
-        ${ownedByOther ? `<span class="exp-table-tile-status">Asignada</span>` : ""}
-      </label>`;
-    }).join("")
-    : `<span class="form-hint">No hay mesas en el plano. La asignación es opcional; puedes agregar o asignar mesas después.</span>`;
-  if (hasLegacyLocation) {
-    tableList.insertAdjacentHTML("beforeend", `<p class="form-hint">Ubicación anterior conservada: ${escapeHTML(legacyLocation)}</p>`);
-  }
-  renderExpositorTableAssignmentHint(exp, requested, selectedTableIds.length, tables.length);
+  renderExpositorTablePicker(bz, exp, selectedTableIds);
 
   const roles = bz.roles || [];
   const selectedRoleId = exp?.areaRolId && roles.some((role) => role.id === exp.areaRolId)
@@ -368,12 +405,12 @@ function getExpositorTableIds(exp, bz = getActiveBazaar()) {
   const ids = new Set(Array.isArray(exp.tableIds) ? exp.tableIds : []);
   if (exp.tableId) ids.add(exp.tableId);
   tables.forEach((table) => {
-    if (table.exhibitorId === exp.id) ids.add(table.id);
+    if (tableSlotOf(table, exp.id)) ids.add(table.id);
   });
   if (!ids.size && exp.ubicacion) {
     exp.ubicacion.split(",").map((name) => name.trim().toLowerCase()).forEach((name) => {
       const table = tables.find((item) => item.name.trim().toLowerCase() === name
-        && (!item.exhibitorId || item.exhibitorId === exp.id));
+        && (!tableOwnerIds(item).length || tableOwnerIds(item).includes(exp.id)));
       if (table) ids.add(table.id);
     });
   }
@@ -386,6 +423,7 @@ function getExpositorTableId(exp, bz = getActiveBazaar()) {
 
 function getExpositorRequestedTableCount(exp) {
   if (!exp) return 1;
+  if (exp.mesaTipo === "media") return 1;   // la media mesa ocupa una sola mitad
   const raw = exp.mesasCantidad === "otro" ? exp.mesasCantidadOtro : exp.mesasCantidad;
   return Math.max(1, Math.floor(Number(raw) || 1));
 }
@@ -395,7 +433,8 @@ function updateExpositorChairPreview() {
   if (!output) return;
   const tables = getExpositorRequestedTableCount({
     mesasCantidad: document.getElementById("exp-mesas-cantidad")?.value,
-    mesasCantidadOtro: document.getElementById("exp-mesas-otro")?.value
+    mesasCantidadOtro: document.getElementById("exp-mesas-otro")?.value,
+    mesaTipo: document.getElementById("exp-mesa-tipo")?.value
   });
   const chairsPerTable = Math.max(0, Math.floor(Number(document.getElementById("exp-sillas-por-mesa")?.value) || 0));
   const totalChairs = tables * chairsPerTable;
@@ -435,7 +474,8 @@ function updateExpositorTableSelection(changedCheckbox = null) {
   const checkboxes = [...document.querySelectorAll("#exp-ubicacion .exp-table-option")];
   const requested = getExpositorRequestedTableCount({
     mesasCantidad: document.getElementById("exp-mesas-cantidad")?.value,
-    mesasCantidadOtro: document.getElementById("exp-mesas-otro")?.value
+    mesasCantidadOtro: document.getElementById("exp-mesas-otro")?.value,
+    mesaTipo: document.getElementById("exp-mesa-tipo")?.value
   });
   const diaDe = (box) => box.dataset.dia || "";
   const permitidos = expositorFormDias(bz);   // null = todos los días
@@ -459,7 +499,7 @@ function updateExpositorTableSelection(changedCheckbox = null) {
   });
   const contar = (dia) => checkboxes.filter((box) => box.checked && diaDe(box) === dia).length;
   checkboxes.forEach((box) => {
-    box.disabled = !box.checked && (bloqueada(box) || contar(diaDe(box)) >= requested);
+    box.disabled = !box.checked && (box.dataset.bloqueada === "1" || bloqueada(box) || contar(diaDe(box)) >= requested);
     box.closest(".exp-table-tile")?.classList.toggle("is-selected", box.checked);
     box.closest(".exp-table-tile")?.classList.toggle("is-disabled", box.disabled);
   });
@@ -543,6 +583,69 @@ function populateCategoriaSelect(selectedCategoryId = "") {
     `<option value="${escapeHTML(category.id)}">${category.emoji} ${escapeHTML(category.nombre)}</option>`
   ).join("")}`;
   sel.value = selectedCategoryId;
+}
+
+// Tipo de espacio (mesa completa / media mesa), color en el plano y costo base sugerido por el precio global.
+function updateExpositorMesaTipo(fromUser = false) {
+  const media = document.getElementById("exp-mesa-tipo")?.value === "media";
+  const group = document.getElementById("exp-mesas-group");
+  if (group) group.hidden = media;   // la media mesa siempre es una
+  if (media) {
+    const select = document.getElementById("exp-mesas-cantidad");
+    if (select) select.value = "1";
+    toggleOtherTableCount();
+  }
+  if (fromUser) {
+    const porMesa = Number(getActiveBazaar()?.costsConfig?.chairsPerTable ?? 2) || 0;
+    const sillas = document.getElementById("exp-sillas-por-mesa");
+    if (sillas) sillas.value = media ? Math.max(1, Math.ceil(porMesa / 2)) : porMesa;   // media mesa: la mitad de sillas (ajustable)
+  }
+  updateExpositorChairPreview();
+  refreshExpositorTablePicker();   // cambian las mesas disponibles
+  applySuggestedBaseCost(fromUser);
+}
+
+function updateExpositorColorFields() {
+  const on = document.getElementById("exp-color-enabled")?.checked;
+  const input = document.getElementById("exp-color");
+  if (input) input.hidden = !on;
+}
+
+function applySuggestedBaseCost(fromUser = false) {
+  const input = document.getElementById("exp-costo-base");
+  const hint = document.getElementById("exp-costo-base-hint");
+  if (!input || !hint) return;
+  const cfg = getActiveBazaar()?.costsConfig || {};
+  const media = document.getElementById("exp-mesa-tipo")?.value === "media";
+  const mesas = getExpositorRequestedTableCount({
+    mesasCantidad: document.getElementById("exp-mesas-cantidad")?.value,
+    mesasCantidadOtro: document.getElementById("exp-mesas-otro")?.value,
+    mesaTipo: media ? "media" : "completa"
+  });
+  const precio = media ? Number(cfg.halfTablePrice || 0) : Number(cfg.tablePrice || 0) * mesas;
+  if (!(precio > 0)) {
+    hint.textContent = "";
+    delete input.dataset.auto;
+    return;
+  }
+  const sugerido = Math.round(precio * 100) / 100;
+  const actual = Number(input.value || 0);
+  const intacto = input.value === "" || actual === 0 || actual === Number(input.dataset.auto);   // no lo ha cambiado a mano
+  if (fromUser && intacto && actual !== sugerido) {
+    input.value = sugerido;
+    updateExpositorCostPreview();
+  }
+  input.dataset.auto = String(sugerido);
+  const igual = Number(input.value || 0) === sugerido;
+  hint.innerHTML = `Precio global ${media ? "de media mesa" : `por mesa × ${mesas}`}: <strong>${formatCurrency(sugerido)}</strong>.${igual ? "" : ' <button type="button" class="link-inline" onclick="useGlobalBaseCost()">Usar precio global</button>'}`;
+}
+
+function useGlobalBaseCost() {
+  const input = document.getElementById("exp-costo-base");
+  if (!input?.dataset.auto) return;
+  input.value = input.dataset.auto;
+  updateExpositorCostPreview();
+  applySuggestedBaseCost(false);
 }
 
 // Días de participación (solo si el bazar dura más de 1 día). Sin elegir ninguno = todos los días.
@@ -661,7 +764,8 @@ async function saveExpositorHandler(e, submittedFormData = null) {
   const tableIds = [...new Set(data.tableIds)];
   const requestedTableCount = getExpositorRequestedTableCount({
     mesasCantidad: data["exp-mesas-cantidad"],
-    mesasCantidadOtro: data["exp-mesas-otro"]
+    mesasCantidadOtro: data["exp-mesas-otro"],
+    mesaTipo: data["exp-mesa-tipo"]
   });
   if (!Number.isSafeInteger(requestedTableCount) || requestedTableCount < 1) {
     showToast("La cantidad de mesas compradas debe ser un número entero válido.", "error");
@@ -709,8 +813,16 @@ async function saveExpositorHandler(e, submittedFormData = null) {
     showToast("No se encontró una de las mesas seleccionadas en el plano", "error");
     return;
   }
-  const conflictingTables = tableIds.map((tableId) => allTables.find((table) => table.id === tableId))
-    .filter((table) => table.exhibitorId && table.exhibitorId !== id);
+  const esMedia = data["exp-mesa-tipo"] === "media";
+  const otros = (table) => tableOwnerIds(table).filter((oid) => oid !== id);
+  const mesasSeleccionadas = tableIds.map((tableId) => allTables.find((table) => table.id === tableId));
+  const noDisponibles = mesasSeleccionadas.filter((table) =>
+    esMedia ? (table.shared ? otros(table).length >= 2 : otros(table).length > 0) : (table.shared && otros(table).length > 0));
+  if (noDisponibles.length) {
+    showToast(`${noDisponibles.map((table) => table.name).join(", ")}: ${esMedia ? "no tiene una media mesa libre" : "está compartida; quita primero a sus expositores"}.`, "error");
+    return;
+  }
+  const conflictingTables = esMedia ? [] : mesasSeleccionadas.filter((table) => otros(table).length);
   if (conflictingTables.length && !await appConfirm(
     `${conflictingTables.map((table) => table.name).join(", ")} ya tienen otro expositor. Se moverán a ${String(data["exp-negocio"]).trim() || "este expositor"}. ¿Continuar?`,
     "Reasignar mesas",
@@ -738,8 +850,10 @@ async function saveExpositorHandler(e, submittedFormData = null) {
     ubicacion:      existing?.ubicacion || "",
     tableId:        "",
     tableIds:       [],
-    mesasCantidad:  data["exp-mesas-cantidad"],
-    mesasCantidadOtro: String(data["exp-mesas-otro"]).trim(),
+    mesasCantidad:  esMedia ? "1" : data["exp-mesas-cantidad"],
+    mesasCantidadOtro: esMedia ? "" : String(data["exp-mesas-otro"]).trim(),
+    mesaTipo:       esMedia ? "media" : "completa",
+    color:          data["exp-color-enabled"] && /^#[0-9a-f]{6}$/i.test(String(data["exp-color"] || "")) ? data["exp-color"] : "",
     sillasPorMesa: chairsPerTable,
     sillasIncluidas: chairCount,
     sillasExtraCantidad: extraChairCount,
@@ -774,13 +888,13 @@ async function saveExpositorHandler(e, submittedFormData = null) {
 
   // ── Instantánea para deshacer si algo falla (asignación de mesas o guardado) ──
   const prevList = bz.expositores.slice();
-  const prevTables = allTables.map((table) => ({ table, exhibitorId: table.exhibitorId }));
+  const prevTables = allTables.map((table) => ({ table, snap: { exhibitorId: table.exhibitorId, exhibitorId2: table.exhibitorId2, shared: table.shared, attended: table.attended, absent: table.absent, attended2: table.attended2, absent2: table.absent2 } }));
   const prevOwners = bz.expositores.map((item) => ({
     item, tableId: item.tableId, tableIds: [...(item.tableIds || [])], ubicacion: item.ubicacion
   }));
   const rollback = () => {
     bz.expositores = prevList;
-    prevTables.forEach(({ table, exhibitorId }) => { table.exhibitorId = exhibitorId; });
+    prevTables.forEach(({ table, snap }) => { Object.assign(table, snap); });
     prevOwners.forEach(({ item, tableId, tableIds: ids, ubicacion }) => {
       item.tableId = tableId; item.tableIds = ids; item.ubicacion = ubicacion;
     });
@@ -819,7 +933,7 @@ async function saveExpositorHandler(e, submittedFormData = null) {
 
 function syncExpositorTableAssignment(bz, exp) {
   const entries = (bz.floors || []).flatMap((floor) => (floor.tables || []).map((table) => ({ floor, table })));
-  const linkedTables = entries.map(({ table }) => table).filter((table) => table.exhibitorId === exp.id);
+  const linkedTables = entries.map(({ table }) => table).filter((table) => tableSlotOf(table, exp.id) > 0);
   exp.tableIds = linkedTables.map((table) => table.id);
   exp.tableId = exp.tableIds[0] || "";
   exp.ubicacion = linkedTables.map((table) => table.name).join(", ");
@@ -833,47 +947,96 @@ function applyExpositorTableAssignments(bz, exp, tableIds) {
     showToast("No se encontró una de las mesas seleccionadas en el plano", "error");
     return false;
   }
-
+  const esMedia = exp.mesaTipo === "media";
+  const desplazados = new Set();
   entries.forEach(({ table }) => {
-    const desired = desiredIds.has(table.id);
-    if (desired) {
-      const previousOwner = bz.expositores.find((item) => item.id === table.exhibitorId && item.id !== exp.id);
-      if (previousOwner) {
-        table.exhibitorId = "";
-        syncExpositorTableAssignment(bz, previousOwner);
+    const slot = tableSlotOf(table, exp.id);
+    if (desiredIds.has(table.id)) {
+      if (slot) {   // ya la tenía: si ahora pide media mesa, la mesa queda compartida
+        if (esMedia && !table.shared) table.shared = true;
+        return;
       }
-      table.exhibitorId = exp.id;
-    } else if (table.exhibitorId === exp.id) {
-      table.exhibitorId = "";
+      if (esMedia) {
+        if (!table.shared) {   // mesa libre: pasa a mesa compartida con este expositor en la mitad A
+          tableOwnerIds(table).forEach((oid) => desplazados.add(oid));
+          table.exhibitorId = ""; table.exhibitorId2 = ""; table.shared = true;
+          setTableSlot(table, 1, exp.id); resetTableSlotAttendance(table, 1); resetTableSlotAttendance(table, 2);
+        } else {
+          const libre = !table.exhibitorId ? 1 : 2;
+          setTableSlot(table, libre, exp.id); resetTableSlotAttendance(table, libre);
+        }
+      } else {   // mesa completa: se queda con la mesa y los dueños anteriores la dejan
+        tableOwnerIds(table).forEach((oid) => desplazados.add(oid));
+        table.shared = false; table.exhibitorId = exp.id; table.exhibitorId2 = "";
+        resetTableSlotAttendance(table, 1); resetTableSlotAttendance(table, 2);
+      }
+    } else if (slot) {
+      setTableSlot(table, slot, ""); resetTableSlotAttendance(table, slot);
+      if (!tableOwnerIds(table).length) table.shared = false;
     }
   });
+  desplazados.delete(exp.id);
+  desplazados.forEach((oid) => { const previo = bz.expositores.find((item) => item.id === oid); if (previo) syncExpositorTableAssignment(bz, previo); });
   syncExpositorTableAssignment(bz, exp);
   return true;
 }
 
-async function applyExpositorTableAssignment(bz, exp, tableId) {
-  const currentIds = getExpositorTableIds(exp, bz);
-  const requestedCount = getExpositorRequestedTableCount(exp);
-  if (tableId && !currentIds.includes(tableId) && _mesasDelMismoDia(bz, currentIds, tableId).length >= requestedCount) {
-    showToast(`${exp.negocio} solicitó ${requestedCount} mesa(s)${bazarEsMultiDia(bz) ? " por día" : ""}; no se puede asignar otra desde el plano.`, "error");
+/**
+ * Asignación desde «Editar mesa» del plano: una mesa completa (un expositor) o una mesa compartida
+ * (hasta 2 expositores de media mesa, cada uno con su color).
+ */
+async function assignTableOwners(bz, table, { shared, id1, id2, color1 = null, color2 = null }) {
+  const buscar = (id) => bz.expositores.find((item) => item.id === id) || null;
+  const e1 = buscar(id1);
+  const e2 = shared ? buscar(id2) : null;
+  if ((id1 && !e1) || (shared && id2 && !e2)) {
+    showToast("No se encontró el expositor seleccionado", "error");
     return false;
   }
-  const owner = tableId
-    ? bz.expositores.find((item) => item.id !== exp.id
-      && (item.id === (bz.floors || []).flatMap((floor) => floor.tables || []).find((table) => table.id === tableId)?.exhibitorId))
-    : null;
-  if (owner && !await appConfirm(`Esta mesa se moverá de ${owner.negocio} a ${exp.negocio}. ¿Continuar?`, "Reasignar mesa", "Reasignar")) {
+  if (shared && id1 && id1 === id2) {
+    showToast("Elige dos expositores distintos para compartir la mesa", "error");
     return false;
   }
-  return applyExpositorTableAssignments(bz, exp, tableId ? [...currentIds, tableId] : currentIds);
+  if (shared && [e1, e2].some((e) => e && e.mesaTipo !== "media")) {
+    showToast("Solo los expositores de «Media mesa» pueden compartir una mesa. Cambia su tipo de espacio en su registro.", "error");
+    return false;
+  }
+  const anteriores = tableOwnerIds(table);
+  for (const e of [e1, e2].filter(Boolean)) {   // el límite de mesas solicitadas se cuenta por día
+    if (anteriores.includes(e.id)) continue;
+    const propias = getExpositorTableIds(e, bz).filter((tid) => tid !== table.id);
+    const limite = getExpositorRequestedTableCount(e);
+    if (_mesasDelMismoDia(bz, propias, table.id).length >= limite) {
+      showToast(`${e.negocio} solicitó ${limite} ${e.mesaTipo === "media" ? "media(s) mesa(s)" : "mesa(s)"}${bazarEsMultiDia(bz) ? " por día" : ""}; no se puede asignar otra.`, "error");
+      return false;
+    }
+  }
+  const nuevos = [id1, shared ? id2 : ""].filter(Boolean);
+  const reemplazados = anteriores.filter((oid) => !nuevos.includes(oid));
+  if (reemplazados.length && nuevos.length && !await appConfirm(
+    `${reemplazados.map((oid) => buscar(oid)?.negocio || "El expositor actual").join(" y ")} dejará esta mesa. ¿Continuar?`, "Reasignar mesa", "Reasignar")) return false;
+  const finalShared = Boolean(shared || e1?.mesaTipo === "media");   // quien pidió media mesa deja la mesa compartida
+  const antes = { a: table.exhibitorId, b: table.exhibitorId2 };
+  table.shared = finalShared;
+  table.exhibitorId = id1 || "";
+  table.exhibitorId2 = finalShared ? (shared ? id2 || "" : "") : "";
+  if (antes.a !== table.exhibitorId) resetTableSlotAttendance(table, 1);
+  if (antes.b !== table.exhibitorId2) resetTableSlotAttendance(table, 2);
+  if (!tableOwnerIds(table).length && !shared) table.shared = false;
+  if (e1 && color1) e1.color = color1;
+  if (e2 && color2) e2.color = color2;
+  new Set([...anteriores, ...nuevos]).forEach((oid) => { const exp = buscar(oid); if (exp) syncExpositorTableAssignment(bz, exp); });
+  return true;
 }
 
 function removeTableFromExpositorAssignment(bz, table) {
-  const owner = bz.expositores.find((exp) => exp.id === table.exhibitorId
-    || (Array.isArray(exp.tableIds) && exp.tableIds.includes(table.id))
-    || exp.tableId === table.id);
-  table.exhibitorId = "";
-  if (owner) syncExpositorTableAssignment(bz, owner);
+  const duenos = new Set(tableOwnerIds(table));
+  bz.expositores.forEach((exp) => {
+    if ((Array.isArray(exp.tableIds) && exp.tableIds.includes(table.id)) || exp.tableId === table.id) duenos.add(exp.id);
+  });
+  table.exhibitorId = ""; table.exhibitorId2 = ""; table.shared = false;
+  table.attended2 = false; table.absent2 = false;
+  duenos.forEach((oid) => { const exp = bz.expositores.find((item) => item.id === oid); if (exp) syncExpositorTableAssignment(bz, exp); });
 }
 
 function togglePaymentStatus(id) {
@@ -892,7 +1055,11 @@ async function deleteExpositor(id) {
   const bz = getActiveBazaar();
   (bz.floors || []).forEach((floor) => {
     (floor.tables || []).forEach((table) => {
-      if (table.exhibitorId === id) table.exhibitorId = "";
+      const slot = tableSlotOf(table, id);
+      if (slot) {
+        setTableSlot(table, slot, ""); resetTableSlotAttendance(table, slot);
+        if (!tableOwnerIds(table).length) table.shared = false;
+      }
     });
   });
   bz.expositores = bz.expositores.filter((e) => e.id !== id);

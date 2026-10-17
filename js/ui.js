@@ -232,14 +232,90 @@ function toggleSocialFabMenu() {
 // ==========================================
 // 5. MODO OSCURO Y MENÚ DE RESPALDO
 // ==========================================
+// Tema de la interfaz: modo claro/oscuro + 8 colores de acento. Se recuerda en este navegador y se
+// aplica al abrir (el <head> de index.html restaura el color antes de pintar).
+const THEME_COLORS = [
+  { hex: "#0d9488", nombre: "Verde azulado" }, { hex: "#3b82f6", nombre: "Azul" },
+  { hex: "#6366f1", nombre: "Índigo" },        { hex: "#8b5cf6", nombre: "Violeta" },
+  { hex: "#ec4899", nombre: "Rosa" },          { hex: "#ef4444", nombre: "Rojo" },
+  { hex: "#ea580c", nombre: "Naranja" },       { hex: "#16a34a", nombre: "Verde" }
+];
+const THEME_ACCENT_KEY = "BAZARIX_THEME_ACCENT";
+const THEME_MODE_KEY = "BAZARIX_THEME_MODE";
+
+/** Color de acento vigente (lo usan el plano y las gráficas, que dibujan en canvas). */
+function getAccentColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim() || "#0d9488";
+}
+
+function _refreshThemeDependents() {
+  if (typeof bazaarCanvas !== "undefined" && bazaarCanvas.ctx) bazaarCanvas.render();
+  if (document.getElementById("sec-estadisticas")?.classList.contains("active") && typeof updateCharts === "function") updateCharts();
+}
+
+function setThemeColor(hex) {
+  const color = THEME_COLORS.find((item) => item.hex.toLowerCase() === String(hex).toLowerCase());
+  if (!color) return;
+  const root = document.documentElement.style;
+  root.setProperty("--color-accent", color.hex);
+  root.setProperty("--accent-rgb", [1, 3, 5].map((i) => parseInt(color.hex.slice(i, i + 2), 16)).join(","));
+  try { localStorage.setItem(THEME_ACCENT_KEY, color.hex); } catch {}
+  _refreshThemeDependents();
+  renderSettingsMenu();
+}
+
+function setThemeMode(mode) {
+  document.body.classList.toggle("dark", mode !== "light");
+  try { localStorage.setItem(THEME_MODE_KEY, mode === "light" ? "light" : "dark"); } catch {}
+  _refreshThemeDependents();
+  renderSettingsMenu();
+}
+
 function toggleDarkMode() {
-  document.body.classList.toggle("dark");
-  if (typeof bazaarCanvas !== "undefined" && bazaarCanvas.ctx) bazaarCanvas.render();   // la cuadrícula cambia de color
-  const icon = document.getElementById("dark-icon");
-  const label = document.getElementById("dark-label");
-  const isDark = document.body.classList.contains("dark");
-  if (icon) icon.textContent = isDark ? "☀️" : "🌙";
-  if (label) label.textContent = isDark ? "Modo Claro" : "Modo Oscuro";
+  setThemeMode(document.body.classList.contains("dark") ? "light" : "dark");
+}
+
+function toggleSettingsMenu() {
+  const menu = document.getElementById("settings-menu");
+  if (!menu) return;
+  const open = menu.classList.toggle("open");
+  document.getElementById("btn-settings")?.setAttribute("aria-expanded", String(open));
+  if (open) {
+    document.getElementById("backup-menu")?.classList.remove("open");
+    renderSettingsMenu();
+  }
+}
+
+function renderSettingsMenu() {
+  const menu = document.getElementById("settings-menu");
+  if (!menu) return;
+  const dark = document.body.classList.contains("dark");
+  const accent = getAccentColor().toLowerCase();
+  const bz = getActiveBazaar();
+  const swatches = (selected, handler) => THEME_COLORS.map((c) =>
+    `<button type="button" class="color-swatch ${selected === c.hex ? "is-selected" : ""}" style="background:${c.hex}"
+      onclick="${handler}('${c.hex}')" aria-label="${c.nombre}" aria-pressed="${selected === c.hex}" title="${c.nombre}"></button>`).join("");
+  menu.innerHTML = `
+    <div class="settings-title">⚙️ Personalizar</div>
+    <div class="settings-section">
+      <div class="settings-label">Modo</div>
+      <div class="segmented settings-mode" role="group" aria-label="Modo claro u oscuro">
+        <button type="button" class="${dark ? "" : "active"}" aria-pressed="${!dark}" onclick="setThemeMode('light')">☀️ Claro</button>
+        <button type="button" class="${dark ? "active" : ""}" aria-pressed="${dark}" onclick="setThemeMode('dark')">🌙 Oscuro</button>
+      </div>
+      <div class="settings-label">Color de la interfaz</div>
+      <div class="color-palette">${swatches(accent, "setThemeColor")}</div>
+    </div>
+    ${bz ? `
+    <div class="settings-section">
+      <div class="settings-label">Bazar activo · ${escapeHTML(bz.name)}</div>
+      <div class="color-palette">${swatches(String(bz.color || "").toLowerCase(), "setActiveBazaarColor")}</div>
+      <div class="settings-actions">
+        <button type="button" class="btn-secondary btn-sm" onclick="setActiveBazaarColor('')">Sin color</button>
+        <button type="button" class="btn-secondary btn-sm" onclick="openBazaarColorModal('${bz.id}');toggleSettingsMenu()">Más colores…</button>
+      </div>
+      <p class="form-hint">Es la barra que marca a este bazar como activo en Mis Bazares e Inicio.</p>
+    </div>` : ""}`;
 }
 
 function toggleBackupMenu() {
@@ -286,7 +362,7 @@ function exportarCSV() {
     getExpositorCaracteristicas(e).map((c) => c.nombre).join(", "),
     ...(multi ? [getExpositorDiasLabel(e, bz)] : []),
     e.tel, e.email, getExpositorLocation(e, bz),
-    e.mesasCantidad === "otro" ? e.mesasCantidadOtro : e.mesasCantidad || 1,
+    e.mesaTipo === "media" ? "Media mesa" : (e.mesasCantidad === "otro" ? e.mesasCantidadOtro : e.mesasCantidad || 1),
     e.areaEncargada || "",
     e.costo, e.adelanto || 0,
     (e.costo - (e.adelanto || 0)),

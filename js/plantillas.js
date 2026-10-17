@@ -115,6 +115,9 @@ function usarPlantilla(pltId) {
 
   populateExpositorAssignmentSelects(bz);
   toggleOtherTableCount();
+  updateExpositorColorFields();
+  updateExpositorMesaTipo(false);
+  applySuggestedBaseCost(true);
   updateExpositorExtraChairFields();
   updateExpositorCostPreview();
   updateExpositorPaymentFields();

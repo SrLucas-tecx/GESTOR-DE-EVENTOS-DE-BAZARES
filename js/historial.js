@@ -42,7 +42,8 @@ function describeExpositorChanges(before, after) {
     ["sillasPorMesa", "Sillas por mesa"],
     ["sillasCantidad", "Sillas asignadas"],
     ["sillasExtraCantidad", "Sillas extra"],
-    ["fechaLimitePago", "Fecha límite de pago"]
+    ["fechaLimitePago", "Fecha límite de pago"],
+    ["mesaTipo", "Tipo de espacio"]
   ].forEach(([key, label]) => {
     const a = String(before[key] ?? "");
     const b = String(after[key] ?? "");

@@ -314,7 +314,7 @@ html:has(body.dark), body.dark { color-scheme: dark; }
 .segmented button { padding: 6px 14px; border-radius: calc(var(--radius-md) - 3px); background: transparent;
   color: var(--color-text-muted); font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; transition: all var(--transition); }
 .segmented button:hover { color: var(--color-accent); }
-.segmented button.active { background: var(--color-accent); color: #fff; box-shadow: 0 2px 8px rgba(13,148,136,.3); }
+.segmented button.active { background: var(--color-accent); color: #fff; box-shadow: 0 2px 8px rgba(var(--accent-rgb),.3); }
 .segmented button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 
 /* Barra de escala (1 m, 50 cm… según el zoom) */
@@ -435,7 +435,7 @@ body.dark .panel-checklist-row.panel-checklist-overdue .panel-checklist-copy, bo
 .panel-progress-heading strong span { color: var(--color-text-muted); font-weight: 600; }
 .panel-progress-track { height: .6rem; overflow: hidden; border-radius: var(--radius-full); background: var(--color-surface-alt); }
 .panel-progress-fill { display: block; height: 100%; border-radius: inherit; background: var(--color-accent); transition: width .3s ease; }
-.panel-progress-item:nth-child(2) .panel-progress-fill { background: #0d9488; }
+.panel-progress-item:nth-child(2) .panel-progress-fill { background: var(--color-accent); }
 .panel-progress-item:nth-child(3) .panel-progress-fill { background: #d97706; }
 body.dark .panel-progress-item:nth-child(3) .panel-progress-fill { background: #fbbf24; }
 .panel-metrics-link { width: 100%; margin-top: var(--space-6); text-align: center; }
@@ -585,13 +585,16 @@ body.dark .panel-progress-item:nth-child(3) .panel-progress-fill { background: #
 .caract-more { font-size: var(--fs-xs); }
 
 
-/* ═══ COLOR DEL BAZAR (Mis Bazares e Inicio) ═══ */
-html .payments-table tr.bz-colored td { background: color-mix(in srgb, var(--bz-color) 9%, transparent); }
-html .payments-table tr.bz-colored td:first-child { box-shadow: inset 6px 0 0 var(--bz-color); }
-html .bazaar-home-card[style*="--bz-color"] { border-top: 5px solid var(--bz-color); }
-html .bazaar-home-card.active[style*="--bz-color"] { border-color: var(--bz-color); box-shadow: 0 0 0 1px var(--bz-color); }
-html .bazaar-home-card[style*="--bz-color"] .section-count { background: color-mix(in srgb, var(--bz-color) 22%, transparent); color: var(--bz-color); }
-html .bazaar-home-card[style*="--bz-color"] .bazaar-home-emoji { background: color-mix(in srgb, var(--bz-color) 22%, var(--color-surface-alt)); }
+/* ═══ BAZAR ACTIVO (Mis Bazares e Inicio) ═══
+   La barra indica cuál bazar está activo y toma su color (o el de la interfaz si no tiene).
+   Los demás bazares solo muestran un punto de color. */
+html body .payments-table tr.active-bazaar-row td { background: color-mix(in srgb, var(--bz-color, var(--color-accent)) 16%, transparent); }
+html body .payments-table tr.active-bazaar-row td:first-child { box-shadow: inset 6px 0 0 var(--bz-color, var(--color-accent)); }
+html .payments-table tr.active-bazaar-row .section-count { background: color-mix(in srgb, var(--bz-color, var(--color-accent)) 22%, transparent); color: var(--bz-color, var(--color-accent)); }
+html .bazaar-home-card.active { border: 1.5px solid var(--bz-color, var(--color-accent)); border-top: 5px solid var(--bz-color, var(--color-accent)); box-shadow: 0 0 0 1px var(--bz-color, var(--color-accent)); }
+html .bazaar-home-card.active .section-count { background: color-mix(in srgb, var(--bz-color, var(--color-accent)) 22%, transparent); color: var(--bz-color, var(--color-accent)); }
+html .bazaar-home-card.active .bazaar-home-emoji { background: color-mix(in srgb, var(--bz-color, var(--color-accent)) 22%, var(--color-surface-alt)); }
+.bz-dot { display: inline-block; width: .7rem; height: .7rem; margin-right: .45rem; border-radius: 50%; vertical-align: middle; box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-text) 25%, transparent); }
 .color-palette { display: grid; grid-template-columns: repeat(8, 1fr); gap: var(--space-2); }
 .color-swatch { aspect-ratio: 1; min-height: 2rem; border-radius: 50%; border: 3px solid transparent; cursor: pointer; box-shadow: 0 0 0 1px var(--color-border); transition: transform var(--transition); }
 .color-swatch:hover { transform: scale(1.1); }
@@ -613,3 +616,31 @@ html .bazaar-home-card[style*="--bz-color"] .bazaar-home-emoji { background: col
 /* ═══ PLANOS POR DÍA ═══ */
 .floor-dia-wrap { display: inline-flex; align-items: center; gap: var(--space-2); }
 #dia-evento-tabs { margin-bottom: var(--space-4); }
+
+/* ═══ ENGRANAJE ⚙️: modo, color de la interfaz y color del bazar activo ═══ */
+.settings-menu { display: none; position: absolute; bottom: 110%; left: 0; right: 0; min-width: 260px; padding: var(--space-4); background: var(--color-surface); border: 1.5px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 110; }
+.settings-menu.open { display: block; }
+.settings-title { margin-bottom: var(--space-3); font-family: var(--font-display); font-weight: 800; }
+.settings-section + .settings-section { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
+.settings-label { margin: var(--space-3) 0 var(--space-2); color: var(--color-text-muted); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.settings-section > .settings-label:first-child { margin-top: 0; }
+.settings-mode { display: flex; width: 100%; }
+.settings-mode button { flex: 1; }
+.settings-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.btn-settings { font-size: 1.15rem; }
+@media (min-width: 769px) { .settings-menu { top: calc(100% + 8px); bottom: auto; left: auto; right: 0; width: 300px; } }
+
+/* Eliminar un día (ficha del evento) */
+.dia-row .dia-remove { display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; min-height: 2.4rem; border: 1.5px solid color-mix(in srgb, var(--color-danger) 45%, var(--color-border)); border-radius: var(--radius-md); background: transparent; color: var(--color-danger); cursor: pointer; transition: all var(--transition); }
+.dia-row .dia-remove:hover, .dia-row .dia-remove:focus-visible { background: var(--color-danger); color: #fff; border-color: var(--color-danger); }
+
+/* ═══ MEDIA MESA y color del expositor ═══ */
+.exp-color-chip { display: inline-flex; align-items: center; align-self: center; gap: .4rem; padding: 3px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-full); color: var(--color-text-muted); font-size: var(--fs-xs); font-weight: 700; }
+.exp-color-chip i, .exp-color-dot { display: inline-block; width: .8rem; height: .8rem; margin-right: .3rem; border-radius: 50%; vertical-align: middle; }
+.exp-color-chip i { margin-right: 0; }
+.check-inline { display: flex; align-items: center; gap: .5rem; margin-bottom: var(--space-2); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.check-inline input { accent-color: var(--color-accent); }
+.table-owner-row { display: flex; align-items: center; gap: var(--space-2); }
+.table-owner-row .form-select { flex: 1; min-width: 0; }
+.table-owner-color { flex: 0 0 2.6rem; width: 2.6rem; height: 2.6rem; padding: 2px; border: 1.5px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-alt); cursor: pointer; }
+.table-owner-color:disabled { opacity: .4; cursor: not-allowed; }

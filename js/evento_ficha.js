@@ -354,12 +354,16 @@ function toggleMultiDia(on) {
   if (!bz) return;
   ensureEventoFields(bz);
   if (on && bz.evento.dias.length < 2) {
-    const base = bz.evento.fecha;
     const stamp = Date.now();
-    bz.evento.dias = [
-      { id: `dia-${stamp}-1`, nombre: "Día 1", fecha: base },
-      { id: `dia-${stamp}-2`, nombre: "Día 2", fecha: _fechaMasDias(base, 1) }
-    ];
+    if (bz.evento.dias.length === 1) {   // ya hay un día guardado: se le suma el segundo
+      bz.evento.dias.push({ id: `dia-${stamp}-2`, nombre: "Día 2", fecha: _fechaMasDias(bz.evento.dias[0].fecha, 1) });
+    } else {
+      const base = bz.evento.fecha;
+      bz.evento.dias = [
+        { id: `dia-${stamp}-1`, nombre: "Día 1", fecha: base },
+        { id: `dia-${stamp}-2`, nombre: "Día 2", fecha: _fechaMasDias(base, 1) }
+      ];
+    }
   }
   bz.evento.multiDia = Boolean(on);
   saveState();
@@ -387,18 +391,16 @@ function updateDiaEvento(id, field, value) {
 async function removeDiaEvento(id) {
   const bz = getActiveBazaar();
   if (!bz) return;
-  if (bz.evento.dias.length <= 2) {
-    showToast("Un evento de varios días necesita al menos 2 días. Apaga el interruptor si dura un solo día.", "error");
-    return;
-  }
   const dia = bz.evento.dias.find((d) => d.id === id);
   const actividades = dia ? (bz.minuteByMinute || []).filter((row) => row.dia === id).length : 0;
   const planos = dia ? (bz.floors || []).filter((floor) => floor.dia === id).length : 0;
+  const quedaUno = bz.evento.dias.length <= 2;   // al borrar uno solo queda un día: deja de ser multi-día
   if (!dia || !await appConfirm(
-    `¿Eliminar "${getDiaLabel(dia, bz.evento.dias.indexOf(dia))}"? Se quitará de la participación de los expositores${actividades ? ` y se eliminarán sus ${actividades} actividad(es) exclusivas del Minuto a Minuto` : ""}.${planos ? `\n\nSus ${planos} plano(s) se conservan, pero quedarán sin día asignado.` : ""}`,
+    `¿Eliminar "${getDiaLabel(dia, bz.evento.dias.indexOf(dia))}"? Se quitará de la participación de los expositores${actividades ? ` y se eliminarán sus ${actividades} actividad(es) exclusivas del Minuto a Minuto` : ""}.${planos ? `\n\nSus ${planos} plano(s) se conservan, pero quedarán sin día asignado.` : ""}${quedaUno ? "\n\nAl quedar un solo día, el evento pasará a ser de 1 día." : ""}`,
     "Eliminar día")) return;
   bz.evento.dias = bz.evento.dias.filter((d) => d.id !== id);
   cleanupDiaRefs(bz, id);
+  if (quedaUno) bz.evento.multiDia = false;
   saveState();
   renderAll();
   showToast("🗑️ Día eliminado");
@@ -419,7 +421,7 @@ function renderFichaDias(bz = getActiveBazaar()) {
              onchange="updateDiaEvento('${d.id}','nombre',this.value)">
       <input type="date" class="form-input" value="${escapeHTML(d.fecha)}" aria-label="Fecha del día ${i + 1}"
              onchange="updateDiaEvento('${d.id}','fecha',this.value)">
-      <button type="button" class="btn-danger btn-sm" ${dias.length <= 2 ? "disabled" : ""} onclick="removeDiaEvento('${d.id}')"
+      <button type="button" class="dia-remove" onclick="removeDiaEvento('${d.id}')"
               title="Eliminar día" aria-label="Eliminar día ${i + 1}">🗑️</button>
     </div>`).join("");
 }

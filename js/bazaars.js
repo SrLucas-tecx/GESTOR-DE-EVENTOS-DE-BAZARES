@@ -283,23 +283,25 @@ function saveDuplicarPlano(e) {
   // Mesas por expositor que ya existen en el día destino: el límite de mesas solicitadas es por día.
   const conteo = {};
   bz.floors.filter((f) => floorDiaId(f, bz) === dia).forEach((f) => (f.tables || []).forEach((t) => {
-    if (t.exhibitorId) conteo[t.exhibitorId] = (conteo[t.exhibitorId] || 0) + 1;
+    tableOwnerIds(t).forEach((oid) => { conteo[oid] = (conteo[oid] || 0) + 1; });
   }));
   const tocados = new Set();
   let omitidas = 0;
   (copy.tables || []).forEach((table, i) => {
     table.id = `t-${stamp}-${i}`;
-    table.attended = false;
-    table.absent = false;
-    if (!table.exhibitorId) return;
-    const exp = bz.expositores.find((item) => item.id === table.exhibitorId);
-    if (copiarExpositores && exp && expositorParticipaEnDia(exp, dia, bz) && (conteo[exp.id] || 0) < getExpositorRequestedTableCount(exp)) {
-      conteo[exp.id] = (conteo[exp.id] || 0) + 1;
-      tocados.add(exp.id);
-    } else {
-      if (copiarExpositores) omitidas += 1;
-      table.exhibitorId = "";
-    }
+    table.attended = false; table.absent = false; table.attended2 = false; table.absent2 = false;
+    [1, 2].forEach((slot) => {   // mesas compartidas: cada mitad se revisa por separado
+      const oid = tableSlotValue(table, slot);
+      if (!oid) return;
+      const exp = bz.expositores.find((item) => item.id === oid);
+      if (copiarExpositores && exp && expositorParticipaEnDia(exp, dia, bz) && (conteo[exp.id] || 0) < getExpositorRequestedTableCount(exp)) {
+        conteo[exp.id] = (conteo[exp.id] || 0) + 1;
+        tocados.add(exp.id);
+      } else {
+        if (copiarExpositores) omitidas += 1;
+        setTableSlot(table, slot, "");
+      }
+    });
   });
 
   const previousActive = bz.activeFloorId;
@@ -460,11 +462,11 @@ function renderBazaresTabla() {
       ? `<img src="${bz.logoImage}" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:2px solid var(--color-border);">`
       : `<span style="font-size:1.4rem;">🎪</span>`;
     return `
-      <tr class="${isActive ? "active-bazaar-row" : ""}${color ? " bz-colored" : ""}"${color ? ` style="--bz-color:${color}"` : ""}>
+      <tr class="${isActive ? "active-bazaar-row" : ""}"${isActive && color ? ` style="--bz-color:${color}"` : ""}>
         <td><div style="display:flex;align-items:center;gap:10px;">
           <div class="bazar-logo-mini">${logoHtml}</div>
           <div>
-            <strong>${escapeHTML(bz.name)}</strong>
+            ${color ? `<span class="bz-dot" style="background:${color}" title="Color del bazar"></span>` : ""}<strong>${escapeHTML(bz.name)}</strong>
             ${isActive ? `<span class="section-count" style="margin-left:6px;font-size:10px;">Activo</span>` : ""}
           </div>
         </div></td>
@@ -500,12 +502,12 @@ function renderBazaarHome() {
     const active = bz.id === AppState.currentBazaarId;
     const color = bazaarColor(bz);
     return `
-      <article class="bazaar-home-card ${active ? "active" : ""}"${color ? ` style="--bz-color:${color}"` : ""}>
+      <article class="bazaar-home-card ${active ? "active" : ""}"${active && color ? ` style="--bz-color:${color}"` : ""}>
         <div class="bazaar-home-card-top">
           ${logo}
           ${active ? `<span class="section-count">Activo</span>` : ""}
         </div>
-        <h3>${escapeHTML(bz.name)}</h3>
+        <h3>${color ? `<span class="bz-dot" style="background:${color}" title="Color del bazar"></span>` : ""}${escapeHTML(bz.name)}</h3>
         <p>${expositores.length} expositor${expositores.length === 1 ? "" : "es"} · ${(bz.floors || []).length} piso${(bz.floors || []).length === 1 ? "" : "s"}</p>
         <button class="btn-primary btn-sm" onclick="switchBazaarAndGo('${bz.id}')">Abrir bazar</button>
       </article>`;
@@ -542,7 +544,7 @@ async function renameBazaar(id) {
 // COLOR DEL BAZAR (personalización)
 // Se ve como franja en la fila de Mis Bazares y como acento en la tarjeta de Inicio.
 // ==========================================
-const BAZAAR_COLORS = ["#0d9488", "#f59e0b", "#8b5cf6", "#ef4444", "#10b981", "#3b82f6", "#ec4899", "#f97316"];
+const BAZAAR_COLORS = ["#0d9488", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#ef4444", "#ea580c", "#16a34a"];   // los mismos 8 del engranaje
 let _bazaarColorDraft = "";
 
 function bazaarColor(bz) {
@@ -559,7 +561,10 @@ function _renderBazaarColorModal() {
   const input = document.getElementById("bazar-color-input");
   if (input && _bazaarColorDraft) input.value = _bazaarColorDraft;
   const preview = document.getElementById("bazar-color-preview");
-  if (preview) preview.style.setProperty("--bz-color", _bazaarColorDraft || "transparent");
+  if (preview) {   // mismo resultado con un color de la paleta o uno elegido con el selector
+    preview.style.borderLeftColor = _bazaarColorDraft || "transparent";
+    preview.style.background = _bazaarColorDraft ? `color-mix(in srgb, ${_bazaarColorDraft} 14%, var(--color-surface-alt))` : "";
+  }
   const hint = document.getElementById("bazar-color-hint");
   if (hint) hint.textContent = _bazaarColorDraft ? `Color elegido: ${_bazaarColorDraft}` : "Sin color: se verá con el estilo normal.";
 }
@@ -593,6 +598,17 @@ function saveBazaarColor() {
   renderBazaarHome();
   closeModal("modal-color-bazar");
   showToast(bz.color ? "🎨 Color del bazar actualizado" : "Color del bazar quitado");
+}
+
+/** Cambia el color del bazar activo desde el engranaje ⚙️ ("" = sin color). */
+function setActiveBazaarColor(hex) {
+  const bz = getActiveBazaar();
+  if (!bz) return;
+  bz.color = /^#[0-9a-f]{6}$/i.test(String(hex)) ? hex : "";
+  saveState();
+  renderBazaresTabla();
+  renderBazaarHome();
+  if (typeof renderSettingsMenu === "function") renderSettingsMenu();
 }
 
 // Upload de logo/imagen del bazar
@@ -724,7 +740,7 @@ async function duplicarBazaar() {
     const newFloorId = `${newId}-floor-${index + 1}`;
     floorIdMap[floor.id] = newFloorId;
     floor.id = newFloorId;
-    (floor.tables || []).forEach((table) => { table.attended = false; table.absent = false; });
+    (floor.tables || []).forEach((table) => { table.attended = false; table.absent = false; table.attended2 = false; table.absent2 = false; });
   });
   copy.activeFloorId = floorIdMap[source.activeFloorId] || copy.floors?.[0]?.id;
   (copy.invitados || []).forEach((inv) => { inv.asistio = false; });

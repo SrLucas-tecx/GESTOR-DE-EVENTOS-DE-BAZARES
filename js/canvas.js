@@ -718,11 +718,12 @@ class BazaarCanvasManager {
   // Dibuja los handles de la imagen en modo imgEdit
   drawImgHandles(floor) {
     if (!this.bgImageObj || !floor) return;
+    const accent = getAccentColor();   // color de la interfaz elegido en ⚙️
     const r = this._getImgRect(floor);
     if (!r) return;
     // Marco punteado alrededor de la imagen
     this.ctx.save();
-    this.ctx.strokeStyle = "#0d9488";
+    this.ctx.strokeStyle = accent;
     this.ctx.lineWidth   = 2 / this.scale;
     this.ctx.setLineDash([6 / this.scale, 4 / this.scale]);
     this.ctx.beginPath();
@@ -739,7 +740,7 @@ class BazaarCanvasManager {
       this.ctx.arc(h.cx, h.cy, handleR, 0, Math.PI * 2);
       this.ctx.fillStyle   = "#ffffff";
       this.ctx.fill();
-      this.ctx.strokeStyle = "#0d9488";
+      this.ctx.strokeStyle = accent;
       this.ctx.lineWidth   = 2 / this.scale;
       this.ctx.stroke();
     }
@@ -749,12 +750,12 @@ class BazaarCanvasManager {
       this.ctx.beginPath();
       this.ctx.moveTo(topCenter.cx, topCenter.cy);
       this.ctx.lineTo(rotationHandle.cx, rotationHandle.cy);
-      this.ctx.strokeStyle = "#0d9488";
+      this.ctx.strokeStyle = accent;
       this.ctx.lineWidth = 2 / this.scale;
       this.ctx.stroke();
       this.ctx.beginPath();
       this.ctx.arc(rotationHandle.cx, rotationHandle.cy, 10 / this.scale, 0, Math.PI * 2);
-      this.ctx.fillStyle = "#0d9488";
+      this.ctx.fillStyle = accent;
       this.ctx.fill();
       this.ctx.fillStyle = "#ffffff";
       this.ctx.font = `bold ${13 / this.scale}px sans-serif`;
@@ -765,7 +766,7 @@ class BazaarCanvasManager {
     // Label de tamaño
     const scaleX = Math.round(Number(floor.bgScaleX || floor.bgScale || 1) * 100);
     const scaleY = Math.round(Number(floor.bgScaleY || floor.bgScale || 1) * 100);
-    this.ctx.fillStyle  = "#0d9488";
+    this.ctx.fillStyle  = accent;
     this.ctx.font       = `bold ${13 / this.scale}px sans-serif`;
     this.ctx.textAlign  = "left";
     this.ctx.textBaseline = "bottom";
@@ -1043,16 +1044,20 @@ class BazaarCanvasManager {
 
   drawTable(t) {
     const bz = this.getCurrentBazaar();
-    const exhibitor = bz.expositores.find((e) => e.id === t.exhibitorId);
+    const owners = [t.exhibitorId, t.shared ? t.exhibitorId2 : ""].map((id) => (id ? bz.expositores.find((e) => e.id === id) : null) || null);
+    if (t.shared) { this.drawSharedTable(t, owners); return; }
+    const exhibitor = owners[0];
     let fillColor = "#ffffff", borderColor = "#94a3b8";
     if (exhibitor && t.color && t.color.toLowerCase() !== "#ffffff") {
       fillColor = t.color;
       borderColor = fillColor;
     } else if (t.attended) { fillColor = "#dcfce7"; borderColor = "#22c55e"; }
     else if (exhibitor) {
+      const own = /^#[0-9a-f]{6}$/i.test(exhibitor.color || "") ? exhibitor.color : "";
       const cat = AppState.categorias.find((c) => c.id === exhibitor.categoria);
-      if (cat) { fillColor = cat.color + "25"; borderColor = cat.color; }
-      else     { fillColor = "#e0f2fe"; borderColor = "#0284c7"; }
+      const base = own || cat?.color;
+      if (base) { fillColor = base + "25"; borderColor = base; }
+      else      { fillColor = "#e0f2fe"; borderColor = "#0284c7"; }
     } else if (t.absent) {
       // Mesa libre (sin expositor ni color propio) marcada como "no asistió":
       // no hay un color que atenuar, así que se muestra en rojo como antes.
@@ -1084,6 +1089,56 @@ class BazaarCanvasManager {
       this.ctx.fillText(txt, t.x + t.w / 2, t.y + (t.h * 2) / 3);
     }
     this.ctx.restore();
+  }
+
+  // Mesa compartida: dos mitades (A a la izquierda, B a la derecha), cada una con el color de su expositor.
+  drawSharedTable(t, owners) {
+    const ctx = this.ctx;
+    const halfW = t.w / 2;
+    const colorOf = (exp) => (exp ? getExpositorPlanoColor(exp) : "");
+    ctx.save();
+    ctx.translate(t.x + t.w / 2, t.y + t.h / 2);
+    ctx.rotate((Number(t.rotation) || 0) * Math.PI / 180);
+    ctx.translate(-(t.x + t.w / 2), -(t.y + t.h / 2));
+    ctx.shadowColor = "rgba(0,0,0,0.08)"; ctx.shadowBlur = 6; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, 6); ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, 6); ctx.clip();
+    owners.forEach((exp, i) => {
+      const x = t.x + i * halfW;
+      const state = tableAttendanceState(t, i + 1);
+      const color = colorOf(exp);
+      ctx.globalAlpha = state === "absent" ? 0.7 : 1;
+      ctx.fillStyle = exp ? color + "33" : "#f8fafc";
+      ctx.fillRect(x, t.y, halfW, t.h);
+      if (exp) { ctx.fillStyle = color; ctx.fillRect(x, t.y, halfW, Math.max(4, t.h * 0.12)); }
+      if (exp && state === "attended") {
+        ctx.fillStyle = "#16a34a"; ctx.font = `bold ${Math.max(9, t.h * 0.22)}px sans-serif`;
+        ctx.textAlign = "right"; ctx.textBaseline = "top";
+        ctx.fillText("✓", x + halfW - 3, t.y + t.h * 0.14);
+      }
+    });
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, 6); ctx.stroke();
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(t.x + halfW, t.y); ctx.lineTo(t.x + halfW, t.y + t.h); ctx.stroke();
+    ctx.setLineDash([]);
+    const labelFontSize = Math.max(8, Math.min(32, Number(t.labelFontSize) || 11));
+    ctx.fillStyle = t.labelColor || "#1e293b";
+    ctx.font = `bold ${labelFontSize}px sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(`${t.name || "Mesa"} · ½`, t.x + t.w / 2, t.y + t.h * 0.38);
+    ctx.font = `${Math.max(7, Math.round(labelFontSize * 0.72))}px sans-serif`;
+    ctx.fillStyle = t.labelColor || "#475569";
+    owners.forEach((exp, i) => {
+      const txt = exp ? (exp.negocio.length > 7 ? exp.negocio.slice(0, 6) + ".." : exp.negocio) : "Libre";
+      ctx.fillText(txt, t.x + halfW * (i + 0.5), t.y + t.h * 0.75);
+    });
+    ctx.restore();
   }
 
   drawLegend(bz) {

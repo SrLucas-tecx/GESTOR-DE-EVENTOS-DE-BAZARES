@@ -54,7 +54,7 @@ async function generatePDFInvoice(id) {
   set("pdf-exp-nombre",    `<strong>Titular:</strong> ${escapeHTML(exp.nombre)}`);
   set("pdf-exp-contact",   `<strong>Contacto:</strong> ${escapeHTML(exp.tel || "—")} | ${escapeHTML(exp.email || "—")}`);
   // Se usa la ubicación vigente en el plano (antes salía el texto guardado, que podía estar desactualizado).
-  set("pdf-exp-mesa",      `<strong>Ubicación y mobiliario:</strong> ${escapeHTML(getExpositorLocation(exp))} · ${mesas} mesa(s) · ${sillas} silla(s)`);
+  set("pdf-exp-mesa",      `<strong>Ubicación y mobiliario:</strong> ${escapeHTML(getExpositorLocation(exp))} · ${exp.mesaTipo === "media" ? "media mesa" : `${mesas} mesa(s)`} · ${sillas} silla(s)`);
   const costBreakdown = Number(exp.sillasExtraCantidad || 0) > 0
     ? ` (base ${formatCurrency(exp.costoBase)} + ${Number(exp.sillasExtraCantidad)} silla(s) extra × ${formatCurrency(exp.costoSillaExtra)})`
     : "";
