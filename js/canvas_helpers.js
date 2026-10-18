@@ -58,9 +58,8 @@ function autoNumberTables() {
     rowNumber += 1;
     table.name = `${String.fromCodePoint(64 + Math.min(row, 26))}-${String(rowNumber).padStart(2, "0")}`;
     const bz = getActiveBazaar();
-    bz.expositores.filter((item) => tableSlotOf(table, item.id) || item.tableId === table.id || (item.tableIds || []).includes(table.id))
-      .forEach((item) => syncExpositorTableAssignment(bz, item));
   });
+  syncAllTableAssignments(getActiveBazaar());   // el nombre de la mesa forma parte de la ubicación del expositor
   saveState();
   bazaarCanvas.render();
   renderChecklist();
@@ -246,15 +245,8 @@ async function resetBazaarCanvas() {
   const bz = getActiveBazaar();
   const floor = getActiveFloor(bz);
   if (!floor) return;
-  const removedTableIds = new Set((floor.tables || []).map((table) => table.id));
   (floor.tables || []).forEach((table) => {
     removeTableFromExpositorAssignment(bz, table);
-  });
-  bz.expositores.forEach((exhibitor) => {
-    if (removedTableIds.has(exhibitor.tableId)) {
-      exhibitor.tableId = "";
-      exhibitor.ubicacion = "";
-    }
   });
   floor.tables = [];
   floor.bgImage = null;
@@ -453,36 +445,31 @@ async function saveTableEdit() {
   const id = document.getElementById("edit-table-id").value;
   const bz = getActiveBazaar();
   const t  = getActiveTables(bz).find((item) => item.id === id);
-  if (t) {
-    const exhibitorId = document.getElementById("edit-table-exhibitor").value;
-    const exhibitor = bz.expositores.find((exp) => exp.id === exhibitorId);
-    if (exhibitorId && !exhibitor) {
-      showToast("No se encontró el expositor seleccionado", "error");
-      return;
-    }
-    t.name        = document.getElementById("edit-table-name").value.trim() || t.name;
-    const pixelsPerCentimeter = getPixelsPerMeter() / 100;
-    t.w           = Math.max(1, Number(document.getElementById("edit-table-width-cm").value || 1) * pixelsPerCentimeter);
-    t.h           = Math.max(1, Number(document.getElementById("edit-table-height-cm").value || 1) * pixelsPerCentimeter);
-    t.color       = document.getElementById("edit-table-color").value || "#ffffff";
-    t.labelColor  = document.getElementById("edit-table-label-color").value || "#1e293b";
-    t.labelFontSize = Math.max(8, Math.min(32, Number(document.getElementById("edit-table-label-size").value) || 11));
-    t.rotation    = ((Number(document.getElementById("edit-table-rotation").value) || 0) % 360 + 360) % 360;
-    const c1 = document.getElementById("edit-table-exp-color");
-    const c2 = document.getElementById("edit-table-exp2-color");
-    const ok = await assignTableOwners(bz, t, {
-      shared: document.getElementById("edit-table-shared").checked,
-      id1: exhibitorId,
-      id2: document.getElementById("edit-table-exhibitor2").value,
-      color1: c1 && !c1.disabled && c1.value !== c1.dataset.orig ? c1.value : null,   // solo si cambió el color
-      color2: c2 && !c2.disabled && c2.value !== c2.dataset.orig ? c2.value : null
-    });
-    if (!ok) return;
-    saveState(); bazaarCanvas.render(); renderChecklist();
-    renderExpositores();
-    closeModal("modal-editar-mesa");
-    showToast("✅ Mesa actualizada");
-  }
+  if (!t) return;
+  const c1 = document.getElementById("edit-table-exp-color");
+  const c2 = document.getElementById("edit-table-exp2-color");
+  // Primero se validan y aplican los expositores: si alguna regla falla, la mesa no se modifica a medias.
+  const ok = await assignTableOwners(bz, t, {
+    shared: document.getElementById("edit-table-shared").checked,
+    id1: document.getElementById("edit-table-exhibitor").value,
+    id2: document.getElementById("edit-table-exhibitor2").value,
+    color1: c1 && !c1.disabled && c1.value !== c1.dataset.orig ? c1.value : null,   // solo si cambió el color
+    color2: c2 && !c2.disabled && c2.value !== c2.dataset.orig ? c2.value : null
+  });
+  if (!ok) return;
+  const pixelsPerCentimeter = getPixelsPerMeter() / 100;
+  t.name        = document.getElementById("edit-table-name").value.trim() || t.name;
+  t.w           = Math.max(1, Number(document.getElementById("edit-table-width-cm").value || 1) * pixelsPerCentimeter);
+  t.h           = Math.max(1, Number(document.getElementById("edit-table-height-cm").value || 1) * pixelsPerCentimeter);
+  t.color       = document.getElementById("edit-table-color").value || "#ffffff";
+  t.labelColor  = document.getElementById("edit-table-label-color").value || "#1e293b";
+  t.labelFontSize = Math.max(8, Math.min(32, Number(document.getElementById("edit-table-label-size").value) || 11));
+  t.rotation    = ((Number(document.getElementById("edit-table-rotation").value) || 0) % 360 + 360) % 360;
+  syncAllTableAssignments(bz);   // si cambió el nombre de la mesa, la ubicación del expositor también
+  saveState(); bazaarCanvas.render(); renderChecklist();
+  renderExpositores();
+  closeModal("modal-editar-mesa");
+  showToast("✅ Mesa actualizada");
 }
 
 function rotateEditingTable(delta) {

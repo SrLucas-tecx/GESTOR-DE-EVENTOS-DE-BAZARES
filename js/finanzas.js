@@ -21,7 +21,7 @@ function renderFinanzasTable() {
           <strong>${escapeHTML(exp.negocio)}</strong><br>
           <small style="color:var(--color-text-muted);">${escapeHTML(exp.nombre)}</small>
         </td>
-        <td>${escapeHTML(exp.ubicacion)}</td>
+        <td>${escapeHTML(getExpositorLocation(exp, bz))}</td>
         <td class="${exp.pagado ? "amount-paid" : "amount-unpaid"}">${formatCurrency(exp.costo)}</td>
         <td style="color:var(--color-paid);">${formatCurrency(adelanto)}</td>
         <td style="color:${saldo > 0 ? "var(--color-unpaid)" : "var(--color-paid)"};">${formatCurrency(saldo)}</td>

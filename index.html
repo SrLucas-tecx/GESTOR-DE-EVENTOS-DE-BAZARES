@@ -1327,30 +1327,18 @@
 
         <section class="exp-wizard-panel" data-wizard-step="2" aria-labelledby="exp-step-title-2" hidden>
           <h3 class="exp-wizard-title" id="exp-step-title-2" tabindex="-1">Detalles logísticos</h3>
-          <div class="form-row">
+
+          <!-- Espacio: se acomoda solo (si es media mesa, desaparece «Mesas solicitadas» y las demás ocupan su lugar) -->
+          <div class="exp-fields-3">
             <div class="form-group">
               <label class="form-label" for="exp-mesa-tipo">Tipo de espacio</label>
               <select id="exp-mesa-tipo" class="form-select" onchange="updateExpositorMesaTipo(true)">
                 <option value="completa">Mesa(s) completa(s)</option>
                 <option value="media">Media mesa</option>
               </select>
-              <p class="form-hint">La media mesa se comparte con otro expositor (máximo 2 por mesa) y usa el precio global de media mesa.</p>
             </div>
-            <div class="form-group">
-              <label class="form-label">Color en el plano</label>
-              <div class="form-switch">
-                <span class="switch-label">Usar un color propio</span>
-                <label class="switch" aria-label="Usar un color propio en el plano">
-                  <input type="checkbox" id="exp-color-enabled" onchange="updateExpositorColorFields()">
-                  <span class="slider"></span>
-                </label>
-              </div>
-              <input type="color" id="exp-color" class="form-input" style="height:42px;padding:4px;cursor:pointer;margin-top:8px;" value="#8b5cf6" aria-label="Color del expositor en el plano" hidden>
-              <p class="form-hint">Lo distingue en el plano (sobre todo en mesas compartidas). Sin color, se usa el de su categoría.</p>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group" id="exp-mesas-group">\1Mesas compradas / solicitadas *</label>
+            <div class="form-group" id="exp-mesas-group">
+              <label class="form-label" for="exp-mesas-cantidad">Mesas solicitadas *</label>
               <select id="exp-mesas-cantidad" class="form-select" required onchange="toggleOtherTableCount();applySuggestedBaseCost(true)">
                 <option value="1">1 mesa</option>
                 <option value="2">2 mesas</option>
@@ -1361,15 +1349,28 @@
               </select>
               <input type="number" id="exp-mesas-otro" class="form-input" min="1" step="1" oninput="updateExpositorTableSelection();applySuggestedBaseCost(true)"
                      placeholder="Cantidad de mesas" style="display:none;margin-top:8px;">
-              <p class="form-hint">Selecciona cuántas mesas solicitó. Solo se pueden asignar hasta esta cantidad.</p>
             </div>
             <div class="form-group">
               <label class="form-label" for="exp-sillas-por-mesa">Sillas por mesa</label>
-              <input type="number" id="exp-sillas-por-mesa" class="form-input" min="0" step="1" value="2"
-                     oninput="updateExpositorChairPreview()">
-              <p class="form-hint">Ajustable para este expositor. No modifica el costo ni el pago.</p>
+              <input type="number" id="exp-sillas-por-mesa" class="form-input" min="0" step="1" value="2" oninput="updateExpositorChairPreview()">
             </div>
           </div>
+          <p class="form-hint exp-compact-hint">La media mesa se comparte con otro expositor (máximo 2 por mesa) y usa el precio global de media mesa. Las sillas por mesa se ajustan sin cambiar el costo.</p>
+
+          <!-- Color en el plano: interruptor + paleta en una sola línea -->
+          <div class="form-group exp-color-row">
+            <label class="form-label">Color en el plano</label>
+            <div class="exp-color-line">
+              <label class="switch" aria-label="Usar un color propio en el plano">
+                <input type="checkbox" id="exp-color-enabled" onchange="updateExpositorColorFields()">
+                <span class="slider"></span>
+              </label>
+              <span class="exp-color-note">Usar color propio <small>(si no, se usa el de su categoría)</small></span>
+              <div id="exp-color-swatches" class="exp-color-swatches" hidden></div>
+              <input type="color" id="exp-color" class="exp-color-input" value="#8b5cf6" title="Otro color" aria-label="Otro color en el plano" oninput="renderExpositorColorSwatches()" hidden>
+            </div>
+          </div>
+
           <div class="form-group" id="exp-dias-group" hidden>
             <label class="form-label">Días de participación</label>
             <div class="form-switch">
@@ -1382,36 +1383,37 @@
             <div id="exp-dias-picker" class="caract-picker" style="margin-top:var(--space-2);" hidden></div>
             <p class="form-hint" id="exp-dias-hint" aria-live="polite"></p>
           </div>
-          <div class="form-row exp-logistics-grid">
-            <div class="exp-logistics-col">
-              <div class="form-group">
-                <label class="form-label">Sillas asignadas</label>
-                <div id="exp-sillas-total" class="form-input" aria-live="polite" aria-readonly="true">2</div>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="exp-area-encargada">Área encargada (rol de Staff)</label>
-                <select id="exp-area-encargada" class="form-select" onchange="updateExpositorAreaStaff()">
-                  <option value="">Selecciona un área de Staff</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="exp-encargado">Persona encargada del área</label>
-                <select id="exp-encargado" class="form-select" disabled>
-                  <option value="">Primero elige un área</option>
-                </select>
-              </div>
-              <p class="form-hint">Las áreas se configuran en Staff. La persona encargada se filtra según el área seleccionada.</p>
+
+          <!-- Staff: tres campos en una fila -->
+          <div class="exp-fields-3">
+            <div class="form-group">
+              <label class="form-label" for="exp-area-encargada">Área encargada (Staff)</label>
+              <select id="exp-area-encargada" class="form-select" onchange="updateExpositorAreaStaff()">
+                <option value="">Selecciona un área de Staff</option>
+              </select>
             </div>
-            <div class="exp-logistics-col">
-              <div class="form-group">
-                <label class="form-label">Mesas asignadas en el plano (opcional)</label>
-                <label class="check-inline"><input type="checkbox" id="exp-ocultar-ocupadas" checked onchange="refreshExpositorTablePicker()"> Ocultar mesas ocupadas</label>
-                <div id="exp-ubicacion" class="form-input exp-table-picker">
-                  <span class="form-hint">Selecciona las mesas que pidió este expositor.</span>
-                </div>
-                <p class="form-hint" id="exp-table-assignment-hint" aria-live="polite">Por asignar.</p>
-              </div>
+            <div class="form-group">
+              <label class="form-label" for="exp-encargado">Persona encargada</label>
+              <select id="exp-encargado" class="form-select" disabled>
+                <option value="">Primero elige un área</option>
+              </select>
             </div>
+            <div class="form-group">
+              <label class="form-label">Sillas asignadas</label>
+              <div id="exp-sillas-total" class="form-input" aria-live="polite" aria-readonly="true">2</div>
+            </div>
+          </div>
+
+          <!-- Mesas del plano: a todo lo ancho (caben más por fila y casi no sobra espacio) -->
+          <div class="form-group">
+            <div class="exp-picker-head">
+              <label class="form-label">Mesas asignadas en el plano (opcional)</label>
+              <label class="check-inline"><input type="checkbox" id="exp-ocultar-ocupadas" checked onchange="refreshExpositorTablePicker()"> Ocultar mesas ocupadas</label>
+            </div>
+            <div id="exp-ubicacion" class="form-input exp-table-picker">
+              <span class="form-hint">Selecciona las mesas que pidió este expositor.</span>
+            </div>
+            <p class="form-hint" id="exp-table-assignment-hint" aria-live="polite">Por asignar.</p>
           </div>
         </section>
 
@@ -1684,21 +1686,18 @@
           <input type="number" id="edit-table-height-cm" class="form-input" min="1" step="1">
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Color de la mesa</label>
-        <input type="color" id="edit-table-color" class="form-input"
-               style="height:42px;padding:4px;cursor:pointer;" value="#ffffff">
-      </div>
-      <div class="form-row">
+      <div class="table-style-row">
         <div class="form-group">
-          <label class="form-label">Color del texto</label>
-          <input type="color" id="edit-table-label-color" class="form-input"
-                 style="height:42px;padding:4px;cursor:pointer;" value="#1e293b">
+          <label class="form-label" for="edit-table-color">Color de la mesa</label>
+          <input type="color" id="edit-table-color" class="table-color-input" value="#ffffff">
         </div>
         <div class="form-group">
-          <label class="form-label">Tamaño de letra (px)</label>
-          <input type="number" id="edit-table-label-size" class="form-input"
-                 min="8" max="32" step="1" value="11">
+          <label class="form-label" for="edit-table-label-color">Color del texto</label>
+          <input type="color" id="edit-table-label-color" class="table-color-input" value="#1e293b">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-table-label-size">Tamaño de letra (px)</label>
+          <input type="number" id="edit-table-label-size" class="form-input" min="8" max="32" step="1" value="11">
         </div>
       </div>
       <div class="form-group">
@@ -2412,6 +2411,7 @@
 <script src="js/categorias.js"></script>
 <script src="js/finanzas.js"></script>
 <script src="js/costos.js"></script>
+<script src="js/mesas.js"></script>
 <script src="js/modales.js"></script>
 <script src="js/checklist.js"></script>
 <script src="js/plantillas.js"></script>

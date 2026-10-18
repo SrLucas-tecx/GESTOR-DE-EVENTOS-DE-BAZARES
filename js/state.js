@@ -218,6 +218,7 @@ function normalizeTableOwners(table) {
   table.exhibitorId = String(table.exhibitorId || "");
   table.shared = Boolean(table.shared);
   table.exhibitorId2 = table.shared ? String(table.exhibitorId2 || "") : "";
+  if (table.exhibitorId2 && table.exhibitorId2 === table.exhibitorId) table.exhibitorId2 = "";   // el mismo expositor no puede ocupar las dos mitades
   ["attended", "absent", "attended2", "absent2"].forEach((k) => { table[k] = Boolean(table[k]); });
 }
 function tableOwnerIds(table) {
@@ -487,25 +488,42 @@ function migrateState(parsed) {
       if (!Array.isArray(exp.historial)) exp.historial = [];
     });
     const mapTables = (bz.floors || []).flatMap((floor) => floor.tables || []);
-    bz.expositores.forEach((exp) => {
-      const oldIds = new Set(Array.isArray(exp.tableIds) ? exp.tableIds : []);
-      if (exp.tableId) oldIds.add(exp.tableId);
-      if (exp.ubicacion && !oldIds.size) {
-        exp.ubicacion.split(",").map((name) => name.trim().toLowerCase()).forEach((name) => {
-          const match = mapTables.find((table) => table.name.trim().toLowerCase() === name);
-          if (match) oldIds.add(match.id);
+    // Migración de ubicaciones antiguas: se ejecuta UNA sola vez por bazar. Antes se repetía en cada carga
+    // y podía "resucitar" mesas que ya se habían quitado. Después, la fuente de verdad es la mesa del plano.
+    if (!bz.mesasMigradas) {
+      bz.expositores.forEach((exp) => {
+        const oldIds = new Set(Array.isArray(exp.tableIds) ? exp.tableIds : []);
+        if (exp.tableId) oldIds.add(exp.tableId);
+        if (!Array.isArray(exp.tableIds) && !oldIds.size && exp.ubicacion) {   // registros anteriores a los ids de mesa
+          String(exp.ubicacion).split(",").map((name) => name.trim().toLowerCase()).forEach((name) => {
+            const match = mapTables.find((table) => table.name.trim().toLowerCase() === name);
+            if (match) oldIds.add(match.id);
+          });
+        }
+        oldIds.forEach((tableId) => {
+          const table = mapTables.find((item) => item.id === tableId);
+          if (table && !tableOwnerIds(table).length) table.exhibitorId = exp.id;
         });
-      }
-      oldIds.forEach((tableId) => {
-        const table = mapTables.find((item) => item.id === tableId);
-        if (table && (!table.exhibitorId || table.exhibitorId === exp.id)) table.exhibitorId = exp.id;
       });
-    });
+      bz.mesasMigradas = true;
+    }
+    const nombresMesas = new Set(mapTables.map((table) => String(table.name).trim().toLowerCase()));
     bz.expositores.forEach((exp) => {
       const assignedTables = mapTables.filter((table) => tableSlotOf(table, exp.id) > 0);
       exp.tableIds = assignedTables.map((table) => table.id);
       exp.tableId = exp.tableIds[0] || "";
-      if (assignedTables.length) exp.ubicacion = assignedTables.map((table) => table.name).join(", ");
+      if (assignedTables.length) {
+        exp.ubicacion = assignedTables.map((table) => table.name).join(", ");
+        if (exp.ubicacionAnterior === undefined) exp.ubicacionAnterior = "";
+      } else {
+        // Sin mesas, la ubicación se deriva (queda vacía). Un texto escrito a mano antes de existir el plano
+        // se conserva aparte; si solo era el nombre de una mesa que ya no es suya, se descarta.
+        if (exp.ubicacionAnterior === undefined) {
+          const partes = String(exp.ubicacion || "").split(",").map((n) => n.trim().toLowerCase()).filter(Boolean);
+          exp.ubicacionAnterior = partes.length && partes.every((n) => nombresMesas.has(n)) ? "" : String(exp.ubicacion || "");
+        }
+        exp.ubicacion = "";
+      }
     });
     (bz.minuteByMinute || []).forEach((row) => {
       if (row.area === undefined) row.area = "";

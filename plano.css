@@ -644,3 +644,22 @@ html .bazaar-home-card.active .bazaar-home-emoji { background: color-mix(in srgb
 .table-owner-row .form-select { flex: 1; min-width: 0; }
 .table-owner-color { flex: 0 0 2.6rem; width: 2.6rem; height: 2.6rem; padding: 2px; border: 1.5px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-alt); cursor: pointer; }
 .table-owner-color:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ═══ FORMULARIO DE EXPOSITOR · paso 2 compacto ═══ */
+.exp-fields-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0 var(--space-4); }
+.exp-fields-3 .form-group { margin-bottom: var(--space-3); }
+.exp-compact-hint { margin: calc(var(--space-1) * -1) 0 var(--space-3); }
+.exp-color-row { margin-bottom: var(--space-3); }
+.exp-color-line { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); min-height: 2.2rem; }
+.exp-color-note { font-size: var(--fs-sm); font-weight: 700; }
+.exp-color-note small { color: var(--color-text-muted); font-weight: 500; }
+.exp-color-swatches { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.exp-color-swatches .color-swatch { flex: 0 0 1.7rem; width: 1.7rem; height: 1.7rem; min-height: 0; border-width: 2px; }
+.exp-color-input { width: 1.9rem; height: 1.9rem; padding: 0; border: 2px dashed var(--color-border); border-radius: 50%; background: transparent; cursor: pointer; overflow: hidden; }
+.exp-picker-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin-bottom: var(--space-2); }
+.exp-picker-head .form-label, .exp-picker-head .check-inline { margin: 0; }
+#exp-ubicacion.exp-table-picker { min-height: 5rem; max-height: 15rem; align-content: start; }
+
+/* ═══ EDITAR MESA: controles de color compactos ═══ */
+.table-style-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 0 var(--space-5); align-items: end; }
+.table-color-input { display: block; width: 3.2rem; height: 2.6rem; padding: 2px; border: 1.5px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-alt); cursor: pointer; }

@@ -114,7 +114,7 @@ function _alertaRow({ tipo, exp, t, c, label, isOverdue }) {
   let tipoIcon, titulo, subtitulo, detalle, acciones;
   if (tipo === "pago") {
     const saldo = getExpositorPendingBalance(exp);
-    tipoIcon = "💰"; titulo = exp.negocio; subtitulo = `${exp.nombre} · ${exp.ubicacion}`;
+    tipoIcon = "💰"; titulo = exp.negocio; subtitulo = `${exp.nombre} · ${getExpositorLocation(exp)}`;
     detalle = `${label} · Saldo: ${formatCurrency(saldo)}`;
     acciones = `
       <button class="btn-secondary btn-sm" onclick="togglePaymentStatus('${exp.id}')">💰 Marcar Pagado</button>

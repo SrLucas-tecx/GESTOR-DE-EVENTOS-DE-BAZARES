@@ -21,7 +21,7 @@ function renderExpositores() {
   const list = [...bz.expositores].reverse().filter((exp) => {
     const q = AppState.searchQuery;
     const matchQ = !q || exp.nombre.toLowerCase().includes(q) ||
-                   exp.negocio.toLowerCase().includes(q) || exp.ubicacion.toLowerCase().includes(q);
+                   exp.negocio.toLowerCase().includes(q) || getExpositorLocation(exp, bz).toLowerCase().includes(q);
     const matchC = AppState.filterCategory === "all" || exp.categoria === AppState.filterCategory;
     let matchS = true;
     if (AppState.filterStatus === "paid")   matchS = exp.pagado === true;

@@ -305,7 +305,7 @@ function saveDuplicarPlano(e) {
   });
 
   const previousActive = bz.activeFloorId;
-  const resync = () => tocados.forEach((id) => { const exp = bz.expositores.find((item) => item.id === id); if (exp) syncExpositorTableAssignment(bz, exp); });
+  const resync = () => syncAllTableAssignments(bz);
   bz.floors.push(copy);
   bz.activeFloorId = copy.id;
   resync();
@@ -401,7 +401,7 @@ async function createBazaar() {
   if (!name?.trim()) return;
   const id = "bazaar-" + Date.now();
   AppState.bazaars[id] = {
-    id, name: name.trim(), createdAt: Date.now(), color: "",
+    id, name: name.trim(), createdAt: Date.now(), color: "", mesasMigradas: true,
     bgImage: null, logoImage: null, mapConfig: defaultMapConfig(),
     expositores: [], tables: [],
     costsConfig: emptyCostsConfig(),
