@@ -78,6 +78,21 @@ function renderCostosUI() {
   setVal("chair-extra-unit-price", cfg.chairExtraUnitPrice);
   setVal("table-price-default", cfg.tablePrice);
   setVal("half-table-price-default", cfg.halfTablePrice);
+  const globalPricesToggle = get("global-prices-toggle");
+  const globalPricesDetails = get("global-prices-details");
+  const globalPricesSummary = get("global-prices-summary");
+  const editingGlobalPrices = Boolean(globalPricesToggle?.checked);
+  if (globalPricesDetails) globalPricesDetails.hidden = !editingGlobalPrices;
+  if (globalPricesSummary) {
+    globalPricesSummary.hidden = editingGlobalPrices || !cfg.globalPricesConfigured;
+    globalPricesSummary.innerHTML = cfg.globalPricesConfigured ? `
+      <div class="card-meta-item" style="margin-top:12px;font-size:var(--fs-sm);">
+        <div><strong>Sillas incluidas por mesa:</strong> ${Number(cfg.chairsPerTable) || 0}</div>
+        <div><strong>Precio por silla extra:</strong> ${formatCurrency(cfg.chairExtraUnitPrice)}</div>
+        <div><strong>Precio por mesa completa:</strong> ${formatCurrency(cfg.tablePrice)}</div>
+        <div><strong>Precio por media mesa:</strong> ${formatCurrency(cfg.halfTablePrice)}</div>
+      </div>` : "";
+  }
 
   // Precio conjunto
   const conjuntoToggle = get("cost-toggle-conjunto");
@@ -121,6 +136,16 @@ function renderCostosUI() {
   set("cost-stat-income",   formatCurrency(totalIncome));
   set("cost-stat-expenses", formatCurrency(p.total));
   set("cost-stat-balance",  formatCurrency(netBalance));
+}
+
+function toggleGlobalPrices(editing) {
+  const bz = getActiveBazaar();
+  const toggle = document.getElementById("global-prices-toggle");
+  if (!bz || !toggle) return;
+  toggle.checked = Boolean(editing);
+  if (editing) bz.costsConfig.globalPricesConfigured = true;
+  saveState();
+  renderCostosUI();
 }
 
 function _updateCostosCalculations(cfg) {

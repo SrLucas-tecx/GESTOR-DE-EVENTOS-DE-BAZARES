@@ -855,7 +855,7 @@ async function saveExpositorHandler(e, submittedFormData = null) {
 
   // ── Instantánea para deshacer si algo falla (asignación de mesas o guardado) ──
   const prevList = bz.expositores.slice();
-  const prevTables = allTables.map((table) => ({ table, snap: { exhibitorId: table.exhibitorId, exhibitorId2: table.exhibitorId2, shared: table.shared, attended: table.attended, absent: table.absent, attended2: table.attended2, absent2: table.absent2 } }));
+  const prevTables = allTables.map((table) => ({ table, snap: { exhibitorId: table.exhibitorId, exhibitorId2: table.exhibitorId2, shared: table.shared, color: table.color, attended: table.attended, absent: table.absent, attended2: table.attended2, absent2: table.absent2 } }));
   const prevOwners = bz.expositores.map((item) => ({
     item, tableId: item.tableId, tableIds: [...(item.tableIds || [])], ubicacion: item.ubicacion
   }));

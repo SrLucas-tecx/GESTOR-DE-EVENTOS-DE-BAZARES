@@ -420,8 +420,7 @@ function populateTableOwnerSelects(t, keep = false) {
   s2.innerHTML = opciones(v2, v1);
   document.getElementById("edit-table-owner2-group").hidden = !shared;
   document.getElementById("edit-table-exhibitor-label").textContent = shared ? "Expositor de la primera media mesa" : "Expositor asignado";
-  syncTableOwnerColor(1);
-  syncTableOwnerColor(2);
+  syncTableColorToOwner(1);
 }
 
 function updateTableSharedFields() {
@@ -429,16 +428,18 @@ function updateTableSharedFields() {
   if (t) populateTableOwnerSelects(t, true);
 }
 
-function syncTableOwnerColor(slot) {
+function syncTableColorToOwner(slot) {
   const bz = getActiveBazaar();
   const select = document.getElementById(Number(slot) === 2 ? "edit-table-exhibitor2" : "edit-table-exhibitor");
-  const input = document.getElementById(Number(slot) === 2 ? "edit-table-exp2-color" : "edit-table-exp-color");
+  const input = document.getElementById("edit-table-color");
   if (!select || !input) return;
+  if (document.getElementById("edit-table-shared").checked) {
+    input.disabled = true;
+    return;
+  }
   const exp = bz.expositores.find((item) => item.id === select.value);
-  const color = exp ? getExpositorPlanoColor(exp) : "#cbd5e1";
-  input.disabled = !exp;
-  input.value = color;
-  input.dataset.orig = color;
+  input.disabled = Boolean(exp);
+  if (exp) input.value = getTableOwnerColor(exp);
 }
 
 async function saveTableEdit() {
@@ -446,22 +447,21 @@ async function saveTableEdit() {
   const bz = getActiveBazaar();
   const t  = getActiveTables(bz).find((item) => item.id === id);
   if (!t) return;
-  const c1 = document.getElementById("edit-table-exp-color");
-  const c2 = document.getElementById("edit-table-exp2-color");
   // Primero se validan y aplican los expositores: si alguna regla falla, la mesa no se modifica a medias.
   const ok = await assignTableOwners(bz, t, {
     shared: document.getElementById("edit-table-shared").checked,
     id1: document.getElementById("edit-table-exhibitor").value,
-    id2: document.getElementById("edit-table-exhibitor2").value,
-    color1: c1 && !c1.disabled && c1.value !== c1.dataset.orig ? c1.value : null,   // solo si cambió el color
-    color2: c2 && !c2.disabled && c2.value !== c2.dataset.orig ? c2.value : null
+    id2: document.getElementById("edit-table-exhibitor2").value
   });
   if (!ok) return;
   const pixelsPerCentimeter = getPixelsPerMeter() / 100;
   t.name        = document.getElementById("edit-table-name").value.trim() || t.name;
   t.w           = Math.max(1, Number(document.getElementById("edit-table-width-cm").value || 1) * pixelsPerCentimeter);
   t.h           = Math.max(1, Number(document.getElementById("edit-table-height-cm").value || 1) * pixelsPerCentimeter);
-  t.color       = document.getElementById("edit-table-color").value || "#ffffff";
+  const assignedOwner = bz.expositores.find((item) => item.id === t.exhibitorId);
+  t.color       = !t.shared && assignedOwner
+    ? getTableOwnerColor(assignedOwner)
+    : document.getElementById("edit-table-color").value || "#ffffff";
   t.labelColor  = document.getElementById("edit-table-label-color").value || "#1e293b";
   t.labelFontSize = Math.max(8, Math.min(32, Number(document.getElementById("edit-table-label-size").value) || 11));
   t.rotation    = ((Number(document.getElementById("edit-table-rotation").value) || 0) % 360 + 360) % 360;

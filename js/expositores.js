@@ -9,7 +9,33 @@
 /** Apartado de color de la tarjeta: solo un chip, la tarjeta no se pinta. */
 function colorChipHTML(exp) {
   return /^#[0-9a-f]{6}$/i.test(String(exp.color || ""))
-    ? `<span class="exp-color-chip" title="Color en el plano"><i style="background:${exp.color}"></i>Color en plano</span>` : "";
+    ? `<span class="exp-color-chip" title="Color propio del expositor"><i style="background:${exp.color}"></i>Color en plano</span>` : "";
+}
+
+function renderExpositorDayFilters(bz) {
+  const container = document.getElementById("expositor-day-filters");
+  if (!container) return;
+  const multiDia = bazarEsMultiDia(bz);
+  container.hidden = !multiDia;
+  if (!multiDia) {
+    AppState.filterExpositorDay = "all";
+    container.innerHTML = "";
+    return;
+  }
+  if (AppState.filterExpositorDay !== "all" && !bz.evento.dias.some((dia) => dia.id === AppState.filterExpositorDay)) {
+    AppState.filterExpositorDay = "all";
+  }
+  const button = (id, label) => `
+    <button type="button" class="filter-chip ${AppState.filterExpositorDay === id ? "active" : ""}"
+      onclick="setFilterExpositorDay('${escapeHTML(id)}')">${escapeHTML(label)}</button>`;
+  container.innerHTML = `<span class="expositor-day-filters-label">Filtrar por día:</span>
+    ${button("all", "Todos los días")}
+    ${bz.evento.dias.map((dia, index) => button(dia.id, getDiaLabel(dia, index))).join("")}`;
+}
+
+function setFilterExpositorDay(dayId) {
+  AppState.filterExpositorDay = dayId;
+  renderExpositores();
 }
 
 function renderExpositores() {
@@ -17,6 +43,7 @@ function renderExpositores() {
   if (!container) return;
   const bz = getActiveBazaar();
   syncExpositorViewButtons();
+  renderExpositorDayFilters(bz);
 
   const list = [...bz.expositores].reverse().filter((exp) => {
     const q = AppState.searchQuery;
@@ -26,7 +53,10 @@ function renderExpositores() {
     let matchS = true;
     if (AppState.filterStatus === "paid")   matchS = exp.pagado === true;
     if (AppState.filterStatus === "unpaid") matchS = exp.pagado === false;
-    return matchQ && matchC && matchS;
+    const matchDay = AppState.filterExpositorDay === "all" ||
+      !(exp.diasParticipacion || []).length ||
+      exp.diasParticipacion.includes(AppState.filterExpositorDay);
+    return matchQ && matchC && matchS && matchDay;
   });
 
   if (list.length === 0) {

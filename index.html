@@ -179,6 +179,8 @@
           </div>
         </div>
 
+        <div id="expositor-day-filters" class="expositor-day-filters" hidden></div>
+
         <!-- Barra de filtros -->
         <div class="filter-bar">
           <button class="filter-chip active" onclick="setFilterCategory('all', this)">
@@ -399,28 +401,39 @@
                   </tbody>
                 </table>
               </div>
-              <div class="chairs-per-table-setting">
-                <label class="form-label" for="chairs-per-table-default">Sillas incluidas por mesa</label>
-                <input type="number" id="chairs-per-table-default" class="form-input" min="0" step="1" value="2" onchange="updateEventCostsUI()">
-                <p class="form-hint">Se usa como cantidad inicial al registrar expositores; puedes ajustarla en cada registro.</p>
+              <div class="form-switch">
+                <span class="switch-label">¿Quieres agregar precios globales?</span>
+                <label class="switch" aria-label="Editar precios globales">
+                  <input type="checkbox" id="global-prices-toggle" onchange="toggleGlobalPrices(this.checked)">
+                  <span class="slider"></span>
+                </label>
               </div>
-              <div class="chairs-per-table-setting">
-                <label class="form-label" for="chair-extra-unit-price">Precio global por silla extra cobrado al expositor (MXN)</label>
-                <input type="number" id="chair-extra-unit-price" class="form-input" min="0" step="0.01" value="0" oninput="updateEventCostsUI()">
-                <p class="form-hint">Este precio se aplica por igual a todos los expositores, incluidos los ya registrados.</p>
-              </div>
-              <div class="chairs-per-table-setting">
-                <label class="form-label" for="table-price-default">Precio global por mesa completa (MXN)</label>
-                <input type="number" id="table-price-default" class="form-input" min="0" step="0.01" value="0" oninput="updateEventCostsUI()">
-                <p class="form-hint">Se sugiere como costo base al registrar un expositor (mesas × este precio). Puedes cambiarlo en cada registro.</p>
-              </div>
-              <div class="chairs-per-table-setting">
-                <label class="form-label" for="half-table-price-default">Precio global por media mesa (MXN)</label>
-                <input type="number" id="half-table-price-default" class="form-input" min="0" step="0.01" value="0" oninput="updateEventCostsUI()">
-                <p class="form-hint">No es la mitad de una mesa: es el precio que tú fijes para una media mesa.</p>
-              </div>
-              <div style="margin-top:var(--space-3);">
-                <button type="button" class="btn-secondary btn-sm" onclick="applyGlobalTablePricesToExpositores()" title="Actualiza el costo base de los expositores ya registrados">Aplicar estos precios a los expositores registrados</button>
+              <div id="global-prices-summary" hidden></div>
+              <div id="global-prices-details" hidden>
+                <div class="chairs-per-table-setting">
+                  <label class="form-label" for="chairs-per-table-default">Sillas incluidas por mesa</label>
+                  <input type="number" id="chairs-per-table-default" class="form-input" min="0" step="1" value="2" onchange="updateEventCostsUI()">
+                  <p class="form-hint">Se usa como cantidad inicial al registrar expositores; puedes ajustarla en cada registro.</p>
+                </div>
+                <div class="chairs-per-table-setting">
+                  <label class="form-label" for="chair-extra-unit-price">Precio global por silla extra cobrado al expositor (MXN)</label>
+                  <input type="number" id="chair-extra-unit-price" class="form-input" min="0" step="0.01" value="0" oninput="updateEventCostsUI()">
+                  <p class="form-hint">Este precio se aplica por igual a todos los expositores, incluidos los ya registrados.</p>
+                </div>
+                <div class="chairs-per-table-setting">
+                  <label class="form-label" for="table-price-default">Precio global por mesa completa (MXN)</label>
+                  <input type="number" id="table-price-default" class="form-input" min="0" step="0.01" value="0" oninput="updateEventCostsUI()">
+                  <p class="form-hint">Se sugiere como costo base al registrar un expositor (mesas × este precio). Puedes cambiarlo en cada registro.</p>
+                </div>
+                <div class="chairs-per-table-setting">
+                  <label class="form-label" for="half-table-price-default">Precio global por media mesa (MXN)</label>
+                  <input type="number" id="half-table-price-default" class="form-input" min="0" step="0.01" value="0" oninput="updateEventCostsUI()">
+                  <p class="form-hint">No es la mitad de una mesa: es el precio que tú fijes para una media mesa.</p>
+                </div>
+                <div style="margin-top:var(--space-3);">
+                  <button type="button" class="btn-secondary btn-sm" onclick="applyGlobalTablePricesToExpositores()" title="Actualiza el costo base de los expositores ya registrados">Aplicar estos precios a los expositores registrados</button>
+                  <button type="button" class="btn-secondary btn-sm" onclick="toggleGlobalPrices(false)">Listo</button>
+                </div>
               </div>
             </div>
 
@@ -1182,8 +1195,10 @@
               Solo desde esta sección puedes eliminar un bazar. Haz clic en "Abrir" para entrar al panel de un bazar.
             </p>
           </div>
-          <button class="btn-primary" onclick="createBazaar()">+ Nuevo Bazar</button>
-          <button class="btn-secondary" onclick="duplicarBazaar()" title="Duplicar bazar activo">📋 Duplicar Bazar Activo</button>
+          <div class="bazaar-header-actions">
+            <button class="btn-primary" onclick="createBazaar()">+ Nuevo Bazar</button>
+            <button class="btn-secondary" onclick="duplicarBazaar()" title="Duplicar bazar activo">📋 Duplicar Bazar Activo</button>
+          </div>
         </div>
 
         <div class="payments-table-wrap">
@@ -1665,15 +1680,13 @@
       <div class="form-group">
         <label class="form-label" id="edit-table-exhibitor-label" for="edit-table-exhibitor">Expositor asignado</label>
         <div class="table-owner-row">
-          <select id="edit-table-exhibitor" class="form-select" onchange="syncTableOwnerColor(1)"><option value="">-- Sin asignar (Mesa Libre) --</option></select>
-          <input type="color" id="edit-table-exp-color" class="table-owner-color" title="Color del expositor en el plano" aria-label="Color del expositor en el plano">
+          <select id="edit-table-exhibitor" class="form-select" onchange="syncTableColorToOwner(1)"><option value="">-- Sin asignar (Mesa Libre) --</option></select>
         </div>
       </div>
       <div class="form-group" id="edit-table-owner2-group" hidden>
         <label class="form-label" for="edit-table-exhibitor2">Expositor de la segunda media mesa</label>
         <div class="table-owner-row">
-          <select id="edit-table-exhibitor2" class="form-select" onchange="syncTableOwnerColor(2)"><option value="">-- Sin asignar --</option></select>
-          <input type="color" id="edit-table-exp2-color" class="table-owner-color" title="Color del segundo expositor en el plano" aria-label="Color del segundo expositor en el plano">
+          <select id="edit-table-exhibitor2" class="form-select" onchange="syncTableColorToOwner(2)"><option value="">-- Sin asignar --</option></select>
         </div>
       </div>
       <div class="form-row">

@@ -117,6 +117,7 @@ function applyExpositorTableAssignments(bz, exp, tableIds) {
           table.exhibitorId = exp.id; table.exhibitorId2 = ""; table.shared = false;
           resetTableSlotAttendance(table, 2);
         }
+        if (!table.shared) table.color = getTableOwnerColor(exp);
         return;
       }
       if (esMedia) {
@@ -131,6 +132,7 @@ function applyExpositorTableAssignments(bz, exp, tableIds) {
         table.shared = false; table.exhibitorId = exp.id; table.exhibitorId2 = "";
         resetTableSlotAttendance(table, 1); resetTableSlotAttendance(table, 2);
       }
+      if (!table.shared) table.color = getTableOwnerColor(exp);
     } else if (slot) {
       setTableSlot(table, slot, ""); resetTableSlotAttendance(table, slot);
       if (!tableOwnerIds(table).length) table.shared = false;
@@ -142,9 +144,9 @@ function applyExpositorTableAssignments(bz, exp, tableIds) {
 
 /**
  * Asignación desde «Editar mesa» del plano: una mesa completa (un expositor) o una mesa compartida
- * (hasta 2 expositores de media mesa, cada uno con su color). No modifica nada si alguna regla falla.
+ * (hasta 2 expositores de media mesa). No modifica nada si alguna regla falla.
  */
-async function assignTableOwners(bz, table, { shared, id1, id2, color1 = null, color2 = null }) {
+async function assignTableOwners(bz, table, { shared, id1, id2 }) {
   const buscar = (id) => bz.expositores.find((item) => item.id === id) || null;
   const e1 = buscar(id1);
   const e2 = shared ? buscar(id2) : null;
@@ -181,9 +183,8 @@ async function assignTableOwners(bz, table, { shared, id1, id2, color1 = null, c
   table.exhibitorId2 = finalShared ? (shared ? id2 || "" : "") : "";
   if (antes.a !== table.exhibitorId) resetTableSlotAttendance(table, 1);
   if (antes.b !== table.exhibitorId2) resetTableSlotAttendance(table, 2);
+  if (!finalShared && e1) table.color = getTableOwnerColor(e1);
   if (!tableOwnerIds(table).length && !shared) table.shared = false;
-  if (e1 && color1) e1.color = color1;
-  if (e2 && color2) e2.color = color2;
   syncAllTableAssignments(bz);
   return true;
 }

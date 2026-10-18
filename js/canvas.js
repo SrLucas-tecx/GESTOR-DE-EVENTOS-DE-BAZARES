@@ -1048,17 +1048,11 @@ class BazaarCanvasManager {
     if (t.shared) { this.drawSharedTable(t, owners); return; }
     const exhibitor = owners[0];
     let fillColor = "#ffffff", borderColor = "#94a3b8";
-    if (exhibitor && t.color && t.color.toLowerCase() !== "#ffffff") {
-      fillColor = t.color;
+    if (exhibitor) {
+      fillColor = getTableOwnerColor(exhibitor);
       borderColor = fillColor;
     } else if (t.attended) { fillColor = "#dcfce7"; borderColor = "#22c55e"; }
-    else if (exhibitor) {
-      const own = /^#[0-9a-f]{6}$/i.test(exhibitor.color || "") ? exhibitor.color : "";
-      const cat = AppState.categorias.find((c) => c.id === exhibitor.categoria);
-      const base = own || cat?.color;
-      if (base) { fillColor = base + "25"; borderColor = base; }
-      else      { fillColor = "#e0f2fe"; borderColor = "#0284c7"; }
-    } else if (t.absent) {
+    else if (t.absent) {
       // Mesa libre (sin expositor ni color propio) marcada como "no asistió":
       // no hay un color que atenuar, así que se muestra en rojo como antes.
       fillColor = "#fee2e2"; borderColor = "#ef4444";
@@ -1095,7 +1089,7 @@ class BazaarCanvasManager {
   drawSharedTable(t, owners) {
     const ctx = this.ctx;
     const halfW = t.w / 2;
-    const colorOf = (exp) => (exp ? getExpositorPlanoColor(exp) : "");
+    const colorOf = (exp) => (exp ? getTableOwnerColor(exp) : "");
     ctx.save();
     ctx.translate(t.x + t.w / 2, t.y + t.h / 2);
     ctx.rotate((Number(t.rotation) || 0) * Math.PI / 180);

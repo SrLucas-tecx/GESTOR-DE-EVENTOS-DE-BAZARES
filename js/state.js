@@ -49,6 +49,7 @@ function emptyCostsConfig() {
     chairsQty: 0,
     chairsTotal: 0,   // <- NUEVO: costo TOTAL
     chairsPerTable: 2,
+    globalPricesConfigured: false,
     tablePrice: 0,       // precio global por mesa completa (sugerido al registrar expositores)
     halfTablePrice: 0,   // precio global por media mesa (no es la mitad de una mesa: lo fija el organizador)
     ivaEnabled: false, // IVA opcional sobre todos los egresos
@@ -154,6 +155,10 @@ function ensureEventoFields(bz) {
   });
 
   const cfg = bz.costsConfig || (bz.costsConfig = emptyCostsConfig());
+  if (cfg.globalPricesConfigured === undefined) {
+    cfg.globalPricesConfigured = Number(cfg.chairExtraUnitPrice) > 0 ||
+      Number(cfg.tablePrice) > 0 || Number(cfg.halfTablePrice) > 0;
+  }
   if (!Number.isFinite(Number(cfg.chairExtraUnitPrice))) {
     const rateCounts = new Map();
     (Array.isArray(bz.expositores) ? bz.expositores : []).forEach((exp) => {
@@ -248,6 +253,10 @@ function getExpositorPlanoColor(exp) {
   if (/^#[0-9a-f]{6}$/i.test(String(exp?.color || ""))) return exp.color;
   return AppState.categorias.find((c) => c.id === exp?.categoria)?.color || "#0284c7";
 }
+/** Color de una mesa ocupada: el mismo color que muestra el expositor en el plano. */
+function getTableOwnerColor(exp) {
+  return getExpositorPlanoColor(exp);
+}
 
 function defaultMapConfig() {
   return { pixelsPerMeter: 100, backgroundOpacity: 1 };
@@ -310,7 +319,8 @@ const DEFAULT_STATE = {
   currentBazaarId: null,
   searchQuery: "",
   filterCategory: "all",
-  filterStatus: "all"
+  filterStatus: "all",
+  filterExpositorDay: "all"
 };
 
 let AppState = loadState();
@@ -349,6 +359,7 @@ function loadState() {
 
 // migrateState: asegura que bazares viejos tengan los campos nuevos.
 function migrateState(parsed) {
+  parsed.searchQuery = "";
   if (!parsed.expositorPlantillas) parsed.expositorPlantillas = [];
   if (!Array.isArray(parsed.categorias)) parsed.categorias = JSON.parse(JSON.stringify(DEFAULT_STATE.categorias));
   if (!Array.isArray(parsed.caracteristicas)) parsed.caracteristicas = [];

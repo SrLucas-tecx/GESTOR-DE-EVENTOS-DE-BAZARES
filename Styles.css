@@ -506,6 +506,7 @@ a{color:inherit;text-decoration:none}
 #sec-finanzas .payments-table{min-width:54rem}
 #sec-invitados .payments-table{min-width:56rem}
 #sec-bazares .payments-table{min-width:42rem}
+#sec-bazares .bazaar-header-actions{display:flex;align-items:center;gap:var(--space-3);margin-left:auto}
 #sec-tareas .payments-table{min-width:62rem}
 .expositor-directory-table{min-width:70rem}
 .payments-table th{
