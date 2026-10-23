@@ -1678,15 +1678,23 @@
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label" id="edit-table-exhibitor-label" for="edit-table-exhibitor">Expositor asignado</label>
+        <label class="form-label" id="edit-table-exhibitor-label">Expositor asignado</label>
         <div class="table-owner-row">
-          <select id="edit-table-exhibitor" class="form-select" onchange="syncTableColorToOwner(1)"><option value="">-- Sin asignar (Mesa Libre) --</option></select>
+          <button type="button" id="edit-table-exhibitor-picker" class="table-owner-picker" aria-labelledby="edit-table-exhibitor-label" aria-haspopup="dialog" aria-expanded="false" onclick="openTableOwnerPicker(1)">
+            <span class="table-owner-picker-value">-- Sin asignar --</span>
+            <svg class="table-owner-picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          </button>
+          <select id="edit-table-exhibitor" class="table-owner-native-select" hidden tabindex="-1" aria-hidden="true"><option value="">-- Sin asignar --</option></select>
         </div>
       </div>
       <div class="form-group" id="edit-table-owner2-group" hidden>
-        <label class="form-label" for="edit-table-exhibitor2">Expositor de la segunda media mesa</label>
+        <label class="form-label" id="edit-table-exhibitor2-label">Expositor de la segunda media mesa</label>
         <div class="table-owner-row">
-          <select id="edit-table-exhibitor2" class="form-select" onchange="syncTableColorToOwner(2)"><option value="">-- Sin asignar --</option></select>
+          <button type="button" id="edit-table-exhibitor2-picker" class="table-owner-picker" aria-labelledby="edit-table-exhibitor2-label" aria-haspopup="dialog" aria-expanded="false" onclick="openTableOwnerPicker(2)">
+            <span class="table-owner-picker-value">-- Sin asignar --</span>
+            <svg class="table-owner-picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          </button>
+          <select id="edit-table-exhibitor2" class="table-owner-native-select" hidden tabindex="-1" aria-hidden="true"><option value="">-- Sin asignar --</option></select>
         </div>
       </div>
       <div class="form-row">
@@ -1736,6 +1744,23 @@
   </div>
 </div>
 <!-- / #MODAL EDITAR MESA -->
+
+<div id="modal-table-owner-picker" class="modal-overlay table-owner-picker-overlay" role="presentation">
+  <section class="table-owner-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="table-owner-picker-title">
+    <header class="table-owner-picker-header">
+      <div>
+        <h2 id="table-owner-picker-title">Seleccionar expositor</h2>
+        <p>Busca por nombre de tienda o persona</p>
+      </div>
+      <button type="button" class="modal-close" aria-label="Cerrar selector" onclick="closeTableOwnerPicker()">✕</button>
+    </header>
+    <div class="table-owner-picker-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input type="search" id="table-owner-picker-search" class="form-input" placeholder="Buscar expositor..." autocomplete="off" aria-label="Buscar expositor">
+    </div>
+    <div id="table-owner-picker-list" class="table-owner-picker-list" role="listbox" aria-label="Expositores disponibles"></div>
+  </section>
+</div>
 
 
 <!-- # MODAL: NUEVO ELEMENTO DEL PLANO -->

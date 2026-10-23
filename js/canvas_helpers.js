@@ -405,6 +405,9 @@ function openModalTableEdit(tableId) {
 }
 
 // Expositores de la mesa: una mesa completa (uno) o compartida (hasta 2 de media mesa), con su color en el plano.
+let activeTableOwnerSlot = 1;
+let tableOwnerPickerReturnFocus = null;
+
 function populateTableOwnerSelects(t, keep = false) {
   const bz = getActiveBazaar();
   const shared = document.getElementById("edit-table-shared").checked;
@@ -418,10 +421,136 @@ function populateTableOwnerSelects(t, keep = false) {
     .map((exp) => `<option value="${escapeHTML(exp.id)}" ${exp.id === seleccionado ? "selected" : ""}>${escapeHTML(exp.negocio)} (${escapeHTML(exp.nombre)})${exp.mesaTipo === "media" ? " · ½" : ""}</option>`).join("");
   s1.innerHTML = opciones(v1, v2);
   s2.innerHTML = opciones(v2, v1);
+  updateTableOwnerPickerLabel(1);
+  updateTableOwnerPickerLabel(2);
   document.getElementById("edit-table-owner2-group").hidden = !shared;
   document.getElementById("edit-table-exhibitor-label").textContent = shared ? "Expositor de la primera media mesa" : "Expositor asignado";
   syncTableColorToOwner(1);
 }
+
+function updateTableOwnerPickerLabel(slot) {
+  const select = document.getElementById(Number(slot) === 2 ? "edit-table-exhibitor2" : "edit-table-exhibitor");
+  const button = document.getElementById(Number(slot) === 2 ? "edit-table-exhibitor2-picker" : "edit-table-exhibitor-picker");
+  const label = button?.querySelector(".table-owner-picker-value");
+  if (!select || !button || !label) return;
+  const exp = getActiveBazaar()?.expositores.find((item) => item.id === select.value);
+  label.textContent = exp ? `${exp.negocio} (${exp.nombre})${exp.mesaTipo === "media" ? " · ½" : ""}` : "-- Sin asignar --";
+}
+
+function openTableOwnerPicker(slot) {
+  activeTableOwnerSlot = Number(slot) === 2 ? 2 : 1;
+  const button = document.getElementById(activeTableOwnerSlot === 2 ? "edit-table-exhibitor2-picker" : "edit-table-exhibitor-picker");
+  const modal = document.getElementById("modal-table-owner-picker");
+  if (!button || !modal) return;
+  tableOwnerPickerReturnFocus = button;
+  button.setAttribute("aria-expanded", "true");
+  document.getElementById("table-owner-picker-search").value = "";
+  renderTableOwnerPickerOptions();
+  modal.classList.add("open");
+  window.setTimeout(() => document.getElementById("table-owner-picker-search")?.focus(), 0);
+}
+
+function closeTableOwnerPicker() {
+  const modal = document.getElementById("modal-table-owner-picker");
+  if (!modal?.classList.contains("open")) return;
+  modal.classList.remove("open");
+  document.getElementById(activeTableOwnerSlot === 2 ? "edit-table-exhibitor2-picker" : "edit-table-exhibitor-picker")?.setAttribute("aria-expanded", "false");
+  tableOwnerPickerReturnFocus?.focus();
+  tableOwnerPickerReturnFocus = null;
+}
+
+function normalizeTableOwnerSearch(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+}
+
+function renderTableOwnerPickerOptions() {
+  const select = document.getElementById(activeTableOwnerSlot === 2 ? "edit-table-exhibitor2" : "edit-table-exhibitor");
+  const search = normalizeTableOwnerSearch(document.getElementById("table-owner-picker-search").value.trim());
+  const list = document.getElementById("table-owner-picker-list");
+  const bz = getActiveBazaar();
+  if (!select || !list || !bz) return;
+
+  const availableIds = new Set(Array.from(select.options).map((option) => option.value).filter(Boolean));
+  const exhibitors = bz.expositores.filter((exp) => availableIds.has(exp.id) &&
+    (!search || normalizeTableOwnerSearch(`${exp.negocio} ${exp.nombre}`).includes(search)));
+  list.replaceChildren();
+
+  const appendOption = (exp) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "table-owner-picker-option";
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", String(select.value === (exp?.id || "")));
+    button.addEventListener("click", () => {
+      select.value = exp?.id || "";
+      updateTableOwnerPickerLabel(activeTableOwnerSlot);
+      syncTableColorToOwner(activeTableOwnerSlot);
+      closeTableOwnerPicker();
+    });
+
+    if (exp) {
+      const avatar = document.createElement("span");
+      avatar.className = "table-owner-picker-avatar";
+      avatar.style.backgroundColor = getExpositorPlanoColor(exp);
+      if (exp.foto) {
+        const image = document.createElement("img");
+        image.src = exp.foto;
+        image.alt = exp.nombre || exp.negocio;
+        image.loading = "lazy";
+        avatar.append(image);
+      } else {
+        avatar.textContent = (exp.negocio || "?").charAt(0).toLocaleUpperCase();
+      }
+      const color = document.createElement("span");
+      color.className = "table-owner-picker-color";
+      color.style.backgroundColor = getExpositorPlanoColor(exp);
+      color.setAttribute("aria-label", `Color del expositor ${getExpositorPlanoColor(exp)}`);
+      const details = document.createElement("span");
+      details.className = "table-owner-picker-details";
+      const primary = document.createElement("strong");
+      primary.className = "table-owner-picker-business";
+      primary.textContent = exp.negocio;
+      const person = document.createElement("span");
+      person.className = "table-owner-picker-person";
+      person.textContent = `${exp.nombre}${exp.mesaTipo === "media" ? " · Media mesa" : ""}`;
+      details.append(primary, person);
+      button.append(avatar, details, color);
+    } else {
+      button.classList.add("is-unassigned");
+      const primary = document.createElement("strong");
+      primary.className = "table-owner-picker-business";
+      primary.textContent = "-- Sin asignar --";
+      const detail = document.createElement("span");
+      detail.className = "table-owner-picker-person";
+      detail.textContent = "Dejar la mesa libre";
+      const details = document.createElement("span");
+      details.className = "table-owner-picker-details";
+      details.append(primary, detail);
+      button.append(details);
+    }
+    list.append(button);
+  };
+
+  appendOption(null);
+  exhibitors.forEach(appendOption);
+  if (exhibitors.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "table-owner-picker-empty";
+    empty.textContent = "No se encontraron expositores.";
+    list.append(empty);
+  }
+}
+
+document.getElementById("table-owner-picker-search")?.addEventListener("input", renderTableOwnerPickerOptions);
+document.getElementById("modal-table-owner-picker")?.addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) closeTableOwnerPicker();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.getElementById("modal-table-owner-picker")?.classList.contains("open")) {
+    event.stopPropagation();
+    closeTableOwnerPicker();
+  }
+});
 
 function updateTableSharedFields() {
   const t = findTableAnyFloor(document.getElementById("edit-table-id").value);
