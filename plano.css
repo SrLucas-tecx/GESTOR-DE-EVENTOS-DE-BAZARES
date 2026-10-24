@@ -537,18 +537,19 @@ body.dark .panel-progress-item:nth-child(3) .panel-progress-fill { background: #
 
 
 /* ═══ CATÁLOGOS: categorías y características (compactos, sin espacios muertos) ═══ */
-.catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: var(--space-4); align-items: start; }
+.catalog-search-wrap { width: min(100%, 24rem); margin: 0 0 var(--space-4); }
+.catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: var(--space-4); align-items: stretch; }
 .catalog-card {
-  display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4);
+  display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-3); min-width: 0; padding: var(--space-4);
   background: var(--color-surface); border: 1.5px solid var(--color-border);
   border-left: 5px solid var(--cat-color, var(--color-accent));
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
 }
-.catalog-card-head { display: flex; align-items: flex-start; gap: var(--space-3); }
-.catalog-card-emoji { font-size: 1.5rem; line-height: 1.1; }
+.catalog-card-head { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+.catalog-card-emoji { flex: 0 0 1.8rem; text-align: center; font-size: 1.5rem; line-height: 1.1; }
 .catalog-card-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.catalog-card-title strong { font-family: var(--font-display); font-size: var(--fs-md); overflow-wrap: anywhere; }
-.catalog-card-title small { color: var(--color-text-muted); font-size: var(--fs-xs); }
+.catalog-card-title strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-family: var(--font-display); font-size: var(--fs-md); overflow-wrap: anywhere; }
+.catalog-card-title small { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--color-text-muted); font-size: var(--fs-xs); }
 .catalog-card-count {
   flex-shrink: 0; padding: 2px 10px; border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--cat-color, var(--color-accent)) 18%, transparent);
@@ -556,6 +557,10 @@ body.dark .panel-progress-item:nth-child(3) .panel-progress-fill { background: #
 }
 .catalog-card-actions { display: flex; gap: var(--space-2); }
 .catalog-card-actions > button { flex: 1; min-height: 2.2rem; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
+@media (max-width: 520px) {
+  .catalog-card { padding: var(--space-3); }
+  .catalog-card-count { padding: 2px 7px; font-size: .68rem; }
+}
 
 /* Características del expositor: selector en el formulario y chips en tarjetas/tablas */
 .caract-picker {

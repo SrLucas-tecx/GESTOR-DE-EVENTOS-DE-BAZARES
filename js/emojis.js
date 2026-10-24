@@ -8,37 +8,40 @@ const AVAILABLE_EMOJIS = [
 ];
 
 document.addEventListener("DOMContentLoaded", () => {
-  const toggle = document.getElementById("emoji-picker-toggle");
   const picker = document.getElementById("emoji-picker");
   const grid = document.getElementById("emoji-picker-grid");
   const hint = document.getElementById("emoji-picker-hint");
   const closeButton = document.getElementById("emoji-picker-close");
-  if (!toggle || !picker || !grid || !hint || !closeButton) return;
+  const fieldButtons = document.querySelectorAll(".emoji-field-button");
+  if (!picker || !grid || !hint || !closeButton || !fieldButtons.length) return;
 
-  let lastTextField = null;
+  let activeField = null;
+  let activeButton = null;
 
-  const closePicker = () => {
+  const closePicker = (restoreFocus = false) => {
     picker.hidden = true;
-    toggle.setAttribute("aria-expanded", "false");
+    if (activeButton) activeButton.setAttribute("aria-expanded", "false");
+    if (restoreFocus && activeButton?.isConnected) activeButton.focus();
+    activeField = null;
+    activeButton = null;
   };
 
   const insertEmoji = (emoji) => {
-    if (!(lastTextField instanceof HTMLInputElement || lastTextField instanceof HTMLTextAreaElement)
-        || !lastTextField.isConnected || lastTextField.disabled || lastTextField.readOnly) {
-      hint.textContent = "Selecciona primero un campo de texto.";
+    if (!(activeField instanceof HTMLInputElement) || !activeField.isConnected
+        || activeField.disabled || activeField.readOnly) {
+      hint.textContent = "Selecciona un campo de emoji válido.";
       return;
     }
 
-    const start = lastTextField.selectionStart ?? lastTextField.value.length;
-    const end = lastTextField.selectionEnd ?? start;
-    lastTextField.setRangeText(emoji, start, end, "end");
-    lastTextField.dispatchEvent(new InputEvent("input", {
+    activeField.value = emoji;
+    activeField.dispatchEvent(new InputEvent("input", {
       bubbles: true,
       inputType: "insertText",
       data: emoji
     }));
-    lastTextField.focus();
-    hint.textContent = "Emoji insertado.";
+    activeField.dispatchEvent(new Event("change", { bubbles: true }));
+    activeField.focus();
+    closePicker();
   };
 
   AVAILABLE_EMOJIS.forEach((emoji) => {
@@ -53,32 +56,35 @@ document.addEventListener("DOMContentLoaded", () => {
     grid.append(button);
   });
 
-  document.addEventListener("focusin", (event) => {
-    const target = event.target;
-    if (target instanceof HTMLTextAreaElement
-        || (target instanceof HTMLInputElement && ["text", "search"].includes(target.type))) {
-      lastTextField = target;
-    }
+  fieldButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const field = document.getElementById(button.dataset.emojiTarget);
+      if (!(field instanceof HTMLInputElement)) return;
+
+      if (!picker.hidden && activeButton === button) {
+        closePicker();
+        return;
+      }
+
+      if (activeButton) activeButton.setAttribute("aria-expanded", "false");
+      activeField = field;
+      activeButton = button;
+      button.setAttribute("aria-expanded", "true");
+      hint.textContent = "Selecciona un emoji para agregarlo al campo.";
+      picker.hidden = false;
+      grid.querySelector("button")?.focus();
+    });
   });
 
-  toggle.addEventListener("click", () => {
-    picker.hidden = !picker.hidden;
-    toggle.setAttribute("aria-expanded", String(!picker.hidden));
-    if (!picker.hidden && !lastTextField) {
-      hint.textContent = "Selecciona primero un campo de texto.";
-    }
-  });
-  closeButton.addEventListener("click", closePicker);
+  closeButton.addEventListener("click", () => closePicker(true));
 
   document.addEventListener("click", (event) => {
-    if (!picker.hidden && !picker.contains(event.target) && !toggle.contains(event.target)) {
+    if (!picker.hidden && !picker.contains(event.target)
+        && !Array.from(fieldButtons).some((button) => button.contains(event.target))) {
       closePicker();
     }
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !picker.hidden) {
-      closePicker();
-      toggle.focus();
-    }
+    if (event.key === "Escape" && !picker.hidden) closePicker(true);
   });
 });

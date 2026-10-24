@@ -176,10 +176,11 @@ a{color:inherit;text-decoration:none}
   display:flex;align-items:center;gap:var(--space-4);
 }
 .header-title{font-family:var(--font-display);font-weight:800;font-size:var(--fs-lg)}
-.emoji-picker-wrapper{position:relative;margin-left:auto;flex-shrink:0}
-.emoji-picker-toggle{white-space:nowrap}
+.emoji-input-wrap{display:flex;align-items:center;gap:4px}
+.emoji-input-wrap .form-input{flex:1;min-width:0}
+.emoji-field-button{flex-shrink:0;padding:var(--space-2)}
 .emoji-picker{
-  position:absolute;top:calc(100% + 10px);right:0;z-index:130;
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:300;
   width:min(340px,calc(100vw - 24px));padding:var(--space-4);
   background:var(--color-surface);border:1px solid var(--color-border);
   border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
@@ -193,6 +194,7 @@ a{color:inherit;text-decoration:none}
 .emoji-picker-close:hover{background:var(--color-accent);color:#fff}
 .emoji-picker-shortcuts,.emoji-picker-hint{font-size:var(--fs-xs);color:var(--color-text-muted)}
 .emoji-picker-shortcuts{margin-bottom:var(--space-3)}
+.emoji-picker-shortcuts p{margin:3px 0}
 .emoji-picker-shortcuts kbd{
   padding:1px 4px;background:var(--color-surface-alt);
   border:1px solid var(--color-border);border-radius:4px;font:inherit;

@@ -44,6 +44,8 @@ function renderExpositores() {
   const bz = getActiveBazaar();
   syncExpositorViewButtons();
   renderExpositorDayFilters(bz);
+  const sortSelect = document.getElementById("expositor-sort");
+  if (sortSelect) sortSelect.value = AppState.expositorSort || "recent";
 
   const list = [...bz.expositores].reverse().filter((exp) => {
     const q = AppState.searchQuery;
@@ -58,6 +60,10 @@ function renderExpositores() {
       exp.diasParticipacion.includes(AppState.filterExpositorDay);
     return matchQ && matchC && matchS && matchDay;
   });
+  if (AppState.expositorSort === "az" || AppState.expositorSort === "za") {
+    const direction = AppState.expositorSort === "az" ? 1 : -1;
+    list.sort((a, b) => direction * String(a.negocio || "").localeCompare(String(b.negocio || ""), "es", { sensitivity: "base" }));
+  }
 
   if (list.length === 0) {
     const sinDatos = bz.expositores.length === 0;
@@ -175,6 +181,12 @@ function renderExpositores() {
 // ==========================================
 function setExpositorView(view) {
   AppState.expositorView = view === "table" ? "table" : "cards";
+  saveState();
+  renderExpositores();
+}
+
+function setExpositorSort(sort) {
+  AppState.expositorSort = ["az", "za"].includes(sort) ? sort : "recent";
   saveState();
   renderExpositores();
 }

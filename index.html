@@ -139,19 +139,6 @@
     <header class="header">
       <button class="btn-icon" id="btn-toggle-sidebar" title="Menú" style="flex-shrink:0;">☰</button>
       <h1 class="header-title" id="page-title">Ficha del Evento</h1>
-      <div class="emoji-picker-wrapper">
-        <button class="btn-icon emoji-picker-toggle" id="emoji-picker-toggle" type="button"
-                aria-haspopup="dialog" aria-expanded="false" aria-controls="emoji-picker">😊 Emojis</button>
-        <div class="emoji-picker" id="emoji-picker" role="dialog" aria-label="Selector de emojis" hidden>
-          <div class="emoji-picker-heading">
-            <strong>Insertar emoji</strong>
-            <button class="emoji-picker-close" id="emoji-picker-close" type="button" aria-label="Cerrar">✕</button>
-          </div>
-          <p class="emoji-picker-shortcuts">Teclado del sistema: Windows <kbd>Win</kbd> + <kbd>.</kbd> · Mac <kbd>Control</kbd> + <kbd>Command</kbd> + <kbd>Espacio</kbd></p>
-          <div class="emoji-picker-grid" id="emoji-picker-grid" aria-label="Emojis disponibles"></div>
-          <p class="emoji-picker-hint" id="emoji-picker-hint" aria-live="polite">Selecciona un campo de texto y elige un emoji.</p>
-        </div>
-      </div>
     </header>
     <!-- / #HEADER -->
 
@@ -205,6 +192,12 @@
             <option value="paid">✅ Pagados</option>
             <option value="unpaid">⏳ Pendientes</option>
           </select>
+          <select class="filter-select" id="expositor-sort" aria-label="Ordenar expositores"
+                  onchange="setExpositorSort(this.value)">
+            <option value="recent">Más recientes</option>
+            <option value="az">Nombre: A a Z</option>
+            <option value="za">Nombre: Z a A</option>
+          </select>
           <div style="display:flex;gap:4px;">
             <button class="view-toggle-btn canvas-mode-btn active" data-view="cards"
                     onclick="setExpositorView('cards')" title="Vista tarjetas">⊞ Tarjetas</button>
@@ -249,6 +242,11 @@
                   aria-selected="true" onclick="setCategoriaManagementTab('categoria')">Categorías</button>
           <button type="button" class="filter-chip" id="category-tab-caracteristica" role="tab"
                   aria-selected="false" onclick="setCategoriaManagementTab('caracteristica')">Características</button>
+        </div>
+        <div class="catalog-search-wrap">
+          <input type="search" id="catalog-search" class="form-input"
+                 placeholder="Buscar por nombre o descripción..." aria-label="Buscar en el catálogo"
+                 oninput="renderCategorias()">
         </div>
         <div id="categorias-grid" class="catalog-grid"></div>
       </section>
@@ -1562,10 +1560,15 @@
       <div class="modal-body">
         <div class="category-type-hint" id="cat-type-hint" aria-live="polite"></div>
         <div class="form-row">
-          <div class="form-group" style="flex:0 0 90px;">
+          <div class="form-group" style="flex:0 0 150px;">
             <label class="form-label" for="cat-emoji">Emoji *</label>
-            <input type="text" id="cat-emoji" class="form-input" required maxlength="4"
-                   placeholder="🎨" style="text-align:center;font-size:1.3rem;">
+            <div class="emoji-input-wrap">
+              <input type="text" id="cat-emoji" class="form-input" required maxlength="4"
+                     placeholder="🎨" style="text-align:center;font-size:1.3rem;">
+              <button class="btn-icon emoji-field-button" type="button" data-emoji-target="cat-emoji"
+                      aria-label="Elegir emoji para la categoría" title="Elegir emoji"
+                      aria-haspopup="dialog" aria-expanded="false" aria-controls="emoji-picker">😊</button>
+            </div>
           </div>
           <div class="form-group" style="flex:1;">
             <label class="form-label" for="cat-nombre">Nombre *</label>
@@ -1801,7 +1804,12 @@
         </div>
         <div class="form-group">
           <label class="form-label">Emoji</label>
-          <input type="text" id="new-element-emoji" class="form-input" maxlength="4" placeholder="⚡">
+          <div class="emoji-input-wrap">
+            <input type="text" id="new-element-emoji" class="form-input" maxlength="4" placeholder="⚡">
+            <button class="btn-icon emoji-field-button" type="button" data-emoji-target="new-element-emoji"
+                    aria-label="Elegir emoji para el elemento" title="Elegir emoji"
+                    aria-haspopup="dialog" aria-expanded="false" aria-controls="emoji-picker">😊</button>
+          </div>
         </div>
       </div>
       <div class="form-row">
@@ -1848,7 +1856,12 @@
       </div>
       <div class="form-group">
         <label class="form-label">Emoji</label>
-        <input type="text" id="edit-element-emoji" class="form-input" maxlength="4" placeholder="⚡">
+        <div class="emoji-input-wrap">
+          <input type="text" id="edit-element-emoji" class="form-input" maxlength="4" placeholder="⚡">
+          <button class="btn-icon emoji-field-button" type="button" data-emoji-target="edit-element-emoji"
+                  aria-label="Elegir emoji para el elemento" title="Elegir emoji"
+                  aria-haspopup="dialog" aria-expanded="false" aria-controls="emoji-picker">😊</button>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -2465,6 +2478,21 @@
 <script src="js/mesas.js"></script>
 <script src="js/modales.js"></script>
 <script src="js/checklist.js"></script>
+<div class="emoji-picker" id="emoji-picker" role="dialog" aria-label="Selector de emojis" hidden>
+  <div class="emoji-picker-heading">
+    <strong>Elegir emoji</strong>
+    <button class="emoji-picker-close" id="emoji-picker-close" type="button" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="emoji-picker-shortcuts">
+    <p><strong>Atajos del teclado:</strong></p>
+    <p>Windows: <kbd>Win</kbd> + <kbd>.</kbd></p>
+    <p>Mac: <kbd>Control</kbd> + <kbd>Command</kbd> + <kbd>Espacio</kbd></p>
+    <p>Linux: el atajo depende de la distribución y la aplicación.</p>
+  </div>
+  <div class="emoji-picker-grid" id="emoji-picker-grid" aria-label="Emojis disponibles"></div>
+  <p class="emoji-picker-hint" id="emoji-picker-hint" aria-live="polite">Selecciona un emoji para agregarlo al campo.</p>
+</div>
+
 <script src="js/plantillas.js"></script>
 <script src="js/invitados.js"></script>
 <script src="js/asistencia.js"></script>

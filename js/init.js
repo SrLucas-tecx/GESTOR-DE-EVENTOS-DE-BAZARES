@@ -39,6 +39,7 @@ window.handleSearch                  = handleSearch;
 window.setFilterCategory             = setFilterCategory;
 window.setFilterStatus               = setFilterStatus;
 window.setFilterExpositorDay         = setFilterExpositorDay;
+window.setExpositorSort              = setExpositorSort;
 window.openModalExpositor            = openModalExpositor;
 window.openModalExpositorForCurrentCategory = openModalExpositorForCurrentCategory;
 window.prepareExpositorWizard        = prepareExpositorWizard;

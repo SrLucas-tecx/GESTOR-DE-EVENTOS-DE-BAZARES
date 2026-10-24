@@ -122,8 +122,28 @@ function renderCategorias() {
     return;
   }
 
+  const search = (document.getElementById("catalog-search")?.value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es");
+  const sortedList = [...list]
+    .filter((item) => {
+      const searchableText = `${item.nombre || ""} ${item.descripcion || ""}`
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLocaleLowerCase("es");
+      return searchableText.includes(search);
+    })
+    .sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base" }));
+
+  if (!sortedList.length) {
+    container.innerHTML = `<div class="catalog-empty"><p>No se encontraron resultados para “${escapeHTML(search)}”.</p></div>`;
+    return;
+  }
+
   const bazaars = Object.values(AppState.bazaars || {});
-  container.innerHTML = list.map((item) => {
+  container.innerHTML = sortedList.map((item) => {
     const total = bazaars.reduce((n, bz) => n + (bz.expositores || []).filter((e) =>
       isCar ? (e.caracteristicas || []).includes(item.id) : e.categoria === item.id).length, 0);
     const del = isCar ? `deleteCaracteristica('${item.id}')` : `deleteCategoria('${item.id}')`;
