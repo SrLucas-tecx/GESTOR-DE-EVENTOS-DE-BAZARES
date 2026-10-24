@@ -139,6 +139,19 @@
     <header class="header">
       <button class="btn-icon" id="btn-toggle-sidebar" title="Menú" style="flex-shrink:0;">☰</button>
       <h1 class="header-title" id="page-title">Ficha del Evento</h1>
+      <div class="emoji-picker-wrapper">
+        <button class="btn-icon emoji-picker-toggle" id="emoji-picker-toggle" type="button"
+                aria-haspopup="dialog" aria-expanded="false" aria-controls="emoji-picker">😊 Emojis</button>
+        <div class="emoji-picker" id="emoji-picker" role="dialog" aria-label="Selector de emojis" hidden>
+          <div class="emoji-picker-heading">
+            <strong>Insertar emoji</strong>
+            <button class="emoji-picker-close" id="emoji-picker-close" type="button" aria-label="Cerrar">✕</button>
+          </div>
+          <p class="emoji-picker-shortcuts">Teclado del sistema: Windows <kbd>Win</kbd> + <kbd>.</kbd> · Mac <kbd>Control</kbd> + <kbd>Command</kbd> + <kbd>Espacio</kbd></p>
+          <div class="emoji-picker-grid" id="emoji-picker-grid" aria-label="Emojis disponibles"></div>
+          <p class="emoji-picker-hint" id="emoji-picker-hint" aria-live="polite">Selecciona un campo de texto y elige un emoji.</p>
+        </div>
+      </div>
     </header>
     <!-- / #HEADER -->
 
@@ -2469,6 +2482,7 @@
 <script src="js/compras.js"></script>
 <script src="js/export_excel.js"></script>
 <script src="js/backup.js"></script>
+<script src="js/emojis.js"></script>
 <script src="js/init.js"></script>
 
 </body>

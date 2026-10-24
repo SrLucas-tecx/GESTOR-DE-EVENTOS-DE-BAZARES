@@ -176,6 +176,34 @@ a{color:inherit;text-decoration:none}
   display:flex;align-items:center;gap:var(--space-4);
 }
 .header-title{font-family:var(--font-display);font-weight:800;font-size:var(--fs-lg)}
+.emoji-picker-wrapper{position:relative;margin-left:auto;flex-shrink:0}
+.emoji-picker-toggle{white-space:nowrap}
+.emoji-picker{
+  position:absolute;top:calc(100% + 10px);right:0;z-index:130;
+  width:min(340px,calc(100vw - 24px));padding:var(--space-4);
+  background:var(--color-surface);border:1px solid var(--color-border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
+}
+.emoji-picker[hidden]{display:none}
+.emoji-picker-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2)}
+.emoji-picker-close{
+  width:30px;height:30px;border-radius:var(--radius-full);
+  background:var(--color-surface-alt);color:var(--color-text-muted);font-size:.9rem;
+}
+.emoji-picker-close:hover{background:var(--color-accent);color:#fff}
+.emoji-picker-shortcuts,.emoji-picker-hint{font-size:var(--fs-xs);color:var(--color-text-muted)}
+.emoji-picker-shortcuts{margin-bottom:var(--space-3)}
+.emoji-picker-shortcuts kbd{
+  padding:1px 4px;background:var(--color-surface-alt);
+  border:1px solid var(--color-border);border-radius:4px;font:inherit;
+}
+.emoji-picker-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.emoji-picker-item{
+  min-width:0;aspect-ratio:1;background:transparent;border-radius:var(--radius-sm);
+  font:1.35rem var(--font-body);
+}
+.emoji-picker-item:hover,.emoji-picker-item:focus-visible{background:var(--color-accent-soft);outline:none}
+.emoji-picker-hint{min-height:1.2em;margin-top:var(--space-2)}
 .search-bar{
   flex:1;max-width:360px;
   display:flex;align-items:center;gap:var(--space-2);
@@ -1960,3 +1988,57 @@ html .toolbar-card input[type="range"] {
   .nav-global .nav-group.open > .nav-menu { display: block; }
   .nav-global .nav-group .nav-group-label { cursor: pointer; }
 }
+
+/* En tablet y escritorio angosto, la navegación pasa al menú lateral para evitar
+   que los enlaces se encimen al no caber en la barra superior. */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .app-layout { flex-direction: row; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; z-index: 90;
+    width: min(320px, 85vw); height: 100vh;
+    flex-direction: column; align-items: stretch;
+    overflow-x: hidden; overflow-y: auto;
+    border-right: 1px solid var(--color-border); border-bottom: none;
+    padding: 0; gap: 0;
+    transform: translateX(-100%);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-logo { border-bottom: 1px solid var(--color-border); padding: var(--space-5) var(--space-4); }
+  .sidebar-nav {
+    display: block; flex: 0 0 auto; width: 100%;
+    padding: var(--space-3) var(--space-2);
+  }
+  .sidebar-nav > .nav-item { width: 100%; margin-bottom: 2px; white-space: normal; }
+  .nav-group {
+    position: static; margin-bottom: var(--space-2); padding-left: var(--space-2);
+    border-left: 3px solid transparent; border-bottom: none;
+  }
+  .nav-group .nav-group-label { padding: var(--space-3) var(--space-1) var(--space-1); cursor: default; }
+  .nav-group .nav-group-label::after { content: none; }
+  .nav-menu,
+  .nav-group.open > .nav-menu {
+    display: block; position: static; min-width: 0;
+    padding: 0; background: none; border: none; border-radius: 0; box-shadow: none;
+  }
+  .nav-menu .nav-item { white-space: normal; }
+  .sidebar-footer {
+    flex-direction: column; align-items: stretch;
+    margin-left: 0; padding: var(--space-3) var(--space-2) var(--space-4);
+    border-top: 1px solid var(--color-border);
+  }
+  .sidebar-footer > div { width: 100%; }
+  .sidebar-footer .btn-icon { width: 100% !important; white-space: normal; }
+  .backup-menu { top: auto; bottom: calc(100% + 8px); left: 0; right: auto; width: min(300px, 85vw); }
+  .sidebar-overlay {
+    display: block; position: fixed; inset: 0; z-index: 85;
+    background: rgba(3,15,17,.58); opacity: 0; pointer-events: none;
+    transition: opacity var(--transition);
+  }
+  .sidebar-overlay.open { opacity: 1; pointer-events: auto; }
+  body.sidebar-open { overflow: hidden; }
+  .main-area { width: 100%; }
+  .header { top: 0; flex-wrap: wrap; }
+  #btn-toggle-sidebar { display: flex; }
+}
+
+.sidebar-nav[hidden] { display: none !important; }
