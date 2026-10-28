@@ -21,10 +21,65 @@
   </script>
   <link rel="stylesheet" href="Styles.css">
   <link rel="stylesheet" href="plano.css">
+  <link rel="stylesheet" href="auth.css">
   <!-- Layout y estilos en Styles.css -->
 </head>
-<body class="dark">
+<body class="dark auth-locked">
 <script>try { if (localStorage.getItem("BAZARIX_THEME_MODE") === "light") document.body.classList.remove("dark"); } catch (e) {}</script>
+
+<!-- ═══ PANTALLA DE ACCESO (Sprint 4A): la app no se muestra hasta confirmar la sesión ═══ -->
+<div id="auth-screen" class="auth-screen" role="main">
+  <div class="auth-card">
+    <div class="auth-brand"><img class="logo-icon" src="BAZARIX-svg.svg" alt=""><span>BAZARIX</span></div>
+
+    <div id="auth-loading" class="auth-view" aria-live="polite">
+      <p id="auth-loading-text" class="auth-muted">Verificando tu sesión…</p>
+      <button id="auth-load-retry" type="button" class="btn-primary auth-btn" onclick="retryLoad()" hidden>Reintentar</button>
+    </div>
+
+    <form id="auth-login" class="auth-view" hidden onsubmit="submitLogin(event)">
+      <h1 class="auth-title">Iniciar sesión</h1>
+      <p id="auth-login-note" class="auth-note" hidden></p>
+      <div class="form-group">
+        <label class="form-label" for="auth-email">Correo</label>
+        <input id="auth-email" class="form-input" type="email" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="auth-password">Contraseña</label>
+        <input id="auth-password" class="form-input" type="password" autocomplete="current-password" required>
+      </div>
+      <p id="auth-login-msg" class="auth-msg" role="alert" hidden></p>
+      <button id="auth-login-btn" type="submit" class="btn-primary auth-btn">Entrar</button>
+      <p class="auth-muted">¿Sin cuenta? El registro es solo por invitación.</p>
+    </form>
+
+    <div id="auth-invite" class="auth-view" hidden>
+      <h1 class="auth-title">Invitación</h1>
+      <p id="auth-invite-text" class="auth-note"></p>
+      <div id="auth-invite-logged" hidden>
+        <button id="auth-invite-accept" type="button" class="btn-primary auth-btn" onclick="acceptInvitationLogged()">Unirme</button>
+        <button type="button" class="btn-secondary auth-btn" onclick="switchInviteAccount()">Usar otra cuenta</button>
+      </div>
+      <form id="auth-register" hidden onsubmit="submitRegister(event)">
+        <div class="form-group">
+          <label class="form-label" for="auth-reg-name">Nombre</label>
+          <input id="auth-reg-name" class="form-input" type="text" maxlength="100" autocomplete="name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="auth-reg-email">Correo</label>
+          <input id="auth-reg-email" class="form-input" type="email" autocomplete="email" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="auth-reg-password">Contraseña (mínimo 10 caracteres)</label>
+          <input id="auth-reg-password" class="form-input" type="password" minlength="10" maxlength="128" autocomplete="new-password" required>
+        </div>
+        <button id="auth-register-btn" type="submit" class="btn-primary auth-btn">Crear cuenta y unirme</button>
+        <p class="auth-switch"><button type="button" class="link-inline" onclick="showLoginForInvite()">Ya tengo cuenta</button></p>
+      </form>
+      <p id="auth-invite-msg" class="auth-msg" role="alert" hidden></p>
+    </div>
+  </div>
+</div>
 
 <div class="app-layout">
 
@@ -97,6 +152,7 @@
     <!-- # SIDEBAR / Footer: modo oscuro + menú de respaldo -->
     <div class="sidebar-footer">
       <span id="save-indicator" class="save-indicator" aria-live="polite"></span>
+      <button class="btn-icon" id="btn-logout" onclick="logout()" title="Cerrar sesión" aria-label="Cerrar sesión">🚪 <span id="auth-user-name"></span></button>
       <!-- Engranaje: modo claro/oscuro, color de la interfaz y color del bazar activo -->
       <div style="position:relative;">
         <button class="btn-icon btn-settings" id="btn-settings" onclick="toggleSettingsMenu()" title="Personalizar (modo y color)"
@@ -2511,6 +2567,9 @@
 <script src="js/export_excel.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/emojis.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/init.js"></script>
 
 </body>
