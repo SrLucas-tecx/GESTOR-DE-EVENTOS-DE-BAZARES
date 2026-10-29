@@ -89,7 +89,17 @@ function showLogin(message = "", note = "") {
   setTimeout(() => _auth(_auth("auth-email").value ? "auth-password" : "auth-email").focus(), 0);
 }
 
+/** Arranque: pase lo que pase, la pantalla termina en la app o en el login (nunca se queda en "Verificando…"). */
 async function initAuth() {
+  try {
+    await _initAuth();
+  } catch (err) {
+    console.error("initAuth:", err);
+    showLogin(`No se pudo iniciar: ${err.message || err}`);
+  }
+}
+
+async function _initAuth() {
   authSetView("loading");
   _auth("auth-loading-text").textContent = "Verificando tu sesión…";
   const token = new URLSearchParams(location.search).get("invitacion");

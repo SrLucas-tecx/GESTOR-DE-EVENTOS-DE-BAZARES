@@ -14,6 +14,7 @@
  */
 
 const API_BASE = String(window.BAZARIX_API_URL || "http://localhost:4000").replace(/\/+$/, "");
+const API_TIMEOUT_MS = 20000; // sin respuesta en 20 s se considera "sin conexión" (nunca se queda cargando para siempre)
 
 let _accessToken = null;
 let _refreshing = null; // promesa compartida: varias peticiones vencidas a la vez renuevan una sola vez
@@ -41,12 +42,17 @@ async function _request(path, { method = "GET", body, auth = true } = {}) {
     payload = JSON.stringify(body);
   }
   let res;
+  let raw;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   try {
-    res = await fetch(API_BASE + path, { method, headers, body: payload, credentials: "include" });
-  } catch {
-    throw new ApiError(0, null, "No se pudo conectar con el servidor");
+    res = await fetch(API_BASE + path, { method, headers, body: payload, credentials: "include", signal: controller.signal });
+    raw = await res.text();
+  } catch (err) {
+    throw new ApiError(0, null, err?.name === "AbortError" ? "El servidor tardó demasiado en responder" : "No se pudo conectar con el servidor");
+  } finally {
+    clearTimeout(timer);
   }
-  const raw = await res.text();
   let data = null;
   try { data = raw ? JSON.parse(raw) : null; } catch { data = raw ? { error: raw } : null; } // un 429 llega como texto plano
   if (!res.ok) throw new ApiError(res.status, data, `Error ${res.status}`);
