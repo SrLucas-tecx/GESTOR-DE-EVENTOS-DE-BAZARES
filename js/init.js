@@ -229,6 +229,7 @@ window.enviarComprasAPresupuesto       = enviarComprasAPresupuesto;
 window.exportarPlanEventoXLSX          = exportarPlanEventoXLSX;
 
 document.addEventListener("DOMContentLoaded", () => {
+  initAuth(); // Sprint 4A: puerta de acceso (login); la app se muestra al confirmar la sesión
   renderAll();
   switchTab(getActiveBazaar() ? "bazares" : "inicio");
   bazaarCanvas.init();
