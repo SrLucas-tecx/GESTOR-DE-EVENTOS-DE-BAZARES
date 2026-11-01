@@ -8,12 +8,12 @@
  *  - Si /auth/refresh responde RETRY (otra pestaña acaba de renovar) espera y reintenta.
  *  - Si la sesión ya no existe dispara el evento "bazarix:session-expired".
  *
- * API_BASE: por defecto http://localhost:4000. Para cambiarlo antes de cargar este archivo:
- *   <script>window.BAZARIX_API_URL = "https://mi-api.onrender.com";</script>
+ * API_BASE sale de config.js (window.BAZARIX_API_URL). Vacío = modo local: la app funciona como antes, sin servidor.
  * Dependencias: ninguna.
  */
 
-const API_BASE = String(window.BAZARIX_API_URL || "http://localhost:4000").replace(/\/+$/, "");
+const API_BASE = String(window.BAZARIX_API_URL || "").replace(/\/+$/, ""); // "" = modo local (sin servidor); ver config.js
+const CLOUD_MODE = API_BASE !== "";
 const API_TIMEOUT_MS = 20000; // sin respuesta en 20 s se considera "sin conexión" (nunca se queda cargando para siempre)
 
 let _accessToken = null;

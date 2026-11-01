@@ -206,29 +206,33 @@ function clearServerData() {
   document.getElementById("sync-banner")?.remove();
 }
 
-// ── Cambiar de bazar: catálogos propios + datos frescos ────────
-const _switchBazaarOriginal = switchBazaar;
-window.switchBazaar = function (id) {
-  const bz = AppState.bazaars[id];
-  if (!bz) return;
-  if (!bz.stub) applyBazaarCatalogs(bz);
-  try { localStorage.setItem(SYNC_LAST_BAZAAR_KEY, id); } catch { /* sin almacenamiento */ }
-  _switchBazaarOriginal(id);
-  refreshBazaar(id).catch((err) => { if (typeof showToast === "function") showToast(`No se pudo actualizar el bazar: ${err.message}`, "error"); });
-};
+// ── Ganchos del modo nube (en modo local no se tocan: la app funciona como antes) ──
+function installCloudHooks() {
+  // Cambiar de bazar: catálogos propios + datos frescos
+  const switchOriginal = window.switchBazaar;
+  window.switchBazaar = function (id) {
+    const bz = AppState.bazaars[id];
+    if (!bz) return;
+    if (!bz.stub) applyBazaarCatalogs(bz);
+    try { localStorage.setItem(SYNC_LAST_BAZAAR_KEY, id); } catch { /* sin almacenamiento */ }
+    switchOriginal(id);
+    refreshBazaar(id).catch((err) => { if (typeof showToast === "function") showToast(`No se pudo actualizar el bazar: ${err.message}`, "error"); });
+  };
 
-// ── Solo lectura: nada se escribe en localStorage ──────────────
-let _readOnlyHintTimer = null;
-window.saveState = function () {
-  const el = document.getElementById("save-indicator");
-  if (el) {
-    el.textContent = "⚠ No se guarda";
-    el.classList.add("show");
-    clearTimeout(_readOnlyHintTimer);
-    _readOnlyHintTimer = setTimeout(() => el.classList.remove("show"), 1800);
-  }
-  return true; // los datos viejos de este navegador (EXPOSITORES_APP_STATE) quedan intactos
-};
+  // Solo lectura: nada se escribe en localStorage (los datos viejos EXPOSITORES_APP_STATE quedan intactos)
+  let hintTimer = null;
+  window.saveState = function () {
+    const el = document.getElementById("save-indicator");
+    if (el) {
+      el.textContent = "⚠ No se guarda";
+      el.classList.add("show");
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(() => el.classList.remove("show"), 1800);
+    }
+    return true;
+  };
+}
+if (typeof CLOUD_MODE !== "undefined" && CLOUD_MODE) installCloudHooks();
 
 function showSyncBanner() {
   if (document.getElementById("sync-banner")) return;

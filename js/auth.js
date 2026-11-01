@@ -89,8 +89,17 @@ function showLogin(message = "", note = "") {
   setTimeout(() => _auth(_auth("auth-email").value ? "auth-password" : "auth-email").focus(), 0);
 }
 
+/** Modo local (config.js sin API): sin login, datos en este navegador. */
+function startLocalMode() {
+  document.body.classList.remove("auth-locked");
+  const btn = _auth("btn-logout");
+  if (btn) btn.hidden = true; // no hay sesión que cerrar
+  if (typeof bazaarCanvas !== "undefined" && bazaarCanvas.ctx) bazaarCanvas.render();
+}
+
 /** Arranque: pase lo que pase, la pantalla termina en la app o en el login (nunca se queda en "Verificando…"). */
 async function initAuth() {
+  if (!CLOUD_MODE) return startLocalMode(); // sin servidor configurado: la app funciona como antes
   try {
     await _initAuth();
   } catch (err) {
